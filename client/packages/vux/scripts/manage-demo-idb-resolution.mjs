@@ -47,7 +47,11 @@ const DEPENDENCY_FIELDS = [
 const RESOLUTION_FIELDS = ['overrides', 'resolutions']
 const MANIFEST_FIELDS = [...DEPENDENCY_FIELDS, ...RESOLUTION_FIELDS]
 
-const TRANSITIVE_IDB_DEPS = ['@instantdb/core', '@instantdb/version']
+const TRANSITIVE_IDB_DEPS = [
+  '@instantdb/core',
+  '@instantdb/version',
+  '@instantdb/webhooks',
+]
 
 const RESOLUTION_RULES = {
   '@mszr/idb-vux': {
@@ -69,6 +73,11 @@ const RESOLUTION_RULES = {
     tarballPattern: /^instantdb-version-.*\.tgz$/,
     linkSpec: 'link:@instantdb/version',
     npmSpec: 'npm:@instantdb/version@latest',
+  },
+  '@instantdb/webhooks': {
+    tarballPattern: /^instantdb-webhooks-.*\.tgz$/,
+    linkSpec: 'link:@instantdb/webhooks',
+    npmSpec: 'npm:@instantdb/webhooks@latest',
   },
 }
 

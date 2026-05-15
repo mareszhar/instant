@@ -40,7 +40,7 @@ From `client/packages/vux`:
 Rule of thumb:
 
 - changed only `@mszr/idb-vux`: use `spo`
-- rebased or touched multiple SDKs (`core/admin/version/idb-vux`): use `spa`
+- rebased or touched multiple SDKs (`core/webhooks/admin/version/idb-vux`): use `spa`
 
 ## Resolution commands
 
