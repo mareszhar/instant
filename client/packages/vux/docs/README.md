@@ -30,11 +30,12 @@ Last refreshed: `2026-05-15`
 
 | Note | Updated | Scope |
 | --- | --- | --- |
+| [Vue SDK recon audit](./notes/vue-sdk-recon-audit.md) | 2026-05-15 | Deep official Vue vs Vux parity and divergence assessment with superset recommendations. |
+| [Feature parity audit](./notes/feature-parity-audit.md) | 2026-05-15 | Cross-SDK parity matrix now including official Vue column and updated findings. |
 | [Misc DX/UX proposals feasibility](./notes/misc-dx-ux-proposals-feasibility.md) | 2026-05-13 | Additive ergonomics proposals for setup/auth/query workflows and boilerplate reduction. |
 | [Permissions DX feasibility](./notes/permissions-dx-feasibility.md) | 2026-05-10 | Typed permission authoring helpers that compile to CEL with schema-aware validation. |
 | [Nuxt SSR entrypoint investigation](./notes/nuxt-ssr-entrypoint-investigation.md) | 2026-05-04 | Detailed linked-dependency SSR failure investigation and mitigations. |
 | [SSR demo workspace guidance](./notes/ssr-demo-workspace-guidance.md) | 2026-05-04 | Practical setup guidance for SSR repro demos. |
-| [Feature parity audit](./notes/feature-parity-audit.md) | 2026-05-09 | Cross-SDK parity snapshot and evidence. |
 | [Misc feature feasibility](./notes/misc-feature-feasibility.md) | 2026-05-10 | Historical feasibility notes for smaller parity features. |
 | [SSR feasibility](./notes/ssr-feasibility.md) | 2026-04-29 | SSR architecture feasibility and phased plan notes. |
 | [Demo ergonomics experiments](./notes/demo-ergonomics.md) | 2026-04-24 | Query UX experiment log and findings. |
