@@ -1,0 +1,361 @@
+.app-shell
+  max-width: 1200px
+  margin: 0 auto
+  padding: 24px
+  display: grid
+  gap: 16px
+
+.panel
+  border: 1px solid #dbe2ef
+  border-radius: 12px
+  background: #ffffff
+  padding: 16px
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05)
+
+.intro h1
+  margin: 0 0 8px
+  font-size: 1.6rem
+
+.secondary-link
+  display: inline-block
+  margin-bottom: 10px
+  color: #2563eb
+  font-weight: 600
+  text-decoration: none
+
+.secondary-link:hover
+  text-decoration: underline
+
+.intro p
+  margin: 0
+  color: #475569
+
+.meta-grid
+  margin-top: 12px
+  display: grid
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))
+  gap: 10px
+
+.meta-grid > div,
+.admin-grid > div
+  display: flex
+  flex-direction: column
+  padding: 10px
+  border: 1px solid #e2e8f0
+  border-radius: 8px
+  background: #fafcff
+
+.label
+  font-size: 0.75rem
+  text-transform: uppercase
+  letter-spacing: 0.04em
+  color: #64748b
+
+.value
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace
+  font-size: 0.85rem
+  margin-top: 4px
+
+.warning
+  border-color: #fbbf24
+  background: #fffbeb
+
+.auth h2,
+.ok h2,
+.quests h3,
+.infinite h3,
+.realtime h3,
+.admin h3,
+.cursor-panel h3,
+.pattern-card h2
+  margin: 0 0 8px
+
+.auth-actions,
+.admin-actions,
+.infinite-actions
+  display: flex
+  gap: 8px
+  flex-wrap: wrap
+
+.divider
+  border-top: 1px solid #e2e8f0
+  margin: 12px 0
+
+.auth-form
+  display: grid
+  gap: 10px
+
+.auth-form label
+  display: grid
+  gap: 6px
+  font-size: 0.9rem
+
+input,
+textarea,
+button
+  font: inherit
+
+input:not([type='checkbox']):not([type='radio']),
+textarea
+  width: 100%
+  border: 1px solid #cbd5e1
+  border-radius: 8px
+  padding: 9px 10px
+
+button
+  border: none
+  border-radius: 8px
+  padding: 9px 12px
+  background: #f54a00
+  color: #fff
+  cursor: pointer
+
+button.secondary
+  background: #475569
+
+button.danger
+  background: #b91c1c
+
+button:disabled
+  cursor: not-allowed
+  opacity: 0.55
+
+.grid
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+  gap: 16px
+
+.toolbar
+  display: flex
+  gap: 8px
+  margin-bottom: 12px
+
+.toolbar button
+  background: #dbeafe
+  color: #1e3a8a
+
+.toolbar button.active
+  background: #2563eb
+  color: #fff
+
+.filter-label
+  display: inline-flex
+  align-items: center
+  font-size: 0.78rem
+  font-weight: 600
+  text-transform: uppercase
+  letter-spacing: 0.04em
+  color: #475569
+
+.quest-form
+  display: flex
+  gap: 8px
+  margin-bottom: 10px
+
+.quest-status
+  min-height: 1.25rem
+
+.quest-list-shell
+  min-height: 0
+
+.quest-list
+  list-style: none
+  margin: 0
+  padding: 0
+  display: flex
+  flex-direction: column
+  gap: 8px
+
+.quest-list li
+  width: 100%
+  min-height: 40px
+  display: grid
+  grid-template-columns: minmax(0, 1fr) auto
+  align-items: center
+  column-gap: 10px
+  row-gap: 6px
+  border: 1px solid #e2e8f0
+  border-radius: 8px
+  padding: 8px 10px
+  background: #fff
+
+.quest-list label
+  min-width: 0
+  display: grid
+  grid-template-columns: auto minmax(0, 1fr)
+  align-items: start
+  gap: 10px
+
+.quest-list input[type='checkbox']
+  width: auto
+  margin-top: 2px
+
+.quest-title
+  min-width: 0
+  line-height: 1.2
+  overflow-wrap: anywhere
+
+.quest-actions
+  display: inline-flex
+  align-items: center
+  gap: 8px
+  flex: 0 0 auto
+
+.quests .quest-list-shell
+  max-height: 320px
+  overflow-y: auto
+  scrollbar-gutter: stable
+
+.infinite .quest-list-shell
+  max-height: 280px
+  overflow-y: auto
+  scrollbar-gutter: stable
+
+.done
+  text-decoration: line-through
+  color: #64748b
+
+.quest-footer
+  margin-top: 10px
+  padding-top: 8px
+  border-top: 1px solid #e2e8f0
+  display: flex
+  justify-content: space-between
+  gap: 8px
+  align-items: center
+
+.pattern-controls
+  position: sticky
+  top: 12px
+  z-index: 10
+  display: grid
+  gap: 12px
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12)
+
+.pattern-grid
+  display: grid
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))
+  gap: 16px
+
+.pattern-card
+  display: grid
+  grid-template-rows: auto auto 1fr auto
+  gap: 10px
+
+.pattern-card-header
+  display: flex
+  justify-content: space-between
+  gap: 10px
+  align-items: flex-start
+
+.pattern-title
+  display: inline-flex
+  align-items: baseline
+  gap: 8px
+  font-size: 1rem
+
+.pattern-card-header p
+  margin: 0
+
+.pattern-alias
+  color: #64748b
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace
+  font-size: 0.78rem
+  white-space: nowrap
+
+.pattern-note
+  min-height: 4.5rem
+  margin: 0
+  color: #334155
+
+.pattern-card .quest-list-shell
+  height: 260px
+  overflow-y: scroll
+  scrollbar-gutter: stable
+  contain: layout paint
+
+.quest-empty-state
+  margin: 0
+  min-height: 40px
+  display: grid
+  place-items: center
+  color: #64748b
+
+.pattern-status
+  flex: 0 0 auto
+  width: 12px
+  height: 12px
+  margin-top: 4px
+  border-radius: 999px
+  background: #3cff80
+  box-shadow: 0 0 0 3px rgba(22, 101, 52, 0.12)
+
+.pattern-status.loading
+  background: #f59e0b
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16)
+
+.admin-grid
+  margin-top: 8px
+  display: grid
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr))
+  gap: 10px
+
+.presence-block,
+.topics-block,
+.typing-block
+  border: 1px solid #e2e8f0
+  border-radius: 8px
+  padding: 10px
+  margin-top: 10px
+
+.reaction-buttons
+  display: flex
+  gap: 8px
+  margin-bottom: 8px
+
+.reaction-buttons button
+  background: #0ea5e9
+
+.peer-status
+  margin-left: 4px
+
+.cursor-space
+  border: 2px dashed #f54a00
+  border-radius: 10px
+  min-height: 220px
+
+.cursor-canvas
+  min-height: 220px
+  display: grid
+  place-items: center
+  color: #475569
+
+.peer-cursor
+  background: #fff
+  border: 2px solid #222
+  border-radius: 999px
+  width: 22px
+  height: 22px
+  transform: translate(-50%, -50%)
+  display: grid
+  place-items: center
+  font-size: 0.7rem
+  font-weight: 600
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2)
+
+.muted
+  color: #64748b
+
+.error
+  color: #b91c1c
+
+@media (max-width: 960px)
+  .grid
+    grid-template-columns: 1fr
+
+  .quest-form
+    flex-direction: column
+
+  .quest-footer
+    flex-direction: column
+    align-items: stretch

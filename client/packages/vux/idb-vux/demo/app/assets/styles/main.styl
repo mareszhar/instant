@@ -1,0 +1,676 @@
+// ==============================
+// Reset
+// ==============================
+*,
+*::before,
+*::after
+  box-sizing: border-box
+  margin: 0
+  padding: 0
+
+html,
+body
+  min-height: 100%
+
+// ==============================
+// Tokens
+// ==============================
+:root
+  --size-border-1: 1px
+  --size-border-2: 2px
+  --size-outline: 2px
+
+  --size-gap-1: 4px
+  --size-gap-2: 8px
+  --size-gap-3: 12px
+  --size-gap-4: 16px
+
+  --size-pad-control: 14px
+  --size-control-h: 40px
+  --size-icon: 34px
+
+  --size-radius-base: 8px
+  --size-radius-xs: calc(var(--size-radius-base) * .5)
+  --size-radius-s: var(--size-radius-base)
+  --size-radius-m: calc(var(--size-radius-base) * 1.25)
+  --size-radius-segment: var(--size-radius-m)
+  --size-radius-segment-inner: calc(var(--size-radius-m) - 3px)
+  --size-radius-pill: 999px
+
+  --size-font-title: 1.55rem
+  --size-font-h3: 1.08rem
+  --size-font-sm: .89rem
+
+  --size-input-code-h: 30px
+  --size-segment-min: 84px
+  --size-dot: 8px
+  --size-menu-min: 160px
+  --size-stat-number: 1.2rem
+
+  --size-check-inner: 16px
+  --size-check-mark-w: 8px
+  --size-check-mark-h: 5px
+  --size-check-mark-shift-x: 1px
+  --size-check-mark-shift-y: -1px
+
+  --color-bg: #faf6ef
+  --color-surface: #fffdf8
+  --color-surface-2: #fff
+
+  --color-border: #e6d8c7
+  --color-border-strong: #d9c6ae
+
+  --color-text: #1f2937
+  --color-muted: #5b6877
+  --color-subtle: #7c8795
+
+  --color-accent: #ef6200
+  --color-accent-hover: #d95700
+  --color-accent-fg: #fff
+
+  --color-accent-soft: #fff1e5
+  --color-accent-soft-hover: #ffe7d3
+  --color-accent-soft-border: #f2c7a4
+  --color-accent-soft-fg: #8f4300
+
+  --color-check-border: rgba(143, 67, 0, .24)
+  --color-check-border-strong: rgba(143, 67, 0, .38)
+  --color-check-border-hover: rgba(143, 67, 0, .48)
+
+  --color-success: #147a4d
+  --color-success-bg: #e8f6ef
+  --color-success-border: #b5dfc8
+
+  --color-warning: #a75600
+  --color-warning-bg: #fff1e2
+  --color-warning-border: #efc59a
+
+  --color-danger: #a2251f
+  --color-danger-bg: #fbe9ea
+  --color-danger-border: #efb4ba
+
+  --color-info: #9a4300
+  --color-info-bg: #fff2e4
+
+  --shadow-card: 0 2px 9px rgba(16, 24, 40, .1)
+
+// ==============================
+// Mixins
+// ==============================
+useFlex(ff = row nowrap, g = 0, jc = flex-start, ai = stretch, ac = normal, inline = false)
+  if inline
+    display: inline-flex
+  else
+    display: flex
+  flex-flow: ff
+  justify-content: jc
+  align-items: ai
+  align-content: ac
+  gap: g
+
+useStack(g = var(--size-gap-2))
+  display: grid
+  gap: g
+
+useSurface(pad = var(--size-gap-4), bg = var(--color-surface), bd = var(--color-border), shadow = var(--shadow-card))
+  border: var(--size-border-1) solid bd
+  border-radius: var(--size-radius-m)
+  background: bg
+  padding: pad
+  box-shadow: shadow
+
+useControlBase()
+  border: var(--size-border-1) solid var(--control-border, transparent)
+  border-radius: var(--size-radius-s)
+  background: var(--control-bg, transparent)
+  color: var(--control-fg, var(--color-text))
+  min-height: var(--size-control-h)
+  padding: 0 var(--size-pad-control)
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  line-height: 1
+  transition: background-color .12s ease, border-color .12s ease, color .12s ease
+
+useListGrid(g = var(--size-gap-2), p = 0)
+  list-style: none
+  padding: p
+  display: grid
+  gap: g
+
+// ==============================
+// Base Layout
+// ==============================
+body
+  min-height: 100vh
+  color: var(--color-text)
+  font-family: 'Space Grotesk', 'Satoshi', 'Avenir Next', 'Segoe UI', sans-serif
+  background:
+    radial-gradient(circle at 10% 0%, #ffe9d6 0%, transparent 32%),
+    radial-gradient(circle at 95% 10%, #ffe8b8 0%, transparent 26%),
+    var(--color-bg)
+
+.app-shell
+  width: 100%
+  max-width: 1280px
+  margin: 0 auto
+  padding: 28px 20px 56px
+  display: grid
+  gap: var(--size-gap-4)
+
+.page
+  useStack(var(--size-gap-4))
+
+  button,
+  input,
+  textarea
+    font: inherit
+
+  button:not(:disabled)
+    cursor: pointer
+
+  button:disabled
+    cursor: not-allowed
+
+  button:hover
+    transform: none
+
+.grid
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+  gap: var(--size-gap-4)
+
+.card
+  useSurface()
+  useStack(var(--size-gap-3))
+  align-content: start
+
+  h3
+    font-size: var(--size-font-h3)
+
+  h4
+    font-size: 1rem
+
+.title
+  font-size: 1.04rem
+  font-weight: 600
+  color: var(--color-text)
+
+.subtitle,
+.muted,
+.typing
+  color: var(--color-muted)
+
+.row
+  useFlex(ff: row wrap, g: var(--size-gap-2), ai: center)
+
+.stack,
+.field,
+.composer,
+.workspace__main
+  useStack(var(--size-gap-2))
+
+.workspace__controls,
+.invite-group
+  useFlex(ff: row wrap, g: var(--size-gap-1), ai: center)
+
+.workspace__controls
+  gap: var(--size-gap-2)
+
+.label
+  font-size: .72rem
+  text-transform: uppercase
+  letter-spacing: .04em
+  color: var(--color-subtle)
+
+.inline-pair
+  useFlex(ff: row wrap, g: var(--size-gap-1), ai: center)
+  color: var(--color-muted)
+
+.btn
+  --control-bg: var(--color-accent)
+  --control-bg-hover: var(--color-accent-hover)
+  --control-fg: var(--color-accent-fg)
+  --control-border: transparent
+
+  useControlBase()
+  background: var(--control-bg)
+  color: var(--control-fg)
+  border-color: var(--control-border)
+  font-weight: 600
+  cursor: pointer
+
+  &:hover
+    background: var(--control-bg-hover)
+
+  &.secondary
+    --control-bg: var(--color-accent-soft)
+    --control-bg-hover: var(--color-accent-soft-hover)
+    --control-fg: var(--color-accent-soft-fg)
+    --control-border: var(--color-accent-soft-border)
+
+  &.ghost
+    --control-bg: transparent
+    --control-bg-hover: var(--color-accent-soft-hover)
+    --control-fg: var(--color-muted)
+    --control-border: var(--color-border)
+
+    &:hover
+      color: var(--color-accent-soft-fg)
+
+  &.danger
+    --control-bg: var(--color-danger-bg)
+    --control-bg-hover: #f8dce0
+    --control-fg: var(--color-danger)
+    --control-border: var(--color-danger-border)
+
+  &.compact
+    min-height: var(--size-input-code-h)
+    padding: 0 12px
+    font-size: .88rem
+
+  &.icon
+    width: var(--size-icon)
+    min-height: var(--size-icon)
+    padding: 0
+    font-size: 1.05rem
+
+  &:disabled
+    opacity: .6
+    cursor: not-allowed
+
+.input
+  width: 100%
+  min-height: var(--size-control-h)
+  padding: 0 12px
+  border: var(--size-border-1) solid var(--color-border-strong)
+  border-radius: var(--size-radius-s)
+  background: #fff
+  color: var(--color-text)
+
+  &:focus
+    outline: var(--size-outline) solid rgba(239, 98, 0, .28)
+    outline-offset: var(--size-border-1)
+
+.composer
+  display: grid
+  grid-template-columns: minmax(0, 1fr) auto
+  gap: var(--size-gap-2)
+
+.segmented
+  useFlex(ff: row nowrap, g: 2px, ai: center)
+  height: var(--size-control-h)
+  width: fit-content
+  max-width: 100%
+  border: var(--size-border-1) solid var(--color-border)
+  border-radius: var(--size-radius-segment)
+  background: var(--color-bg)
+  padding: 2px
+
+  button
+    height: 100%
+    min-width: var(--size-segment-min)
+    padding: 0 var(--size-pad-control)
+    border: 0
+    border-radius: var(--size-radius-segment-inner)
+    background: transparent
+    color: var(--color-muted)
+    font-weight: 500
+    text-transform: capitalize
+    cursor: pointer
+
+    &:hover
+      background: var(--color-accent-soft-hover)
+      color: var(--color-accent-soft-fg)
+
+    &.is-active
+      background: var(--color-accent)
+      color: var(--color-accent-fg)
+      font-weight: 700
+
+      &:hover
+        background: var(--color-accent-hover)
+        color: var(--color-accent-fg)
+
+.workspace
+  useSurface(var(--size-gap-3), #fff)
+  display: grid
+  grid-template-columns: minmax(0, 1fr) auto
+  align-items: center
+  gap: var(--size-gap-3)
+
+.invite-group code,
+.inline-value
+  height: var(--size-input-code-h)
+  display: inline-flex
+  align-items: center
+  padding: 0 8px
+  border: var(--size-border-1) solid var(--color-border)
+  border-radius: var(--size-radius-xs)
+  background: #f5f4f2
+  color: var(--color-text)
+  font-family: 'JetBrains Mono', 'Cascadia Mono', 'SFMono-Regular', Menlo, monospace
+  font-size: .82rem
+
+.inline-value
+  min-height: var(--size-input-code-h)
+  height: auto
+  white-space: normal
+  overflow-wrap: anywhere
+
+.invite-group code
+  white-space: nowrap
+
+.demo-intro__title
+  font-size: clamp(1.45rem, 2.4vw, 1.9rem)
+  line-height: 1.1
+
+.demo-auth-row
+  useFlex(ff: row wrap, g: var(--size-gap-2), jc: flex-start, ai: center)
+
+.demo-auth-row .inline-value
+  flex: 1
+  min-width: 0
+
+.demo-auth-stats
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))
+
+.demo-two-col
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+  gap: var(--size-gap-3)
+
+.demo-box
+  useSurface(var(--size-gap-3), #fff, var(--color-border), none)
+  align-content: start
+
+.demo-scroll
+  max-height: 320px
+  overflow-y: auto
+  padding-right: 2px
+
+.demo-end
+  justify-content: flex-end
+
+.demo-workspace-list .demo-workspace--active
+  border-color: var(--color-accent-soft-border)
+  background: #fff8f1
+
+.demo-typing-input
+  min-height: 112px
+  padding: 10px 12px
+
+.demo-cursor-space
+  border: var(--size-border-2) dashed var(--color-accent-soft-border)
+  border-radius: var(--size-radius-m)
+  min-height: 220px
+  background: #fff8f1
+
+.demo-cursor-canvas
+  min-height: 220px
+  display: grid
+  place-items: center
+
+.demo-peer-cursor
+  background: #fff
+  border: var(--size-border-2) solid #222
+  border-radius: var(--size-radius-pill)
+  width: 22px
+  height: 22px
+  transform: translate(-50%, -50%)
+  display: grid
+  place-items: center
+  font-size: .68rem
+  font-weight: 700
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .2)
+
+.demo-reaction-list
+  max-height: 210px
+  overflow-y: auto
+  padding-right: 2px
+
+.demo-reaction-item
+  useSurface(var(--size-gap-2), #fff, var(--color-border), none)
+  useFlex(ff: row nowrap, g: var(--size-gap-2), ai: center)
+
+.demo-reaction-emoji
+  font-size: 1.1rem
+  line-height: 1.1
+
+.demo-reaction-sender
+  flex: 1
+  line-height: 1.25
+  min-width: 0
+  white-space: nowrap
+  overflow: hidden
+  text-overflow: ellipsis
+
+.task-list
+  useListGrid()
+
+.task
+  useSurface(var(--size-gap-3), #fff, var(--color-border), none)
+  display: grid
+  grid-template-columns: var(--size-icon) minmax(0, 1fr) var(--size-icon)
+  grid-template-rows: minmax(var(--size-icon), auto) auto
+  column-gap: var(--size-gap-2)
+  row-gap: var(--size-gap-2)
+
+.task__title
+  overflow-wrap: anywhere
+  line-height: 1.25
+  align-self: center
+
+.task__title.is-done
+  color: var(--color-subtle)
+  text-decoration: line-through
+
+.task__meta
+  useFlex(ff: row wrap, g: var(--size-gap-2), ai: center)
+  grid-column: 2
+  grid-row: 2
+  align-self: start
+
+.task__menu
+  grid-column: 3
+  grid-row: 1
+  justify-self: end
+  align-self: center
+
+.task--single
+  grid-template-rows: auto
+  align-items: center
+
+.task--single .task__title
+  line-height: 1.2
+
+.check
+  width: var(--size-icon)
+  height: var(--size-icon)
+  padding: 0
+  border: var(--size-border-1) solid var(--color-check-border)
+  border-radius: var(--size-radius-xs)
+  background: #fff
+  display: grid
+  place-items: center
+  align-self: center
+  transition: background-color .12s ease, border-color .12s ease
+  cursor: pointer
+
+  &:focus-visible
+    outline: var(--size-outline) solid rgba(239, 98, 0, .28)
+    outline-offset: var(--size-border-1)
+
+  span
+    width: var(--size-check-inner)
+    height: var(--size-check-inner)
+    border: calc(var(--size-border-1) * 1.5) solid var(--color-check-border-strong)
+    border-radius: 4px
+    background: #fff
+    display: grid
+    place-items: center
+
+  &:hover
+    border-color: var(--color-check-border-hover)
+    background: #fff8f1
+
+    span
+      border-color: var(--color-check-border-hover)
+
+  &.is-checked
+    border-color: rgba(239, 98, 0, .38)
+    background: #fff3e8
+
+    span
+      border-color: var(--color-accent)
+      background: var(--color-accent)
+
+      &::after
+        content: ''
+        width: var(--size-check-mark-w)
+        height: var(--size-check-mark-h)
+        border-left: var(--size-border-2) solid #fff
+        border-bottom: var(--size-border-2) solid #fff
+        transform: rotate(-45deg) translate(var(--size-check-mark-shift-x), var(--size-check-mark-shift-y))
+
+.feed-footer
+  useFlex(ff: row wrap, g: var(--size-gap-2), jc: space-between, ai: center)
+
+.presence
+  useListGrid(6px)
+  align-content: start
+
+  li
+    useFlex(ff: row nowrap, g: var(--size-gap-2), ai: center)
+    line-height: 1.25
+
+.dot
+  width: var(--size-dot)
+  height: var(--size-dot)
+  border-radius: var(--size-radius-pill)
+  background: var(--color-success)
+
+.typing-status
+  min-height: 1.3rem
+
+.stats
+  display: grid
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))
+  gap: var(--size-gap-2)
+
+.stat
+  useSurface(var(--size-gap-3), #fff, var(--color-border), none)
+  useStack(4px)
+
+  strong
+    font-size: var(--size-stat-number)
+
+.chip-list
+  useFlex(ff: row wrap, g: var(--size-gap-2), ai: center)
+
+.badge
+  --control-bg: var(--color-accent-soft)
+  --control-fg: var(--color-accent-soft-fg)
+  --control-border: transparent
+
+  useControlBase()
+  min-height: auto
+  padding: 4px 10px
+  border-radius: var(--size-radius-pill)
+  font-size: var(--size-font-sm)
+  font-weight: 500
+
+.menu
+  position: relative
+  display: inline-flex
+
+.menu__trigger
+  cursor: pointer
+
+.context-menu
+  useListGrid(2px, var(--size-gap-1))
+  position: absolute
+  top: calc(100% + 6px)
+  right: 0
+  min-width: var(--size-menu-min)
+  border: var(--size-border-1) solid var(--color-border)
+  border-radius: var(--size-radius-s)
+  background: #fff
+  box-shadow: 0 10px 22px rgba(16, 24, 40, .16)
+  z-index: 20
+
+  button
+    width: 100%
+    border: 0
+    border-radius: var(--size-radius-xs)
+    background: transparent
+    color: var(--color-text)
+    text-align: left
+    padding: 8px 10px
+    cursor: pointer
+
+    &:hover
+      background: var(--color-accent-soft-hover)
+      color: var(--color-accent-soft-fg)
+
+.context-menu--floating
+  position: fixed
+  top: 0
+  left: 0
+  right: auto
+
+.alert
+  --control-bg: var(--color-info-bg)
+  --control-fg: var(--color-info)
+  --control-border: var(--color-accent-soft-border)
+
+  useControlBase()
+  min-height: var(--size-control-h)
+  padding: 0 12px
+  font-size: var(--size-font-sm)
+
+.badge.info,
+.alert.info
+  --control-bg: var(--color-info-bg)
+  --control-fg: var(--color-info)
+  --control-border: var(--color-accent-soft-border)
+
+.badge.success,
+.alert.success
+  --control-bg: var(--color-success-bg)
+  --control-fg: var(--color-success)
+  --control-border: var(--color-success-border)
+
+.badge.warning,
+.alert.warning
+  --control-bg: var(--color-warning-bg)
+  --control-fg: var(--color-warning)
+  --control-border: var(--color-warning-border)
+
+.badge.danger,
+.alert.danger
+  --control-bg: var(--color-danger-bg)
+  --control-fg: var(--color-danger)
+  --control-border: var(--color-danger-border)
+
+@media (max-width: 980px)
+  .grid
+    grid-template-columns: 1fr
+
+@media (max-width: 720px)
+  .app-shell
+    padding: 18px 14px 36px
+
+  .demo-two-col,
+  .workspace,
+  .composer
+    grid-template-columns: 1fr
+
+  .feed-footer
+    flex-wrap: wrap
+
+  .feed-footer .btn
+    margin-left: auto
+
+  .demo-auth-row
+    align-items: flex-start

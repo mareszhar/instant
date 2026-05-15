@@ -4,6 +4,7 @@
 node_modules
 /.pnp
 .pnp.js
+.pnpm-store
 
 # testing
 /coverage
@@ -115,6 +116,7 @@ web_modules/
 
 # Optional npm cache directory
 .npm
+.npm-cache
 
 # tshy
 .tshy
@@ -143,6 +145,7 @@ web_modules/
 
 # dotenv environment variable files
 client/sandbox/**/.env
+client/packages/vux/**/.env
 .env.development.local
 .env.test.local
 .env.production.local
@@ -162,6 +165,9 @@ out
 # Nuxt.js build / generate output
 .nuxt
 dist
+client/packages/vux/**/.output
+client/packages/vux/**/.data
+client/packages/vux/**/.nitro
 
 # Gatsby files
 .cache/

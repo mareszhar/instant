@@ -1,5 +1,9 @@
 packages:
   - 'packages/*'
+  - 'packages/vux/idb-vux'
   - 'sandbox/*'
   - 'www'
   - 'www/_emails/replace-images'
+
+overrides:
+  caniuse-lite: 1.0.30001790

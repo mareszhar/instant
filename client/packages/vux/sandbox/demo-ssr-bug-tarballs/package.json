@@ -1,0 +1,45 @@
+{
+  "name": "demo-ssr-bug-tarballs",
+  "type": "module",
+  "private": true,
+  "packageManager": "bun@1.3.14",
+  "scripts": {
+    "upi": "bunx npm-check-updates -i",
+    "prep": "nuxt prepare",
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "gen": "nuxt generate",
+    "prev": "nuxt preview",
+    "start": "nuxt build && nuxt preview",
+    "postinstall": "nuxt prepare",
+    "typecheck": "nuxt typecheck",
+    "verify:dev": "CHOKIDAR_USEPOLLING=1 bunx nuxi dev --no-fork"
+  },
+  "dependencies": {
+    "@instantdb/core": "file:../../packs/instantdb-core-0.0.0.tgz",
+    "@instantdb/version": "file:../../packs/instantdb-version-0.0.0.tgz",
+    "@mszr/idb-vux": "file:../../packs/mszr-idb-vux-0.1.0.tgz",
+    "nuxt": "^4.4.5",
+    "vue": "^3.5.34",
+    "vue-router": "^5.0.7"
+  },
+  "devDependencies": {
+    "@pinia/nuxt": "^0.11.3",
+    "@vue/language-plugin-pug": "^3.2.9",
+    "@vueuse/core": "^14.3.0",
+    "@vueuse/nuxt": "^14.3.0",
+    "pinia": "^3.0.4",
+    "pug": "^3.0.4",
+    "stylus": "^0.64.0",
+    "typescript": "^6.0.3",
+    "vue-tsc": "^3.2.9"
+  },
+  "overrides": {
+    "@instantdb/core": "file:../../packs/instantdb-core-0.0.0.tgz",
+    "@instantdb/version": "file:../../packs/instantdb-version-0.0.0.tgz"
+  },
+  "resolutions": {
+    "@instantdb/core": "file:../../packs/instantdb-core-0.0.0.tgz",
+    "@instantdb/version": "file:../../packs/instantdb-version-0.0.0.tgz"
+  }
+}

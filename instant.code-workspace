@@ -1,0 +1,17 @@
+{
+  "folders": [
+    {
+      "name": "🌟 INSTANT (ROOT)",
+      "path": "."
+    },
+    {
+      "name": "💚 VUX (PACKAGE)",
+      "path": "client/packages/vux"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "client/packages/vux": true
+    }
+  }
+}
