@@ -2,7 +2,7 @@
 
 Audience: maintainers keeping `vux` aligned with `upstream/main`.
 
-Last updated: `2026-05-09`
+Last updated: `2026-05-15`
 
 ## Stable fork policies
 
@@ -40,10 +40,12 @@ Use when fork `main` should match `upstream/main`:
 During each rebase window, inspect upstream changes in:
 
 - `client/packages/core`
+- `client/packages/webhooks`
 - `client/packages/react`
 - `client/packages/react-common`
 - `client/packages/react-native`
 - `client/packages/svelte`
 - `client/packages/admin`
+- `client/packages/vue` (official Vue SDK)
 
 If none changed in parity-relevant surfaces, skip parity porting for that cycle.
