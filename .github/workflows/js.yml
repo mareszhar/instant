@@ -225,7 +225,7 @@ jobs:
     name: Publish algolia changes
     runs-on: ubuntu-latest
     needs: [ build, detect_changes ]
-    if: needs.detect_changes.outputs.docs_did_change == 'true'
+    if: github.repository == 'instantdb/instant' && needs.detect_changes.outputs.docs_did_change == 'true'
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -281,7 +281,7 @@ jobs:
     name: Deploy remote MCP
     runs-on: ubuntu-latest
     needs: [ build, detect_changes ]
-    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.mcp_did_change == 'true'
+    if: github.repository == 'instantdb/instant' && github.ref == 'refs/heads/main' && needs.detect_changes.outputs.mcp_did_change == 'true'
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -299,7 +299,7 @@ jobs:
     name: Publish experimental packages
     runs-on: ubuntu-latest
     needs: [ detect_changes ]
-    if: github.ref != 'refs/heads/main' && github.event_name == 'push' && needs.detect_changes.outputs.packages_did_change == 'true'
+    if: github.repository == 'instantdb/instant' && github.ref != 'refs/heads/main' && github.event_name == 'push' && needs.detect_changes.outputs.packages_did_change == 'true'
     permissions:
       contents: read
       id-token: write
@@ -389,7 +389,7 @@ jobs:
     name: Publish packages
     runs-on: ubuntu-latest
     needs: [ build, detect_changes ]
-    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.version_did_change == 'true'
+    if: github.repository == 'instantdb/instant' && github.ref == 'refs/heads/main' && needs.detect_changes.outputs.version_did_change == 'true'
     permissions:
       contents: write
       id-token: write
@@ -451,7 +451,7 @@ jobs:
     name: Deploy to vercel preview
     runs-on: ubuntu-latest
     needs: [ detect_changes ]
-    if: github.ref != 'refs/heads/main' && needs.detect_changes.outputs.client_did_change == 'true'
+    if: github.repository == 'instantdb/instant' && github.ref != 'refs/heads/main' && needs.detect_changes.outputs.client_did_change == 'true'
     environment:
       name: Preview
       url: ${{ steps.deploy.outputs.url }}
@@ -556,7 +556,7 @@ jobs:
     name: Deploy to vercel production
     runs-on: ubuntu-latest
     needs: [ detect_changes ]
-    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.client_did_change == 'true'
+    if: github.repository == 'instantdb/instant' && github.ref == 'refs/heads/main' && needs.detect_changes.outputs.client_did_change == 'true'
     environment:
       name: Production
       url: ${{ steps.deploy.outputs.url }}
@@ -614,7 +614,7 @@ jobs:
   vercel-staging-deploy:
     name: Deploy to vercel staging
     runs-on: ubuntu-latest
-    if: contains(github.event.head_commit.message, '[staging]')
+    if: github.repository == 'instantdb/instant' && contains(github.event.head_commit.message, '[staging]')
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

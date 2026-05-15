@@ -324,7 +324,7 @@ jobs:
 
   publish-image:
     runs-on: ubuntu-latest
-    if: (needs.detect_changes.outputs.clj_did_change == 'true' && github.ref == 'refs/heads/main') || contains(github.event.head_commit.message, '[staging]')
+    if: github.repository == 'instantdb/instant' && ((needs.detect_changes.outputs.clj_did_change == 'true' && github.ref == 'refs/heads/main') || contains(github.event.head_commit.message, '[staging]'))
     # Start publish image if we have clj changes
     needs: [ detect_changes ]
     permissions:
@@ -372,6 +372,7 @@ jobs:
 
   publish-eb:
     runs-on: ubuntu-latest
+    if: github.repository == 'instantdb/instant'
     # Publish to elastic beanstalk only if we pass the tests
     needs:
       - clj-check
@@ -408,7 +409,7 @@ jobs:
 
   publish-refinery-eb:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.refinery_did_change == 'true'
+    if: github.repository == 'instantdb/instant' && github.ref == 'refs/heads/main' && needs.detect_changes.outputs.refinery_did_change == 'true'
     needs:
       - detect_changes
     permissions:
