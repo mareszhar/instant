@@ -973,6 +973,115 @@ describe('instantVuxDatabase', () => {
     })
   })
 
+  describe('useUserX', () => {
+    it('exposes refs plus state alias and follows default client-only strictness', () => {
+      const scope = effectScope()
+      let userXRefFirst: any
+
+      scope.run(() => {
+        userXRefFirst = db.useUserX()
+      })
+
+      expect(userXRefFirst.refs).toBe(userXRefFirst)
+      expect(() => userXRefFirst.user.value).toThrow(
+        'useUser must be used within an auth-protected route',
+      )
+      scope.stop()
+
+      const stateScope = effectScope()
+      let userXStateFirst: any
+      stateScope.run(() => {
+        userXStateFirst = db.useUserX()
+      })
+      expect(() => userXStateFirst.state.user).toThrow(
+        'useUser must be used within an auth-protected route',
+      )
+      stateScope.stop()
+    })
+
+    it('returns user in refs/state when authenticated', async () => {
+      let authCb: ((auth: any) => void) | undefined
+      mockCore.subscribeAuth.mockImplementation((cb: any) => {
+        authCb = cb
+        return () => { }
+      })
+
+      const scope = effectScope()
+      let userX: any
+
+      scope.run(() => {
+        userX = db.useUserX()
+      })
+
+      authCb?.({ user: { id: 'u1', email: 'ok@test.com' } })
+      await nextTick()
+
+      expect(userX.user.value).toEqual({ id: 'u1', email: 'ok@test.com' })
+      expect(userX.state.user).toEqual({ id: 'u1', email: 'ok@test.com' })
+      expect(userX.user.value).toBe(userX.state.user)
+
+      scope.stop()
+    })
+
+    it('supports requireUser overrides consistently with useUser', () => {
+      const scope = effectScope()
+      let optionalUserX: any
+
+      scope.run(() => {
+        optionalUserX = db.useUserX({ requireUser: 'no' })
+      })
+
+      expect(() => optionalUserX.user.value).not.toThrow()
+      expect(optionalUserX.user.value).toBeUndefined()
+      expect(optionalUserX.state.user).toBeUndefined()
+
+      scope.stop()
+
+      withServerRuntime(() => {
+        const scopeInServerRefFirst = effectScope()
+        let strictUserXRefFirst: any
+
+        scopeInServerRefFirst.run(() => {
+          strictUserXRefFirst = db.useUserX({ requireUser: 'yes' })
+        })
+
+        expect(() => strictUserXRefFirst.user.value).toThrow(
+          'useUser must be used within an auth-protected route',
+        )
+        scopeInServerRefFirst.stop()
+
+        const scopeInServerStateFirst = effectScope()
+        let strictUserXStateFirst: any
+
+        scopeInServerStateFirst.run(() => {
+          strictUserXStateFirst = db.useUserX({ requireUser: 'yes' })
+        })
+
+        expect(() => strictUserXStateFirst.state.user).toThrow(
+          'useUser must be used within an auth-protected route',
+        )
+        scopeInServerStateFirst.stop()
+      })
+    })
+
+    it('does not throw on server runtime by default', () => {
+      withServerRuntime(() => {
+        const scopeInServer = effectScope()
+        let userX: any
+
+        scopeInServer.run(() => {
+          userX = db.useUserX()
+        })
+
+        expect(() => userX.user.value).not.toThrow()
+        expect(userX.user.value).toBeUndefined()
+        expect(userX.state.user).toBeUndefined()
+
+        scopeInServer.stop()
+      })
+    })
+  })
+
   describe('useConnectionStatus', () => {
     it('returns initial status', () => {
       const scope = effectScope()
@@ -1022,6 +1131,47 @@ describe('instantVuxDatabase', () => {
 
         scopeInServer.stop()
       })
+    })
+  })
+
+  describe('useConnectionStatusX', () => {
+    it('exposes refs plus state alias', () => {
+      const scope = effectScope()
+      let statusX: any
+
+      scope.run(() => {
+        statusX = db.useConnectionStatusX()
+      })
+
+      expect(statusX.refs).toBe(statusX)
+      expect(statusX.status.value).toBe('connecting')
+      expect(statusX.state.status).toBe('connecting')
+
+      scope.stop()
+    })
+
+    it('updates refs/state when connection status changes', async () => {
+      let statusCb: ((status: ConnectionStatus) => void) | undefined
+      mockCore.subscribeConnectionStatus.mockImplementation((cb: any) => {
+        statusCb = cb
+        return () => { }
+      })
+
+      const scope = effectScope()
+      let statusX: any
+
+      scope.run(() => {
+        statusX = db.useConnectionStatusX()
+      })
+      await nextTick()
+
+      statusCb?.('authenticated')
+      await nextTick()
+
+      expect(statusX.status.value).toBe('authenticated')
+      expect(statusX.state.status).toBe('authenticated')
+
+      scope.stop()
     })
   })
 
@@ -1114,6 +1264,51 @@ describe('instantVuxDatabase', () => {
 
         scopeInServer.stop()
       })
+    })
+  })
+
+  describe('useLocalIdX', () => {
+    it('exposes refs plus state alias and loads the ID', async () => {
+      const scope = effectScope()
+      let localIdX: any
+
+      scope.run(() => {
+        localIdX = db.useLocalIdX('device')
+      })
+
+      expect(localIdX.refs).toBe(localIdX)
+      expect(localIdX.localId.value).toBeNull()
+      expect(localIdX.state.localId).toBeNull()
+
+      await vi.waitFor(() => {
+        expect(localIdX.localId.value).toBe('local-id-device')
+      })
+
+      expect(localIdX.state.localId).toBe('local-id-device')
+      scope.stop()
+    })
+
+    it('reloads when reactive name changes', async () => {
+      const scope = effectScope()
+      const name = ref('device')
+      let localIdX: any
+
+      scope.run(() => {
+        localIdX = db.useLocalIdX(name)
+      })
+
+      await vi.waitFor(() => {
+        expect(localIdX.state.localId).toBe('local-id-device')
+      })
+
+      name.value = 'session'
+
+      await vi.waitFor(() => {
+        expect(localIdX.localId.value).toBe('local-id-session')
+      })
+
+      expect(localIdX.state.localId).toBe('local-id-session')
+      scope.stop()
     })
   })
 

@@ -238,8 +238,8 @@ export const useDemoStore = defineStore('instant-vue-demo', () => {
       })
     : null
 
-  const presencePeers = computed(() => {
-    return Object.entries((presence?.peers ?? {}) as Record<string, PresencePeer>)
+  const presencePeers = computed<[string, PresencePeer][]>(() => {
+    return Object.entries((presence?.peers.value ?? {}) as Record<string, PresencePeer>)
   })
 
   const publishReaction = room ? db?.rooms.usePublishTopic(room, 'reaction') : null
@@ -273,7 +273,7 @@ export const useDemoStore = defineStore('instant-vue-demo', () => {
 
   const typingDraftMessage = ref('')
   const typingIndicatorText = computed(() => {
-    const activePeers = typing?.active ?? []
+    const activePeers = (typing?.active.value ?? []) as Array<PresencePeer & { chat?: boolean }>
 
     if (activePeers.length === 0)
       return ''
@@ -460,7 +460,7 @@ export const useDemoStore = defineStore('instant-vue-demo', () => {
   }
 
   function handleTypingKeydown(event: KeyboardEvent) {
-    typing?.inputProps.onKeyDown(event)
+    typing?.inputProps.onKeydown(event)
 
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()

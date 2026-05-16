@@ -67,6 +67,6 @@ db.transact(
 
 1. Read [Queries](./queries.md) for `defineQuery` and `useQueryX` workflows.
 2. Read [Infinite queries](./infinite-queries.md) for paged feeds.
-3. Read [X APIs (`refs + state`)](./x-apis.md) for the shared additive ergonomics pattern.
+3. Read [DX/UX enhancements](./dx-ux-enhancements.md) for Vux-only additive patterns and APIs.
 4. Read [Realtime rooms](./realtime-rooms.md) for presence/topics/typing/cursors.
 5. Read [Nuxt and SSR resilience](./nuxt-ssr-resilience.md) if you run with SSR.

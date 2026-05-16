@@ -11,15 +11,15 @@ import type {
   Ref,
   ShallowRef,
 } from 'vue'
+import type { StateFromRefs, XResult } from './xResult.js'
 import {
   getCurrentScope,
-  isRef,
   onScopeDispose,
-  reactive,
   shallowRef,
   toValue,
   watchEffect,
 } from 'vue'
+import { createXResult } from './xResult.js'
 
 function isServerRuntime() {
   return typeof window === 'undefined'
@@ -49,45 +49,6 @@ function attachScopeCleanup(cleanup: () => void) {
   }
 }
 
-type RefLike<T = unknown>
-  = | Ref<T>
-    | ShallowRef<T>
-    | ComputedRef<T>
-
-type StateFromRefs<Refs extends object> = {
-  [K in keyof Refs]: Refs[K] extends RefLike<infer V> ? V : Refs[K]
-}
-
-function createXResult<
-  Refs extends object,
->(
-  refs: Refs,
-): Refs & {
-  refs: Refs
-  state: StateFromRefs<Refs>
-} {
-  const refsObject = refs as Record<string, unknown>
-  const stateBaseTarget = {} as Record<string, unknown>
-
-  for (const key of Object.keys(refsObject)) {
-    Object.defineProperty(stateBaseTarget, key, {
-      enumerable: true,
-      configurable: true,
-      get() {
-        const value = refsObject[key]
-        return isRef(value) ? value.value : value
-      },
-    })
-  }
-
-  const state = reactive(stateBaseTarget) as StateFromRefs<Refs>
-  const result = refs as Refs & { refs: Refs, state: StateFromRefs<Refs> }
-  result.refs = refs
-  result.state = state
-
-  return result
-}
-
 // ------
 // Types
 
@@ -115,10 +76,10 @@ export type UsePresenceXState<
 export type UsePresenceXResult<
   PresenceShape,
   Keys extends keyof PresenceShape,
-> = UsePresenceXRefs<PresenceShape, Keys> & {
-  refs: UsePresenceXRefs<PresenceShape, Keys>
-  state: UsePresenceXState<PresenceShape, Keys>
-}
+> = XResult<
+  UsePresenceXRefs<PresenceShape, Keys>,
+  UsePresenceXState<PresenceShape, Keys>
+>
 
 export interface TypingIndicatorOpts {
   timeout?: number | null
@@ -146,10 +107,10 @@ export type UseTypingIndicatorXState<PresenceShape>
   = StateFromRefs<UseTypingIndicatorXRefs<PresenceShape>>
 
 export type UseTypingIndicatorXResult<PresenceShape>
-  = UseTypingIndicatorXRefs<PresenceShape> & {
-    refs: UseTypingIndicatorXRefs<PresenceShape>
-    state: UseTypingIndicatorXState<PresenceShape>
-  }
+  = XResult<
+    UseTypingIndicatorXRefs<PresenceShape>,
+    UseTypingIndicatorXState<PresenceShape>
+  >
 
 export const defaultActivityStopTimeout = 1_000
 

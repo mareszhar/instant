@@ -1,5 +1,5 @@
 updated: 2026-05-16
-status: active
+status: completed
 
 # Misc DX/UX Proposals Feasibility (`@mszr/idb-vux`)
 
@@ -13,11 +13,11 @@ Use this note to track additive DX/UX proposals that reduce common Vux SDK boile
 - `useAuthX` has now been implemented with `refs` + `state` aliases sharing the same underlying auth data source.
 - `useUser` now supports explicit requirement policy options (`clientOnly` | `yes` | `no`) with SSR-resilient defaults and init-level override.
 
-## Next-wave X API proposals (pending review)
+## Next-wave X API proposals (implemented)
 
 Sorted by priority for progressive implementation.
 
-## P0: `useConnectionStatusX()` (high)
+## P0: `useConnectionStatusX()` (implemented)
 
 1. Value
 Creates full X-pattern consistency for app-level status signals by pairing a single status ref with `refs` + `state` access.
@@ -51,10 +51,10 @@ function useNetworkBadge() {
 }
 ```
 
-4. Feasibility
-High. Thin additive wrapper over existing `useConnectionStatus`.
+4. Outcome
+Implemented as a thin additive wrapper over existing `useConnectionStatus`.
 
-## P1: `useLocalIdX(name)` (high)
+## P1: `useLocalIdX(name)` (implemented)
 
 1. Value
 Aligns local-id consumption with the X family and reduces `.value` noise for app/device/session identity flows.
@@ -91,10 +91,10 @@ function usePresenceIdentity() {
 }
 ```
 
-4. Feasibility
-High. Thin additive wrapper over current reactive `useLocalId`.
+4. Outcome
+Implemented as a thin additive wrapper over current reactive `useLocalId`.
 
-## P2: `useUserX(opts?)` (medium, optional)
+## P2: `useUserX(opts?)` (implemented)
 
 1. Value
 Completes X coverage for auth-adjacent APIs for teams that want one predictable consumption style everywhere.
@@ -122,8 +122,8 @@ if (userX.state.user) {
 4. Tradeoffs
 `useUser` semantics are stricter than most hooks (throws in some modes), so X projection must be documented carefully to avoid masking strictness expectations.
 
-5. Recommendation
-Optional. Implement only if we want complete X symmetry across auth APIs.
+5. Outcome
+Implemented for full X symmetry across auth APIs, while preserving `useUser` strictness semantics.
 
 ## Not recommended as X APIs (for now)
 

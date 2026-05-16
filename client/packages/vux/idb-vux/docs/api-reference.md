@@ -7,7 +7,7 @@ This page is intentionally concise. Use conceptual guides for workflow details:
 - [Getting started](./getting-started.md)
 - [Queries](./queries.md)
 - [Infinite queries](./infinite-queries.md)
-- [X APIs (`refs + state`)](./x-apis.md)
+- [DX/UX enhancements](./dx-ux-enhancements.md)
 - [Realtime rooms and components](./realtime-rooms.md)
 - [Nuxt and SSR resilience](./nuxt-ssr-resilience.md)
 
@@ -25,7 +25,11 @@ This page is intentionally concise. Use conceptual guides for workflow details:
   - delegates: `transact`, `queryOnce`, `queryOnceX`, `getAuth`, `getLocalId`
   - query hooks: `useQuery`, `useInfiniteQuery` (full parity behavior shipped)
   - ergonomic query hooks: `useQueryX`, `useInfiniteQueryX`
-  - auth/status hooks: `useAuth` (destructurable refs), `useAuthX` (`refs` + `state`), `useUser({ requireUser })`, `useConnectionStatus`, `useLocalId`
+  - auth/status hooks:
+    - baseline: `useAuth`, `useUser({ requireUser })`, `useConnectionStatus`, `useLocalId`
+    - additive X: `useAuthX`, `useUserX`, `useConnectionStatusX`, `useLocalIdX`
+  - init/config ergonomics:
+    - `requireUserInUseUser` sets default strictness for both `useUser` and `useUserX`
   - room entrypoint: `room(...)`
 
 ## Query authoring

@@ -6,6 +6,7 @@ Audience: app developers building ephemeral realtime UX.
 
 Baseline room hooks mirror the official `@instantdb/vue` room contract (ref-first fields).
 Vux also ships additive room `X` variants for `refs + state` ergonomics.
+For the full additive surface index, see [DX/UX enhancements](./dx-ux-enhancements.md).
 
 ## Rooms
 

@@ -11,7 +11,7 @@ Like regular queries, infinite queries come in two styles:
 
 Both are compatible with `defineQuery`.
 
-For the shared Vux additive `refs + state` pattern (including auth/rooms), see [X APIs (`refs + state`)](./x-apis.md).
+For shared X-pattern behavior and the wider Vux additive surface, see [DX/UX enhancements](./dx-ux-enhancements.md).
 
 ## Baseline (`useInfiniteQuery`)
 

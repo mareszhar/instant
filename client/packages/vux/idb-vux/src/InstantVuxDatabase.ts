@@ -27,6 +27,7 @@ import type {
   QueryAuthoringSourceForSchema,
   TypedQueryForSchema,
 } from './defineQuery.js'
+import type { StateFromRefs, XResult } from './xResult.js'
 import {
   coerceQuery,
   init as coreInit,
@@ -37,7 +38,6 @@ import {
 import {
   computed,
   getCurrentScope,
-  isRef,
   onScopeDispose,
   reactive,
   readonly,
@@ -49,6 +49,7 @@ import {
 
 import { InstantVuxRoom, rooms } from './InstantVuxRoom.js'
 import version from './version.js'
+import { createStateFromRefs, createXResult } from './xResult.js'
 
 const defaultState = {
   isLoading: true,
@@ -146,6 +147,10 @@ export interface UseAuthResult {
   error: ComputedRef<AuthState['error']>
 }
 
+export type UseConnectionStatusResult = Readonly<Ref<ConnectionStatus>>
+
+export type UseLocalIdResult = Readonly<Ref<string | null>>
+
 export type UseUserRequirement = 'clientOnly' | 'yes' | 'no'
 
 export type UseUserValue<
@@ -169,16 +174,48 @@ export type InstantVuxInitConfig<
 
 export type UseAuthXRefs = UseAuthResult
 
-export interface UseAuthXState {
-  isLoading: AuthState['isLoading']
-  user: AuthState['user']
-  error: AuthState['error']
+export type UseAuthXState = StateFromRefs<UseAuthXRefs>
+
+export type UseAuthXResult = XResult<UseAuthXRefs, UseAuthXState>
+
+export interface UseConnectionStatusXRefs {
+  status: UseConnectionStatusResult
 }
 
-export type UseAuthXResult = UseAuthXRefs & {
-  refs: UseAuthXRefs
-  state: UseAuthXState
+export type UseConnectionStatusXState = StateFromRefs<UseConnectionStatusXRefs>
+
+export type UseConnectionStatusXResult = XResult<
+  UseConnectionStatusXRefs,
+  UseConnectionStatusXState
+>
+
+export interface UseLocalIdXRefs {
+  localId: UseLocalIdResult
 }
+
+export type UseLocalIdXState = StateFromRefs<UseLocalIdXRefs>
+
+export type UseLocalIdXResult = XResult<
+  UseLocalIdXRefs,
+  UseLocalIdXState
+>
+
+export interface UseUserXRefs<
+  Requirement extends UseUserRequirement = UseUserRequirement,
+> {
+  user: ComputedRef<UseUserValue<Requirement>>
+}
+
+export type UseUserXState<
+  Requirement extends UseUserRequirement = UseUserRequirement,
+> = StateFromRefs<UseUserXRefs<Requirement>>
+
+export type UseUserXResult<
+  Requirement extends UseUserRequirement = UseUserRequirement,
+> = XResult<
+  UseUserXRefs<Requirement>,
+  UseUserXState<Requirement>
+>
 
 type QueryRootNamespaceKey<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -274,10 +311,10 @@ export type UseQueryXResult<
   Q extends Record<string, any>,
   UseDates extends boolean,
   RuntimeQ extends Record<string, any> = Q,
-> = UseQueryXRefs<Schema, Q, UseDates, RuntimeQ> & {
-  refs: UseQueryXRefs<Schema, Q, UseDates, RuntimeQ>
-  state: UseQueryXState<Schema, Q, UseDates, RuntimeQ>
-}
+> = XResult<
+  UseQueryXRefs<Schema, Q, UseDates, RuntimeQ>,
+  UseQueryXState<Schema, Q, UseDates, RuntimeQ>
+>
 
 export type UseInfiniteQueryXRefs<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -314,10 +351,10 @@ export type UseInfiniteQueryXResult<
   Q extends Record<string, any>,
   UseDates extends boolean,
   RuntimeQ extends Record<string, any> = Q,
-> = UseInfiniteQueryXRefs<Schema, Q, UseDates, RuntimeQ> & {
-  refs: UseInfiniteQueryXRefs<Schema, Q, UseDates, RuntimeQ>
-  state: UseInfiniteQueryXState<Schema, Q, UseDates, RuntimeQ>
-}
+> = XResult<
+  UseInfiniteQueryXRefs<Schema, Q, UseDates, RuntimeQ>,
+  UseInfiniteQueryXState<Schema, Q, UseDates, RuntimeQ>
+>
 
 export type QueryOnceXResult<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -372,24 +409,6 @@ function createUseAuthResultRefs(
   }
 }
 
-function createUseAuthStateProjection(
-  refs: UseAuthResult,
-): UseAuthXState {
-  const stateBaseTarget = {
-    get isLoading() {
-      return refs.isLoading.value
-    },
-    get user() {
-      return refs.user.value
-    },
-    get error() {
-      return refs.error.value
-    },
-  }
-
-  return reactive(stateBaseTarget) as UseAuthXState
-}
-
 function namespaceKeyTrackerFromQuerySource<
   Q extends Record<string, any>,
 >(
@@ -435,7 +454,7 @@ function createNamespaceXProjection<
 >(
   baseRefsInput: BaseRefs,
   namespaceKeys: Set<string>,
-) {
+): XResult<Record<string, unknown>, Record<string, unknown>> {
   const baseRefs = { ...baseRefsInput } as Record<string, unknown>
 
   const reservedKeys = new Set<string>([
@@ -456,10 +475,7 @@ function createNamespaceXProjection<
 
     namespaceRef = computed<unknown[]>(() => {
       const dataRef = baseRefs.data
-      const data
-        = isRef(dataRef)
-          ? (dataRef.value as Record<string, unknown> | undefined)
-          : undefined
+      const data = toValue(dataRef as MaybeRefOrGetter<Record<string, unknown> | undefined>)
       const rows = data?.[key]
       return Array.isArray(rows) ? rows : []
     })
@@ -496,19 +512,7 @@ function createNamespaceXProjection<
     },
   })
 
-  const stateBaseTarget = {} as Record<string, unknown>
-  for (const key of Object.keys(baseRefsInput)) {
-    Object.defineProperty(stateBaseTarget, key, {
-      enumerable: true,
-      configurable: true,
-      get() {
-        const value = baseRefs[key]
-        return isRef(value) ? value.value : value
-      },
-    })
-  }
-
-  const stateBase = reactive(stateBaseTarget) as Record<string, unknown>
+  const stateBase = createStateFromRefs(baseRefs) as Record<string, unknown>
   const stateProxy = new Proxy(stateBase, {
     get(target, prop, receiver) {
       if (typeof prop === 'string' && !isReservedKey(prop) && !(prop in target)) {
@@ -518,10 +522,7 @@ function createNamespaceXProjection<
     },
   })
 
-  return {
-    refsProxy,
-    stateProxy,
-  }
+  return createXResult(refsProxy, stateProxy)
 }
 
 export class InstantVuxDatabase<
@@ -774,32 +775,15 @@ export class InstantVuxDatabase<
       error: lifecycleState.error,
     }
 
-    const { refsProxy, stateProxy } = createNamespaceXProjection(
+    const result = createNamespaceXProjection(
       refsBase,
       namespaceKeys,
-    )
-
-    const typedRefsProxy = refsProxy as UseQueryXRefs<
+    ) as UseQueryXResult<
       Schema,
       DefinedQuery<Q>,
       UseDates,
       UseQueryXRuntimeQuery<Schema, Q>
     >
-    const typedStateProxy = stateProxy as UseQueryXState<
-      Schema,
-      DefinedQuery<Q>,
-      UseDates,
-      UseQueryXRuntimeQuery<Schema, Q>
-    >
-
-    const result = typedRefsProxy as UseQueryXResult<
-      Schema,
-      DefinedQuery<Q>,
-      UseDates,
-      UseQueryXRuntimeQuery<Schema, Q>
-    >
-    result.refs = typedRefsProxy
-    result.state = typedStateProxy
 
     return result as any
   }
@@ -842,32 +826,15 @@ export class InstantVuxDatabase<
       loadNextPage: lifecycleState.loadNextPage,
     }
 
-    const { refsProxy, stateProxy } = createNamespaceXProjection(
+    const result = createNamespaceXProjection(
       refsBase,
       namespaceKeys,
-    )
-
-    const typedRefsProxy = refsProxy as UseInfiniteQueryXRefs<
+    ) as UseInfiniteQueryXResult<
       Schema,
       DefinedQuery<Q>,
       UseDates,
       UseQueryXRuntimeQuery<Schema, Q>
     >
-    const typedStateProxy = stateProxy as UseInfiniteQueryXState<
-      Schema,
-      DefinedQuery<Q>,
-      UseDates,
-      UseQueryXRuntimeQuery<Schema, Q>
-    >
-
-    const result = typedRefsProxy as UseInfiniteQueryXResult<
-      Schema,
-      DefinedQuery<Q>,
-      UseDates,
-      UseQueryXRuntimeQuery<Schema, Q>
-    >
-    result.refs = typedRefsProxy
-    result.state = typedStateProxy
 
     return result as any
   }
@@ -897,13 +864,7 @@ export class InstantVuxDatabase<
 
   useAuthX = (): UseAuthXResult => {
     const refs = this.useAuth() as UseAuthXRefs
-    const state = createUseAuthStateProjection(refs)
-
-    const result = refs as UseAuthXResult
-    result.refs = refs
-    result.state = state
-
-    return result
+    return createXResult(refs) as UseAuthXResult
   }
 
   useUser = <
@@ -938,7 +899,20 @@ export class InstantVuxDatabase<
     }) as ComputedRef<UseUserValue<Requirement>>
   }
 
-  useConnectionStatus = (): Readonly<Ref<ConnectionStatus>> => {
+  useUserX = <
+    Requirement extends UseUserRequirement = UseUserDefault,
+  >(
+    options?: UseUserOptions<Requirement>,
+  ): UseUserXResult<Requirement> => {
+    const user = this.useUser(options)
+    const refs = {
+      user,
+    } as UseUserXRefs<Requirement>
+
+    return createXResult(refs) as UseUserXResult<Requirement>
+  }
+
+  useConnectionStatus = (): UseConnectionStatusResult => {
     const initialStatus = isReactorReadyForSubscriptions(this.core)
       ? (this.core._reactor.status as ConnectionStatus)
       : 'connecting'
@@ -960,7 +934,16 @@ export class InstantVuxDatabase<
     return readonly(status)
   }
 
-  useLocalId = (name: MaybeRefOrGetter<string>): Readonly<Ref<string | null>> => {
+  useConnectionStatusX = (): UseConnectionStatusXResult => {
+    const status = this.useConnectionStatus()
+    const refs = {
+      status,
+    } as UseConnectionStatusXRefs
+
+    return createXResult(refs) as UseConnectionStatusXResult
+  }
+
+  useLocalId = (name: MaybeRefOrGetter<string>): UseLocalIdResult => {
     const localId = ref<string | null>(null)
 
     if (isServerRuntime() || !isReactorReadyForSubscriptions(this.core)) {
@@ -1001,6 +984,17 @@ export class InstantVuxDatabase<
     })
 
     return readonly(localId)
+  }
+
+  useLocalIdX = (
+    name: MaybeRefOrGetter<string>,
+  ): UseLocalIdXResult => {
+    const localId = this.useLocalId(name)
+    const refs = {
+      localId,
+    } as UseLocalIdXRefs
+
+    return createXResult(refs) as UseLocalIdXResult
   }
 
   room<RoomType extends string & keyof Rooms>(

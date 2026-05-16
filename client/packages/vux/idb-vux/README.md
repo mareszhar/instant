@@ -71,7 +71,7 @@ Split into focused modules so you can jump directly to what you need:
 2. [Queries (`queryOnce`, `queryOnceX`, `useQuery`, `useQueryX`, `defineQuery`)](./docs/queries.md)
 3. [Infinite queries (`useInfiniteQuery`, `useInfiniteQueryX`)](./docs/infinite-queries.md)
 4. [Realtime rooms and components](./docs/realtime-rooms.md)
-5. [X APIs (`refs + state` pattern)](./docs/x-apis.md)
+5. [DX/UX enhancements (Vux-only additions)](./docs/dx-ux-enhancements.md)
 6. [Nuxt and SSR resilience](./docs/nuxt-ssr-resilience.md)
 7. [API reference](./docs/api-reference.md)
 8. [Examples](./examples) - quick micro-examples illustrating API usage in a real TypeScript environment.

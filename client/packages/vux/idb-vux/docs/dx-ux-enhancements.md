@@ -1,0 +1,108 @@
+# DX/UX Enhancements (Vux-only)
+
+Audience: app developers who want to understand everything Vux adds beyond official baseline parity.
+
+Vux keeps official-compatible baseline APIs and adds ergonomic layers focused on readability, composition, and SSR resilience.
+
+## Additive surface index
+
+### Authoring utilities
+
+- `defineDb`
+  - memoized db factory for runtime app-id sources
+  - supports `missingAppId` policy and `requireUserInUseUser` default behavior
+
+- `defineQuery`
+  - schema-aware typed query authoring helper
+  - compatible with both regular and X query APIs
+
+### One-off query ergonomics
+
+- `queryOnceX`
+  - typed authoring path aligned with query X APIs
+  - normalizes requested top-level namespaces to `[]` when absent
+
+### X API family (`refs + state`)
+
+- `useQueryX`
+- `useInfiniteQueryX`
+- `useAuthX`
+- `useUserX`
+- `useConnectionStatusX`
+- `useLocalIdX`
+- `rooms.usePresenceX`
+- `rooms.useTypingIndicatorX`
+
+## Shared X pattern
+
+Each X API returns:
+
+1. top-level refs/computed refs for normal destructuring,
+2. `refs` alias for explicit ref-forwarding,
+3. `state` alias for auto-unwrapped script-friendly reads.
+
+```ts
+const queryX = db.useQueryX({ todos: {} })
+
+queryX.todos.value
+queryX.refs.todos.value
+queryX.state.todos
+```
+
+All access paths read from the same underlying reactive source for that hook instance.
+
+## Practical usage patterns
+
+`refs` passthrough from composables:
+
+```ts
+function useTodos() {
+  const todosX = db.useQueryX({ todos: {} })
+  return { ...todosX.refs }
+}
+```
+
+`state` for low-noise script logic:
+
+```ts
+const { state: auth } = db.useAuthX()
+if (!auth.isLoading && auth.user) {
+  console.log(auth.user.email)
+}
+```
+
+Strict/optional user policy with X ergonomics:
+
+```ts
+const userX = db.useUserX({ requireUser: 'no' })
+if (userX.state.user) {
+  trackUser(userX.state.user.id)
+}
+```
+
+## `useUser` and `useUserX` strictness strategy
+
+`useUser` and `useUserX` share the same behavior model:
+
+- `requireUser: 'clientOnly'` (default): throws on client when missing user, returns `undefined` on server.
+- `requireUser: 'yes'`: throws on all runtimes when missing user.
+- `requireUser: 'no'`: never throws; returns `undefined` when missing user.
+
+You can set the default once at init-time via `requireUserInUseUser`:
+
+```ts
+const db = init({
+  appId,
+  schema,
+  requireUserInUseUser: 'yes',
+})
+```
+
+`useUserX` mirrors that same policy by design.
+
+## Where to see baseline + additive APIs together
+
+- Queries: [Queries](./queries.md)
+- Infinite queries: [Infinite queries](./infinite-queries.md)
+- Rooms: [Realtime rooms and components](./realtime-rooms.md)
+- API overview: [API reference](./api-reference.md)
