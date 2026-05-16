@@ -1,5 +1,6 @@
 import type { InstantVuxDatabase } from '../InstantVuxDatabase.js'
 import { i } from '@instantdb/core'
+import { ref } from 'vue'
 
 const schema = i.schema({
   entities: {
@@ -52,8 +53,32 @@ const filteredState = db.useInfiniteQuery(() => ({
 
 const filteredTitle: string | undefined = filteredState.data.value?.posts[0]?.title
 
+const infiniteQueryRef = ref<null | {
+  posts: {
+    $: {
+      limit: number
+      where: {
+        status: string
+      }
+    }
+  }
+}>({
+  posts: {
+    $: {
+      limit: 5,
+      where: {
+        status: 'draft',
+      },
+    },
+  },
+})
+const infiniteOptsRef = ref({ ruleParams: { tenant: 'a' } })
+const infiniteFromRefState = db.useInfiniteQuery(infiniteQueryRef, infiniteOptsRef)
+const infiniteFromRefTitle: string | undefined = infiniteFromRefState.data.value?.posts[0]?.title
+
 void firstTitle
 void canLoad
 void loading
 void errorMessage
 void filteredTitle
+void infiniteFromRefTitle

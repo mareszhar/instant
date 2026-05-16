@@ -22,7 +22,7 @@ This package is a DX/UX-first Vue SDK that goes beyond the official `@instantdb/
 
 - 🤝 **Stable & Familiar** — High-fidelity parity with official SDKs, the usage patterns you know, adapted for seamless use in Vue.
 
-- 💎 **Next-Level Ergonomics** — Additive features like `useQueryX/useInfiniteQueryX` and `defineQuery` reduce boilerplate and improve type-safety, beyond what the official SDKs offer.
+- 💎 **Next-Level Ergonomics** — Additive features like `useQueryX/useInfiniteQueryX`, `useAuthX`, and room `X` hooks (`usePresenceX/useTypingIndicatorX`) reduce boilerplate and improve type-safety, beyond what the official SDKs offer.
 
 - ✅ **Thoroughly Tested** — Comprehensive test coverage for core APIs and incremental improvements, validated to balance performance and accuracy.
 
@@ -33,7 +33,7 @@ This package is a DX/UX-first Vue SDK that goes beyond the official `@instantdb/
 ## Relationship to `@instantdb/vue`
 
 - `@instantdb/vue` is the official Vue SDK from InstantDB.
-- `@mszr/idb-vux` keeps strong parity on core usage while adding DX/UX-first APIs such as `defineDb`, `defineQuery`, `queryOnceX`, `useQueryX`, and `useInfiniteQueryX`.
+- `@mszr/idb-vux` keeps strong parity on core usage while adding DX/UX-first APIs such as `defineDb`, `defineQuery`, `queryOnceX`, `useQueryX`, `useInfiniteQueryX`, `useAuthX`, and room `X` hooks.
 - If your app only uses parity APIs, swapping SDKs is mostly straightforward.
 - If your app uses additive APIs from `@mszr/idb-vux`, migrating to the official SDK requires code changes for those API calls.
 - But we hope you will find Vux more pleasant to work with and stick with it. In the long run, we're open to upstreaming useful patterns and APIs to the official SDKs.
@@ -71,9 +71,10 @@ Split into focused modules so you can jump directly to what you need:
 2. [Queries (`queryOnce`, `queryOnceX`, `useQuery`, `useQueryX`, `defineQuery`)](./docs/queries.md)
 3. [Infinite queries (`useInfiniteQuery`, `useInfiniteQueryX`)](./docs/infinite-queries.md)
 4. [Realtime rooms and components](./docs/realtime-rooms.md)
-5. [Nuxt and SSR resilience](./docs/nuxt-ssr-resilience.md)
-6. [API reference](./docs/api-reference.md)
-7. [Examples](./examples) - quick micro-examples illustrating API usage in a real TypeScript environment.
+5. [X APIs (`refs + state` pattern)](./docs/x-apis.md)
+6. [Nuxt and SSR resilience](./docs/nuxt-ssr-resilience.md)
+7. [API reference](./docs/api-reference.md)
+8. [Examples](./examples) - quick micro-examples illustrating API usage in a real TypeScript environment.
 
 ## Demo
 

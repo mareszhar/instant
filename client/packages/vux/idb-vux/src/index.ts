@@ -24,6 +24,14 @@ import type {
   UseUserRequirement,
   UseUserValue,
 } from './InstantVuxDatabase.js'
+import type {
+  UsePresenceXRefs,
+  UsePresenceXResult,
+  UsePresenceXState,
+  UseTypingIndicatorXRefs,
+  UseTypingIndicatorXResult,
+  UseTypingIndicatorXState,
+} from './InstantVuxRoom.js'
 
 import {
   createInstantRouteHandler,
@@ -140,11 +148,17 @@ export {
   type UseInfiniteQueryXRefs,
   type UseInfiniteQueryXResult,
   type UseInfiniteQueryXState,
+  type UsePresenceXRefs,
+  type UsePresenceXResult,
+  type UsePresenceXState,
   type UseQueryOptions,
   type UseQueryXRefs,
   type UseQueryXResult,
   type UseQueryXState,
   type User,
+  type UseTypingIndicatorXRefs,
+  type UseTypingIndicatorXResult,
+  type UseTypingIndicatorXState,
   type UseUserOptions,
   type UseUserRequirement,
   type UseUserValue,

@@ -61,11 +61,11 @@ export function useWorkspaceRealtime(
     : null
 
   const presencePeers = computed(() => {
-    return Object.entries(presence?.peers ?? {})
+    return Object.entries(presence ? presence.peers.value : {})
   })
 
   const typingIndicatorText = computed(() => {
-    const activePeers = (typing?.active ?? []).filter((peer) => {
+    const activePeers = (typing ? typing.active.value : []).filter((peer) => {
       return (peer?.name ?? '') !== (userLabel.value ?? '')
     })
     if (activePeers.length === 0)
@@ -86,7 +86,7 @@ export function useWorkspaceRealtime(
   }
 
   function handleTypingKeydown(event: KeyboardEvent) {
-    typing?.inputProps.onKeyDown(event)
+    typing?.inputProps.onKeydown(event)
 
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()

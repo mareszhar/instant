@@ -133,7 +133,7 @@ describe('instantVuxRoom hooks', () => {
     scope.stop()
   })
 
-  it('usePresence returns initial value and updates from subscription', async () => {
+  it('usePresence returns refs and updates from subscription', async () => {
     mockCore._reactor.getPresence.mockReturnValue({
       peers: { p1: { name: 'Alice' } },
       isLoading: false,
@@ -159,9 +159,9 @@ describe('instantVuxRoom hooks', () => {
 
     await nextTick()
 
-    expect(state.isLoading).toBe(false)
-    expect(state.peers).toEqual({ p1: { name: 'Alice' } })
-    expect(state.user).toEqual({ name: 'Me' })
+    expect(state.isLoading.value).toBe(false)
+    expect(state.peers.value).toEqual({ p1: { name: 'Alice' } })
+    expect(state.user.value).toEqual({ name: 'Me' })
 
     state.publishPresence({ status: 'online' })
     expect(mockCore._reactor.publishPresence).toHaveBeenCalledWith(
@@ -170,14 +170,37 @@ describe('instantVuxRoom hooks', () => {
       { status: 'online' },
     )
 
-    presenceCb?.({ peers: { p2: { name: 'Bob' } }, isLoading: false })
+    presenceCb?.({
+      peers: { p2: { name: 'Bob' } },
+      isLoading: false,
+      error: { message: 'Presence failed' },
+    })
     await nextTick()
 
-    expect(state.peers).toEqual({ p2: { name: 'Bob' } })
-    expect(state.isLoading).toBe(false)
+    expect(state.peers.value).toEqual({ p2: { name: 'Bob' } })
+    expect(state.isLoading.value).toBe(false)
+    expect((state as any).error.value).toEqual({ message: 'Presence failed' })
 
     scope.stop()
     expect(unsub).toHaveBeenCalled()
+  })
+
+  it('usePresenceX exposes refs plus state alias from one source', async () => {
+    const scope = effectScope()
+    let presenceX: any
+
+    scope.run(() => {
+      presenceX = (rooms.usePresenceX as any)(room, { keys: ['name'] })
+    })
+
+    await nextTick()
+
+    expect(presenceX.refs).toBe(presenceX)
+    expect(presenceX.peers.value).toEqual({})
+    expect(presenceX.state.peers).toEqual({})
+    expect(typeof presenceX.state.publishPresence).toBe('function')
+
+    scope.stop()
   })
 
   it('useSyncPresence joins room and publishes on data changes', async () => {
@@ -206,28 +229,58 @@ describe('instantVuxRoom hooks', () => {
     data.nickname = 'bob'
     await nextTick()
 
-    expect(mockCore._reactor.publishPresence).toHaveBeenCalledTimes(2)
+    expect(mockCore._reactor.publishPresence).toHaveBeenCalledTimes(1)
 
     scope.stop()
   })
 
-  it('useSyncPresence supports explicit deps tracking', async () => {
-    const trigger = ref(0)
-    const data = { nickname: 'alice' }
+  it('useSyncPresence accepts reactive getter inputs', async () => {
+    const nickname = ref('alice')
 
     const scope = effectScope()
     scope.run(() => {
       const useSyncPresence = rooms.useSyncPresence as any
-      useSyncPresence(room, data, [() => trigger.value])
+      useSyncPresence(room, () => ({ nickname: nickname.value }))
     })
 
     await nextTick()
-    expect(mockCore._reactor.publishPresence).toHaveBeenCalledTimes(1)
 
-    trigger.value += 1
+    expect(mockCore._reactor.joinRoom).toHaveBeenCalledWith(
+      'chat',
+      'room-1',
+      { nickname: 'alice' },
+    )
+    expect(mockCore._reactor.publishPresence).toHaveBeenCalledWith(
+      'chat',
+      'room-1',
+      { nickname: 'alice' },
+    )
+
+    nickname.value = 'bob'
     await nextTick()
 
-    expect(mockCore._reactor.publishPresence).toHaveBeenCalledTimes(2)
+    expect(mockCore._reactor.publishPresence).toHaveBeenLastCalledWith(
+      'chat',
+      'room-1',
+      { nickname: 'bob' },
+    )
+
+    scope.stop()
+  })
+
+  it('useTypingIndicator exposes lowercase listener keys for Vue v-bind compatibility', async () => {
+    const scope = effectScope()
+    let typing: any
+
+    scope.run(() => {
+      typing = (rooms.useTypingIndicator as any)(room, 'chat')
+    })
+
+    await nextTick()
+
+    expect(typeof typing.inputProps.onKeydown).toBe('function')
+    expect(typeof typing.inputProps.onBlur).toBe('function')
+    expect((typing.inputProps as any).onKeyDown).toBeUndefined()
 
     scope.stop()
   })
@@ -248,7 +301,7 @@ describe('instantVuxRoom hooks', () => {
     mockCore._reactor.subscribePresence.mockImplementation(
       (_roomType: any, _roomId: any, _opts: any, cb: any) => {
         presenceCb = cb
-        return () => { }
+        return () => {}
       },
     )
 
@@ -263,7 +316,7 @@ describe('instantVuxRoom hooks', () => {
     presenceCb?.(presenceSnapshot)
     await nextTick()
 
-    expect(typing.active).toEqual([{ chat: true, name: 'Alice' }])
+    expect(typing.active.value).toEqual([{ chat: true, name: 'Alice' }])
 
     typing.setActive(true)
     expect(mockCore._reactor.publishPresence).toHaveBeenCalledWith(
@@ -284,6 +337,25 @@ describe('instantVuxRoom hooks', () => {
     vi.useRealTimers()
   })
 
+  it('useTypingIndicatorX exposes refs plus state alias from one source', async () => {
+    const scope = effectScope()
+    let typingX: any
+
+    scope.run(() => {
+      typingX = (rooms.useTypingIndicatorX as any)(room, 'chat')
+    })
+
+    await nextTick()
+
+    expect(typingX.refs).toBe(typingX)
+    expect(Array.isArray(typingX.active.value)).toBe(true)
+    expect(Array.isArray(typingX.state.active)).toBe(true)
+    expect(typingX.state.active).toEqual(typingX.active.value)
+    expect(typeof typingX.state.setActive).toBe('function')
+
+    scope.stop()
+  })
+
   it('useTypingIndicator supports writeOnly mode', async () => {
     const presenceSnapshot = {
       peers: {
@@ -296,7 +368,7 @@ describe('instantVuxRoom hooks', () => {
     mockCore._reactor.subscribePresence.mockImplementation(
       (_roomType: any, _roomId: any, _opts: any, cb: any) => {
         cb(presenceSnapshot)
-        return () => { }
+        return () => {}
       },
     )
 
@@ -310,7 +382,7 @@ describe('instantVuxRoom hooks', () => {
     })
 
     await nextTick()
-    expect(typing.active).toEqual([])
+    expect(typing.active.value).toEqual([])
 
     scope.stop()
   })
@@ -355,8 +427,8 @@ describe('instantVuxRoom hooks', () => {
 
     await nextTick()
 
-    typing.inputProps.onKeyDown(new KeyboardEvent('keydown', { key: 'a' }))
-    typing.inputProps.onKeyDown(new KeyboardEvent('keydown', { key: 'Enter' }))
+    typing.inputProps.onKeydown(new KeyboardEvent('keydown', { key: 'a' }))
+    typing.inputProps.onKeydown(new KeyboardEvent('keydown', { key: 'Enter' }))
     typing.inputProps.onBlur()
 
     expect(mockCore._reactor.publishPresence).toHaveBeenNthCalledWith(
@@ -400,8 +472,8 @@ describe('instantVuxRoom hooks', () => {
       expect(mockCore._reactor.publishTopic).not.toHaveBeenCalled()
 
       const presence = (rooms.usePresence as any)(room, { keys: ['name'] })
-      expect(presence.isLoading).toBe(true)
-      expect(presence.peers).toEqual({})
+      expect(presence.isLoading.value).toBe(true)
+      expect(presence.peers.value).toEqual({})
       presence.publishPresence({ name: 'server' })
       expect(mockCore._reactor.publishPresence).not.toHaveBeenCalled()
 
@@ -410,9 +482,9 @@ describe('instantVuxRoom hooks', () => {
       expect(mockCore._reactor.joinRoom).not.toHaveBeenCalled()
 
       const typing = (rooms.useTypingIndicator as any)(room, 'chat')
-      expect(typing.active).toEqual([])
+      expect(typing.active.value).toEqual([])
       typing.setActive(true)
-      typing.inputProps.onKeyDown(new KeyboardEvent('keydown', { key: 'a' }))
+      typing.inputProps.onKeydown(new KeyboardEvent('keydown', { key: 'a' }))
       typing.inputProps.onBlur()
 
       expect(mockCore._reactor.publishPresence).not.toHaveBeenCalled()
@@ -437,7 +509,7 @@ describe('instantVuxRoom hooks', () => {
     publish({ emoji: '🔥' })
 
     const presence = (rooms.usePresence as any)(brokenRoom, { keys: ['name'] })
-    expect(presence.isLoading).toBe(true)
+    expect(presence.isLoading.value).toBe(true)
     expect(mockCore._reactor.joinRoom).not.toHaveBeenCalled()
     expect(mockCore._reactor.publishTopic).not.toHaveBeenCalled()
   })

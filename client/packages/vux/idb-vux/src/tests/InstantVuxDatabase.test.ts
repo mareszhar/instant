@@ -2,7 +2,7 @@ import type { AuthState, ConnectionStatus } from '@instantdb/core'
 import type { EffectScope } from 'vue'
 import { i } from '@instantdb/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { effectScope, nextTick, ref, watchEffect } from 'vue'
+import { effectScope, nextTick, ref, toValue, watchEffect } from 'vue'
 import { defineDb } from '../defineDb.js'
 import { InstantVuxDatabase } from '../InstantVuxDatabase.js'
 
@@ -320,6 +320,17 @@ describe('instantVuxDatabase', () => {
     it('accepts a function that returns a query', async () => {
       scope.run(() => {
         db.useQuery(() => ({ goals: {} }) as any)
+      })
+      await nextTick()
+
+      expect(mockCore.subscribeQuery).toHaveBeenCalled()
+    })
+
+    it('accepts a ref containing a query', async () => {
+      const queryRef = ref<any>({ goals: {} })
+
+      scope.run(() => {
+        db.useQuery(queryRef)
       })
       await nextTick()
 
@@ -1042,6 +1053,28 @@ describe('instantVuxDatabase', () => {
       scope.stop()
     })
 
+    it('reloads when name ref changes', async () => {
+      const scope = effectScope()
+      const name = ref('device')
+      let localId: any
+
+      scope.run(() => {
+        localId = db.useLocalId(name)
+      })
+
+      await vi.waitFor(() => {
+        expect(localId.value).toBe('local-id-device')
+      })
+
+      name.value = 'session'
+
+      await vi.waitFor(() => {
+        expect(localId.value).toBe('local-id-session')
+      })
+
+      scope.stop()
+    })
+
     it('does not update after scope disposal', async () => {
       let resolveLocalId: ((value: string) => void) | undefined
       mockCore.getLocalId.mockImplementation(
@@ -1087,9 +1120,31 @@ describe('instantVuxDatabase', () => {
   describe('room', () => {
     it('creates a room handle', () => {
       const room = db.room('chat' as any, 'room-1')
-      expect(room.type).toBe('chat')
-      expect(room.id).toBe('room-1')
+      expect(toValue(room.type)).toBe('chat')
+      expect(toValue(room.id)).toBe('room-1')
       expect(room.core).toBe(mockCore)
+    })
+
+    it('defaults type and id when omitted', () => {
+      const room = db.room()
+      expect(toValue(room.type)).toBe('_defaultRoomType')
+      expect(toValue(room.id)).toBe('_defaultRoomId')
+    })
+
+    it('accepts reactive room inputs', async () => {
+      const roomType = ref('chat' as any)
+      const roomId = ref('room-1')
+      const room = db.room(roomType, roomId)
+
+      expect(toValue(room.type)).toBe('chat')
+      expect(toValue(room.id)).toBe('room-1')
+
+      roomType.value = 'group'
+      roomId.value = 'room-2'
+      await nextTick()
+
+      expect(toValue(room.type)).toBe('group')
+      expect(toValue(room.id)).toBe('room-2')
     })
   })
 })

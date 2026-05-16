@@ -1,9 +1,10 @@
-import type { InstantSchemaDef, PresenceResponse, RoomSchemaShape } from '@instantdb/core'
-import type { PropType, StyleValue, VNodeChild } from 'vue'
+import type { InstantSchemaDef, RoomSchemaShape } from '@instantdb/core'
+import type { PropType, ShallowRef, StyleValue, VNodeChild } from 'vue'
 import type { InstantVuxRoom } from './InstantVuxRoom.js'
 import {
   defineComponent,
   h,
+  toValue,
 } from 'vue'
 import { usePresence } from './InstantVuxRoom.js'
 
@@ -183,11 +184,12 @@ export default defineComponent({
     const canPublish = !isServerRuntime && hasRoomPresenceReactor(props.room)
 
     const spaceId = props.spaceId
-      || `cursors-space-default--${String(props.room.type)}-${props.room.id}`
+      || `cursors-space-default--${String(toValue(props.room.type))}-${toValue(props.room.id)}`
 
     const cursorsPresence = usePresence(props.room as any, {
       keys: [spaceId] as any,
-    }) as PresenceResponse<Record<string, any>, string> & {
+    }) as unknown as {
+      peers: ShallowRef<Record<string, any>>
       publishPresence: (data: Record<string, any>) => void
     }
 
@@ -281,8 +283,11 @@ export default defineComponent({
         ? props.room.core._reactor
         : null
 
-      const fullPresence = reactor?.getPresence?.(props.room.type, props.room.id)
-      const peers = cursorsPresence?.peers ?? {}
+      const fullPresence = reactor?.getPresence?.(
+        toValue(props.room.type),
+        toValue(props.room.id),
+      )
+      const peers = cursorsPresence?.peers.value ?? {}
 
       const overlayChildren = Object.entries(peers).map(([peerId, presence]) => {
         const cursor = (presence as any)?.[spaceId]

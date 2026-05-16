@@ -7,6 +7,7 @@ This page is intentionally concise. Use conceptual guides for workflow details:
 - [Getting started](./getting-started.md)
 - [Queries](./queries.md)
 - [Infinite queries](./infinite-queries.md)
+- [X APIs (`refs + state`)](./x-apis.md)
 - [Realtime rooms and components](./realtime-rooms.md)
 - [Nuxt and SSR resilience](./nuxt-ssr-resilience.md)
 
@@ -40,8 +41,10 @@ This page is intentionally concise. Use conceptual guides for workflow details:
   - `useTopicEffect`
   - `usePublishTopic`
   - `usePresence`
+  - `usePresenceX` (additive `refs + state`)
   - `useSyncPresence`
   - `useTypingIndicator`
+  - `useTypingIndicatorX` (additive `refs + state`)
 
 ## Components
 

@@ -1,5 +1,5 @@
-updated: 2026-05-15
-status: completed
+updated: 2026-05-16
+status: active
 
 # Misc DX/UX Proposals Feasibility (`@mszr/idb-vux`)
 
@@ -12,6 +12,129 @@ Use this note to track additive DX/UX proposals that reduce common Vux SDK boile
 - `useAuth` now returns destructurable reactive refs (`isLoading`, `user`, `error`) for parity-style ergonomics.
 - `useAuthX` has now been implemented with `refs` + `state` aliases sharing the same underlying auth data source.
 - `useUser` now supports explicit requirement policy options (`clientOnly` | `yes` | `no`) with SSR-resilient defaults and init-level override.
+
+## Next-wave X API proposals (pending review)
+
+Sorted by priority for progressive implementation.
+
+## P0: `useConnectionStatusX()` (high)
+
+1. Value
+Creates full X-pattern consistency for app-level status signals by pairing a single status ref with `refs` + `state` access.
+
+2. Ergonomic improvement vs regular API
+Regular `useConnectionStatus()` returns one ref (`Ref<ConnectionStatus>`), which is fine but inconsistent with the broader X mental model.
+`useConnectionStatusX()` would expose one predictable object:
+
+```ts
+const connectionX = db.useConnectionStatusX()
+connectionX.status.value
+connectionX.refs.status.value
+connectionX.state.status
+```
+
+3. Usage patterns enabled
+Pattern A: clean `.value`-free script guards
+
+```ts
+const { state: connection } = db.useConnectionStatusX()
+if (connection.status === 'connected') {
+  flushPendingWrites()
+}
+```
+
+Pattern B: composable passthrough via refs
+
+```ts
+function useNetworkBadge() {
+  return { ...db.useConnectionStatusX().refs }
+}
+```
+
+4. Feasibility
+High. Thin additive wrapper over existing `useConnectionStatus`.
+
+## P1: `useLocalIdX(name)` (high)
+
+1. Value
+Aligns local-id consumption with the X family and reduces `.value` noise for app/device/session identity flows.
+
+2. Ergonomic improvement vs regular API
+Regular `useLocalId(name)` returns `Readonly<Ref<string | null>>`.
+`useLocalIdX(name)` would preserve baseline behavior and add consistent dual access:
+
+```ts
+const localIdX = db.useLocalIdX('device')
+localIdX.localId.value
+localIdX.refs.localId.value
+localIdX.state.localId
+```
+
+3. Usage patterns enabled
+Pattern A: reactive naming + local state consumption
+
+```ts
+const local = db.useLocalIdX(() => `workspace:${workspaceId.value}`)
+watchEffect(() => {
+  if (local.state.localId) {
+    ensurePresenceIdentity(local.state.localId)
+  }
+})
+```
+
+Pattern B: forwarding composable-friendly refs
+
+```ts
+function usePresenceIdentity() {
+  const idX = db.useLocalIdX('presence-device')
+  return { ...idX.refs }
+}
+```
+
+4. Feasibility
+High. Thin additive wrapper over current reactive `useLocalId`.
+
+## P2: `useUserX(opts?)` (medium, optional)
+
+1. Value
+Completes X coverage for auth-adjacent APIs for teams that want one predictable consumption style everywhere.
+
+2. Ergonomic improvement vs regular API
+Regular `useUser(opts?)` returns a single computed ref and can throw depending on requirement mode.
+`useUserX(opts?)` could expose:
+
+```ts
+const userX = db.useUserX({ requireUser: 'no' })
+userX.user.value
+userX.state.user
+```
+
+3. Usage patterns enabled
+Pattern A: standard X object shape even when route strictness differs per screen
+
+```ts
+const userX = db.useUserX({ requireUser: 'clientOnly' })
+if (userX.state.user) {
+  hydratePersonalization(userX.state.user.id)
+}
+```
+
+4. Tradeoffs
+`useUser` semantics are stricter than most hooks (throws in some modes), so X projection must be documented carefully to avoid masking strictness expectations.
+
+5. Recommendation
+Optional. Implement only if we want complete X symmetry across auth APIs.
+
+## Not recommended as X APIs (for now)
+
+1. `useSyncPresence`
+Side-effect only (`void`), no stable data source to project as `refs/state`.
+
+2. `useTopicEffect`
+Side-effect subscription helper (`void`), same rationale.
+
+3. `usePublishTopic`
+Command-style function handle; an X variant would likely add indirection with little UX gain.
 
 ## Proposal: `queryOnceX` (implemented)
 

@@ -10,6 +10,8 @@ This SDK supports two complementary query styles:
 
 Both styles can share the same `defineQuery` authoring helper.
 
+If you are standardizing on the Vux additive ergonomics surface, see [X APIs (`refs + state`)](./x-apis.md) for the shared pattern used across query/auth/infinite/rooms hooks.
+
 ## Baseline (`useQuery`)
 
 ```ts

@@ -4,7 +4,7 @@ updated: 2026-05-15
 
 ## Goal
 
-Evaluate whether `@mszr/idb-vux` is currently a strict superset of `@instantdb/vue`, identify every meaningful difference, and classify each difference as:
+Evaluate whether `@mszr/idb-vux` is a practical superset of `@instantdb/vue`, identify every meaningful difference, and classify each one as:
 
 - expected additive behavior,
 - intentional divergence,
@@ -17,57 +17,58 @@ Evaluate whether `@mszr/idb-vux` is currently a strict superset of `@instantdb/v
   - `client/packages/vue/src/*`
   - `client/packages/vux/idb-vux/src/*`
 - Reviewed runtime and type tests in both packages.
-- Ran test suites:
+- Ran package checks after parity work:
   - `pnpm --dir client/packages/vue test` (33/33 passing)
-  - `pnpm --dir client/packages/vux/idb-vux test` (84/84 passing)
+  - `pnpm --dir client/packages/vux/idb-vux test` (92/92 passing)
+  - `pnpm --dir client/packages/vux/idb-vux typecheck` (passing)
 
 ## Verdict
 
-`@mszr/idb-vux` is **very close** to official Vue parity and already exceeds it in several areas, but it is **not yet a strict superset** of `@instantdb/vue`.
+`@mszr/idb-vux` now has high-fidelity behavioral parity with official Vue across the baseline room and database runtime contracts, while retaining Vux additive APIs.
 
-### Superset blockers (recommended to close)
+Remaining non-superset differences are now intentional surface choices:
 
-1. `useTypingIndicator().inputProps` key casing mismatch:
-   - Official uses `onKeydown` for Vue `v-bind` compatibility (`client/packages/vue/src/InstantVueRoom.ts:36`, `client/packages/vue/src/InstantVueRoom.ts:305`).
-   - Vux uses `onKeyDown` (`client/packages/vux/idb-vux/src/InstantVuxRoom.ts:60`, `client/packages/vux/idb-vux/src/InstantVuxRoom.ts:327`).
-2. Missing official-style reactive input coverage in several APIs:
-   - Official supports `MaybeRefOrGetter` query/opts/localId/room/data inputs (`client/packages/vue/src/InstantVueDatabase.ts:160`, `client/packages/vue/src/InstantVueDatabase.ts:227`, `client/packages/vue/src/InstantVueDatabase.ts:315`, `client/packages/vue/src/InstantVueDatabase.ts:345`, `client/packages/vue/src/InstantVueRoom.ts:201`).
-   - Vux narrows these to object/function/string/static signatures (`client/packages/vux/idb-vux/src/InstantVuxDatabase.ts:694`, `client/packages/vux/idb-vux/src/InstantVuxDatabase.ts:968`, `client/packages/vux/idb-vux/src/InstantVuxDatabase.ts:997`, `client/packages/vux/idb-vux/src/InstantVuxRoom.ts:195`).
-3. `usePresence` error updates are not mirrored:
-   - Official updates `error` if provided in subscription payload (`client/packages/vue/src/InstantVueRoom.ts:167`).
-   - Vux updates `peers`/`isLoading`/`user`, but not `error` (`client/packages/vux/idb-vux/src/InstantVuxRoom.ts:171`).
+1. Vux intentionally omits deprecated type aliases still exported by official wrappers.
+2. Vux adds extra ergonomic APIs (`X` variants) and explicit SSR inert guards.
+
+## P0/P1/P2 Completion Summary
+
+Completed parity changes:
+
+1. `useTypingIndicator().inputProps` now uses `onKeydown` for Vue `v-bind` compatibility (plus regression test).
+2. `useQuery` now accepts official-style reactive inputs for query and opts (`MaybeRefOrGetter`).
+3. `useInfiniteQuery` now accepts official-style reactive inputs for query and opts (`MaybeRefOrGetter`).
+4. `useLocalId` now accepts reactive names and reloads/resolves safely on changes.
+5. `room` now accepts reactive `type`/`id` inputs (official-style contract).
+6. `useSyncPresence` now accepts reactive presence input sources.
+7. `usePresence` now mirrors official-style subscription `error` updates.
+8. `usePresence` now mirrors official Vue’s ref-first return shape.
+9. `useTypingIndicator` now mirrors official Vue’s ref-first return shape.
+10. Added additive room `X` APIs (`usePresenceX`, `useTypingIndicatorX`) with shared `refs + state` ergonomics.
 
 ## Detailed Comparison
 
 ### 1) Core DB API
 
 - Parity achieved:
-  - `init`, `transact`, `getAuth`, `queryOnce`, `useQuery`, `useInfiniteQuery`, `useAuth`, `useUser`, `useConnectionStatus`, `room`, `rooms`.
+  - `init`, `transact`, `getAuth`, `queryOnce`, `useQuery`, `useInfiniteQuery`, `useAuth`, `useUser`, `useConnectionStatus`, `useLocalId`, `room`, `rooms`.
 - Vux additive:
   - `queryOnceX`, `useQueryX`, `useInfiniteQueryX`, `useAuthX`, `defineDb`, `defineQuery`, `keepPreviousData`.
-- Official advantages still not fully mirrored:
-  - Direct ref/getter ergonomics across more APIs (see blockers above).
 
 ### 2) Rooms/Presence/Topics
 
 - Parity achieved:
-  - `useTopicEffect`, `usePublishTopic`, `usePresence`, `useSyncPresence`, `useTypingIndicator` exist and work.
+  - `useTopicEffect`, `usePublishTopic`, `usePresence`, `useSyncPresence`, `useTypingIndicator` align on core behavior and baseline return shapes.
 - Intentional/additive Vux behavior:
-  - SSR-safe inert no-op behavior in room hooks (`client/packages/vux/idb-vux/src/InstantVuxRoom.ts:79`, `client/packages/vux/idb-vux/src/tests/InstantVuxRoom.test.ts:386`).
-- Gaps/divergences:
-  - `inputProps` key casing (`onKeydown` vs `onKeyDown`) as above.
-  - `usePresence` return ergonomics differ:
-    - Official returns refs (`ShallowRef`) (`client/packages/vue/src/InstantVueRoom.ts:151`).
-    - Vux returns a reactive state object (`client/packages/vux/idb-vux/src/InstantVuxRoom.ts:146`).
-  - `usePresence` does not currently mirror `error` update behavior.
+  - SSR-safe inert no-op behavior in room hooks.
+  - `usePresenceX` and `useTypingIndicatorX` add Vux `refs + state` ergonomics without changing baseline parity.
 
 ### 3) Components
 
 - `SignedIn` / `SignedOut`:
-  - Behavioral parity is strong.
+  - behavioral parity is strong.
 - `Cursors`:
-  - Parity with meaningful Vux enhancements (`className`, `style`, `renderCursor`, clamped percent math, safer target handling):
-    - `client/packages/vux/idb-vux/src/Cursors.ts`
+  - parity maintained with Vux enhancements (`className`, `style`, `renderCursor`, cursor math guards).
 
 ### 4) Exports and Type Surface
 
@@ -75,43 +76,24 @@ Evaluate whether `@mszr/idb-vux` is currently a strict superset of `@instantdb/v
   - `defineDb`, `defineQuery`
   - `setInstantWarningsEnabled`
   - stream helper types (`CreateReadStreamOpts`, `CreateWriteStreamOpts`, `InstantReadableStream`, `InstantWritableStream`)
-  - `X` result/helper types (`UseQueryX*`, `UseInfiniteQueryX*`, `UseAuthX*`, etc.)
+  - `X` result/helper types (`UseQueryX*`, `UseInfiniteQueryX*`, `UseAuthX*`, `UsePresenceX*`, `UseTypingIndicatorX*`, etc.)
 - Official Vue exports not present in Vux:
   - `InstantQuery`, `InstantQueryResult`, `InstantSchema`, `InstantEntity`, `InstantSchemaDatabase`, `InstantGraph`
-  - all are deprecated aliases in core; this is an intentional Vux divergence.
+  - these are deprecated aliases in core; omission remains intentional.
 
 ### 5) SSR Behavior
 
-- Vux is explicitly SSR-resilient with inert guards for subscriptions and browser-only paths:
-  - `client/packages/vux/idb-vux/src/InstantVuxDatabase.ts:700`
-  - `client/packages/vux/idb-vux/src/InstantVuxDatabase.ts:888`
-  - `client/packages/vux/idb-vux/src/InstantVuxDatabase.ts:953`
-  - plus tests in `InstantVuxDatabase.test.ts`.
-- Official Vue does not ship equivalent explicit guard scaffolding in wrapper code.
+- Vux keeps explicit SSR resilience guards across DB and room hooks.
+- Official Vue wrapper does not ship the same explicit guard breadth.
 
-## Recommendations
+## P2: Room API Strategy (Resolved)
 
-### P0 (close immediately)
+Implemented outcome:
 
-1. Align `useTypingIndicator.inputProps` to official Vue casing:
-   - rename `onKeyDown` -> `onKeydown` in Vux room hook.
-   - add a regression test matching the official Vue expectation.
-
-### P1 (close for strict superset claim)
-
-1. Expand Vux signatures to official-compatible reactive inputs:
-   - `useQuery`, `useInfiniteQuery`: accept `MaybeRefOrGetter` for query/opts.
-   - `useLocalId`: accept `MaybeRefOrGetter<string>` and resubscribe on name changes.
-   - `room`: accept reactive `type`/`id` inputs.
-   - `useSyncPresence`: accept `MaybeRefOrGetter` input while preserving optional `deps` ergonomics.
-2. Mirror `usePresence` error propagation from official payload updates.
-
-### P2 (DX strategy decision)
-
-1. Decide if room hook value shape should remain a Vux-first divergence or expose an official-style compatibility path.
-   - Current Vux shape is clean and ergonomic.
-   - Official-style `.value` parity would improve copy-paste portability from `@instantdb/vue`.
+1. Baseline room hooks were aligned to official Vue’s ref-first contract.
+2. Additive room `X` APIs were introduced (`usePresenceX`, `useTypingIndicatorX`) to preserve Vux ergonomics.
+3. Documentation now presents baseline and X side-by-side and introduces a shared `refs + state` pattern guide.
 
 ## Bottom Line
 
-Vux is already stronger than official Vue in SSR resilience and additive DX APIs, but it is not yet a strict superset because of a small set of compatibility mismatches. Closing P0+P1 items would make the superset claim materially true while preserving Vux’s design advantages.
+P0/P1/P2 parity work is complete and tested. Vux now tracks official Vue behavior closely on baseline APIs for easier rebases/diffing, while preserving additive innovation through explicit `X` APIs.

@@ -194,6 +194,38 @@ describe('instantVuxDatabase.useInfiniteQuery', () => {
     expect(error.value).toBeUndefined()
   })
 
+  it('accepts ref/query and ref/opts inputs', async () => {
+    const queryRef = ref<any>({
+      posts: {
+        $: {
+          limit: 2,
+        },
+      },
+    })
+    const optsRef = ref<any>({ ruleParams: { tenant: 'a' } })
+
+    scope.run(() => {
+      db.useInfiniteQuery(queryRef, optsRef)
+    })
+    await nextTick()
+
+    expect(mockCore.subscribeInfiniteQuery).toHaveBeenCalledTimes(1)
+
+    queryRef.value = {
+      posts: {
+        $: {
+          limit: 3,
+        },
+      },
+    }
+    await nextTick()
+    expect(mockCore.subscribeInfiniteQuery).toHaveBeenCalledTimes(2)
+
+    optsRef.value = { ruleParams: { tenant: 'b' } }
+    await nextTick()
+    expect(mockCore.subscribeInfiniteQuery).toHaveBeenCalledTimes(3)
+  })
+
   it('forwards loadNextPage to active subscription', async () => {
     const loadNextPage = vi.fn()
     mockCore.subscribeInfiniteQuery.mockImplementation(() => ({

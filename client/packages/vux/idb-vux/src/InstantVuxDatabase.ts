@@ -19,7 +19,7 @@ import type {
   User,
   ValidQuery,
 } from '@instantdb/core'
-import type { ComputedRef, Ref } from 'vue'
+import type { ComputedRef, MaybeRefOrGetter, Ref } from 'vue'
 import type {
   DefinedQuery,
   QueryAuthoringFactoryForSchema,
@@ -28,27 +28,22 @@ import type {
   TypedQueryForSchema,
 } from './defineQuery.js'
 import {
-
   coerceQuery,
   init as coreInit,
-
   getInfiniteQueryInitialSnapshot,
-
   InstantError,
-
   txInit,
-
 } from '@instantdb/core'
 import {
   computed,
-
   getCurrentScope,
   isRef,
   onScopeDispose,
   reactive,
   readonly,
   ref,
-
+  toValue,
+  watch,
   watchEffect,
 } from 'vue'
 
@@ -615,8 +610,8 @@ export class InstantVuxDatabase<
   }
 
   useInfiniteQuery = <Q extends ValidQuery<Q, Schema>>(
-    query: (() => null | Q) | null | Q,
-    opts?: InstaQLOptions,
+    query: MaybeRefOrGetter<Q | null>,
+    opts?: MaybeRefOrGetter<InstaQLOptions | null | undefined>,
   ): UseInfiniteQueryResult<Schema, Q, UseDates> => {
     let activeSub: InfiniteQuerySubscription | null = null
 
@@ -634,8 +629,8 @@ export class InstantVuxDatabase<
     }
 
     const stop = watchEffect((onCleanup) => {
-      const resolvedQuery
-        = typeof query === 'function' ? (query as () => null | Q)() : query
+      const resolvedQuery = toValue(query)
+      const resolvedOpts = toValue(opts)
 
       activeSub = null
       state.isLoading = true
@@ -650,7 +645,7 @@ export class InstantVuxDatabase<
       const snapshot = getInfiniteQueryInitialSnapshot<Schema, Q, UseDates>(
         this.core,
         resolvedQuery,
-        opts,
+        resolvedOpts ?? undefined,
       ) as
       | InfiniteQueryCallbackResponse<Schema, Q, UseDates>
       | {
@@ -672,7 +667,7 @@ export class InstantVuxDatabase<
           state.canLoadNextPage = result.canLoadNextPage
           state.isLoading = false
         },
-        opts,
+        resolvedOpts ?? undefined,
       )
 
       activeSub = sub
@@ -691,8 +686,8 @@ export class InstantVuxDatabase<
   }
 
   useQuery = <Q extends ValidQuery<Q, Schema>>(
-    query: (() => null | Q) | null | Q,
-    opts?: UseQueryOptions,
+    query: MaybeRefOrGetter<Q | null>,
+    opts?: MaybeRefOrGetter<UseQueryOptions | null | undefined>,
   ): UseQueryResult<Schema, Q, UseDates> => {
     const state = reactive({ ...defaultState }) as UseQueryState<Schema, Q, UseDates>
     const refs = createUseQueryResultRefs(state)
@@ -702,8 +697,8 @@ export class InstantVuxDatabase<
     }
 
     const stop = watchEffect((onCleanup) => {
-      const resolvedQuery
-        = typeof query === 'function' ? (query as () => null | Q)() : query
+      const resolvedQuery = toValue(query)
+      const resolvedOpts = toValue(opts)
 
       if (!resolvedQuery) {
         state.isLoading = true
@@ -714,9 +709,9 @@ export class InstantVuxDatabase<
       }
 
       let nextQuery = resolvedQuery
-      if (opts && 'ruleParams' in opts) {
+      if (resolvedOpts && 'ruleParams' in resolvedOpts) {
         nextQuery = {
-          $$ruleParams: (opts as any).ruleParams,
+          $$ruleParams: (resolvedOpts as any).ruleParams,
           ...nextQuery,
         }
       }
@@ -725,7 +720,7 @@ export class InstantVuxDatabase<
       const prev = this.core._reactor.getPreviousResult?.(coerced)
       const prevState = stateForResult(prev)
       state.isLoading = prevState.isLoading
-      if (prev || !opts?.keepPreviousData) {
+      if (prev || !resolvedOpts?.keepPreviousData) {
         state.data = prevState.data
         state.pageInfo = prevState.pageInfo
       }
@@ -965,7 +960,7 @@ export class InstantVuxDatabase<
     return readonly(status)
   }
 
-  useLocalId = (name: string): Readonly<Ref<string | null>> => {
+  useLocalId = (name: MaybeRefOrGetter<string>): Readonly<Ref<string | null>> => {
     const localId = ref<string | null>(null)
 
     if (isServerRuntime() || !isReactorReadyForSubscriptions(this.core)) {
@@ -973,31 +968,55 @@ export class InstantVuxDatabase<
     }
 
     let mounted = true
+    let requestVersion = 0
 
-    this.getLocalId(name)
-      .then((resolvedId) => {
-        if (mounted) {
-          localId.value = resolvedId
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          localId.value = null
-        }
-      })
+    const stop = watch(
+      () => toValue(name),
+      (currentName) => {
+        requestVersion += 1
+        const currentRequestVersion = requestVersion
+
+        this.getLocalId(currentName)
+          .then((resolvedId) => {
+            if (!mounted || currentRequestVersion !== requestVersion) {
+              return
+            }
+
+            localId.value = resolvedId
+          })
+          .catch(() => {
+            if (!mounted || currentRequestVersion !== requestVersion) {
+              return
+            }
+
+            localId.value = null
+          })
+      },
+      { immediate: true },
+    )
 
     attachScopeCleanup(() => {
       mounted = false
+      stop()
     })
 
     return readonly(localId)
   }
 
-  room<RoomType extends keyof Rooms>(
-    type: RoomType = '_defaultRoomType' as RoomType,
-    id: string = '_defaultRoomId',
+  room<RoomType extends string & keyof Rooms>(
+    type?: MaybeRefOrGetter<RoomType | undefined>,
+    id?: MaybeRefOrGetter<string | undefined>,
   ) {
-    return new InstantVuxRoom<Schema, Rooms, RoomType>(this.core, type, id)
+    const resolvedType = computed(
+      () => (toValue(type) ?? '_defaultRoomType') as RoomType,
+    )
+    const resolvedId = computed(() => toValue(id) ?? '_defaultRoomId')
+
+    return new InstantVuxRoom<Schema, Rooms, RoomType>(
+      this.core,
+      resolvedType,
+      resolvedId,
+    )
   }
 
   rooms = rooms

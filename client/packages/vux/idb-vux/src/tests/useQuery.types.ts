@@ -1,6 +1,7 @@
 import type { ValidQuery } from '@instantdb/core'
 import type { InstantVuxDatabase } from '../InstantVuxDatabase.js'
 import { i } from '@instantdb/core'
+import { ref } from 'vue'
 
 const schema = i.schema({
   entities: {
@@ -97,10 +98,35 @@ const usersByNameState = db.useQuery({
 
 const firstUserNameFromConst: string | undefined = usersByNameState.data.value?.users[0]?.name
 
+const queryRef = ref<null | {
+  quests: {
+    assignee: {}
+    $: {
+      where: {
+        status: string
+      }
+    }
+  }
+}>({
+  quests: {
+    assignee: {},
+    $: {
+      where: {
+        status: 'queued',
+      },
+    },
+  },
+})
+
+const optsRef = ref({ keepPreviousData: true })
+const queryFromRefState = db.useQuery(queryRef, optsRef)
+const queryFromRefTitle: string | undefined = queryFromRefState.data.value?.quests[0]?.title
+
 void firstQuestTitleFromConst
 void firstAssigneeEmailFromConst
 void firstQuestTitleFromFactory
 void firstAssigneeEmailFromFactory
 void firstUserNameFromConst
+void queryFromRefTitle
 void loadingFromDestructuredRef
 void errorFromDestructuredRef

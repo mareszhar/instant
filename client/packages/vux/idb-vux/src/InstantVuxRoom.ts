@@ -5,10 +5,19 @@ import type {
   PresenceResponse,
   RoomSchemaShape,
 } from '@instantdb/core'
+import type {
+  ComputedRef,
+  MaybeRefOrGetter,
+  Ref,
+  ShallowRef,
+} from 'vue'
 import {
   getCurrentScope,
+  isRef,
   onScopeDispose,
   reactive,
+  shallowRef,
+  toValue,
   watchEffect,
 } from 'vue'
 
@@ -40,11 +49,75 @@ function attachScopeCleanup(cleanup: () => void) {
   }
 }
 
+type RefLike<T = unknown>
+  = | Ref<T>
+    | ShallowRef<T>
+    | ComputedRef<T>
+
+type StateFromRefs<Refs extends object> = {
+  [K in keyof Refs]: Refs[K] extends RefLike<infer V> ? V : Refs[K]
+}
+
+function createXResult<
+  Refs extends object,
+>(
+  refs: Refs,
+): Refs & {
+  refs: Refs
+  state: StateFromRefs<Refs>
+} {
+  const refsObject = refs as Record<string, unknown>
+  const stateBaseTarget = {} as Record<string, unknown>
+
+  for (const key of Object.keys(refsObject)) {
+    Object.defineProperty(stateBaseTarget, key, {
+      enumerable: true,
+      configurable: true,
+      get() {
+        const value = refsObject[key]
+        return isRef(value) ? value.value : value
+      },
+    })
+  }
+
+  const state = reactive(stateBaseTarget) as StateFromRefs<Refs>
+  const result = refs as Refs & { refs: Refs, state: StateFromRefs<Refs> }
+  result.refs = refs
+  result.state = state
+
+  return result
+}
+
+// ------
+// Types
+
 export type PresenceHandle<
   PresenceShape,
   Keys extends keyof PresenceShape,
-> = PresenceResponse<PresenceShape, Keys> & {
+> = {
+  [K in keyof PresenceResponse<PresenceShape, Keys>]: ShallowRef<
+    PresenceResponse<PresenceShape, Keys>[K]
+  >
+} & {
   publishPresence: (data: Partial<PresenceShape>) => void
+}
+
+export type UsePresenceXRefs<
+  PresenceShape,
+  Keys extends keyof PresenceShape,
+> = PresenceHandle<PresenceShape, Keys>
+
+export type UsePresenceXState<
+  PresenceShape,
+  Keys extends keyof PresenceShape,
+> = StateFromRefs<UsePresenceXRefs<PresenceShape, Keys>>
+
+export type UsePresenceXResult<
+  PresenceShape,
+  Keys extends keyof PresenceShape,
+> = UsePresenceXRefs<PresenceShape, Keys> & {
+  refs: UsePresenceXRefs<PresenceShape, Keys>
+  state: UsePresenceXState<PresenceShape, Keys>
 }
 
 export interface TypingIndicatorOpts {
@@ -54,15 +127,34 @@ export interface TypingIndicatorOpts {
 }
 
 export interface TypingIndicatorHandle<PresenceShape> {
-  active: PresenceShape[]
+  active: Ref<PresenceShape[]>
   setActive: (active: boolean) => void
   inputProps: {
-    onKeyDown: (e: KeyboardEvent) => void
+    /**
+     * Listener key is lowercased so Vue's v-bind spread maps it to the native
+     * `keydown` event instead of a non-existent `key-down` listener.
+     */
+    onKeydown: (e: KeyboardEvent) => void
     onBlur: () => void
   }
 }
 
+export type UseTypingIndicatorXRefs<PresenceShape>
+  = TypingIndicatorHandle<PresenceShape>
+
+export type UseTypingIndicatorXState<PresenceShape>
+  = StateFromRefs<UseTypingIndicatorXRefs<PresenceShape>>
+
+export type UseTypingIndicatorXResult<PresenceShape>
+  = UseTypingIndicatorXRefs<PresenceShape> & {
+    refs: UseTypingIndicatorXRefs<PresenceShape>
+    state: UseTypingIndicatorXState<PresenceShape>
+  }
+
 export const defaultActivityStopTimeout = 1_000
+
+// ------
+// Topics
 
 export function useTopicEffect<
   RoomSchema extends RoomSchemaShape,
@@ -81,9 +173,12 @@ export function useTopicEffect<
   }
 
   const stop = watchEffect((onCleanup) => {
+    const roomType = toValue(room.type)
+    const roomId = toValue(room.id)
+
     const unsub = room.core._reactor.subscribeTopic(
-      room.type,
-      room.id,
+      roomType,
+      roomId,
       topic,
       (event: any, peer: any) => {
         onEvent(event, peer)
@@ -105,11 +200,13 @@ export function usePublishTopic<
   topic: TopicType,
 ): (data: RoomSchema[RoomType]['topics'][TopicType]) => void {
   if (isServerRuntime() || !hasRoomReactor(room)) {
-    return () => { }
+    return () => {}
   }
 
   const stop = watchEffect((onCleanup) => {
-    const unsub = room.core._reactor.joinRoom(room.type as string, room.id)
+    const roomType = toValue(room.type)
+    const roomId = toValue(room.id)
+    const unsub = room.core._reactor.joinRoom(roomType as string, roomId)
     onCleanup(unsub)
   })
 
@@ -117,13 +214,16 @@ export function usePublishTopic<
 
   return (data: RoomSchema[RoomType]['topics'][TopicType]) => {
     room.core._reactor.publishTopic({
-      roomType: room.type,
-      roomId: room.id,
+      roomType: toValue(room.type),
+      roomId: toValue(room.id),
       topic,
       data,
     })
   }
 }
+
+// ---------
+// Presence
 
 export function usePresence<
   RoomSchema extends RoomSchemaShape,
@@ -133,48 +233,62 @@ export function usePresence<
   room: InstantVuxRoom<any, RoomSchema, RoomType>,
   opts: PresenceOpts<RoomSchema[RoomType]['presence'], Keys> = {},
 ): PresenceHandle<RoomSchema[RoomType]['presence'], Keys> {
-  const fallback = {
-    peers: {},
-    isLoading: true,
-  } as PresenceResponse<RoomSchema[RoomType]['presence'], Keys>
-
   const initial = hasRoomReactor(room)
-    ? ((room.core._reactor.getPresence(room.type, room.id, opts)
-      ?? fallback) as PresenceResponse<RoomSchema[RoomType]['presence'], Keys>)
-    : fallback
+    ? ((room.core._reactor.getPresence(
+        toValue(room.type),
+        toValue(room.id),
+        opts,
+      ) ?? {
+        peers: {},
+        isLoading: true,
+      }) as PresenceResponse<RoomSchema[RoomType]['presence'], Keys>)
+    : ({
+        peers: {},
+        isLoading: true,
+      } as PresenceResponse<RoomSchema[RoomType]['presence'], Keys>)
 
-  const state = reactive({
-    ...initial,
-    publishPresence: (data: Partial<RoomSchema[RoomType]['presence']>) => {
-      if (!hasRoomReactor(room) || isServerRuntime()) {
-        return
-      }
+  const peers = shallowRef(initial.peers)
+  const isLoading = shallowRef(initial.isLoading)
+  const user = shallowRef<any>((initial as any).user)
+  const error = shallowRef<any>((initial as any).error)
 
-      room.core._reactor.publishPresence(room.type, room.id, data)
-    },
-  }) as PresenceHandle<RoomSchema[RoomType]['presence'], Keys>
+  const publishPresence = (data: Partial<RoomSchema[RoomType]['presence']>) => {
+    if (isServerRuntime() || !hasRoomReactor(room)) {
+      return
+    }
+
+    room.core._reactor.publishPresence(
+      toValue(room.type),
+      toValue(room.id),
+      data,
+    )
+  }
 
   if (isServerRuntime() || !hasRoomReactor(room)) {
-    return state
+    return {
+      peers,
+      isLoading,
+      user,
+      error,
+      publishPresence,
+    } as PresenceHandle<RoomSchema[RoomType]['presence'], Keys>
   }
 
   const stop = watchEffect((onCleanup) => {
-    void opts.user
-    void opts.peers?.join('|')
-    void opts.keys?.join('|')
-    void JSON.stringify(opts.initialPresence ?? null)
-
+    const roomType = toValue(room.type)
+    const roomId = toValue(room.id)
     const unsub = room.core._reactor.subscribePresence(
-      room.type,
-      room.id,
+      roomType,
+      roomId,
       opts,
       (data: any) => {
-        state.peers = data.peers
-        state.isLoading = data.isLoading
-
+        peers.value = data.peers
+        isLoading.value = data.isLoading
         if ('user' in data) {
-          const mutableState = state as any
-          mutableState.user = data.user
+          user.value = data.user
+        }
+        if ('error' in data) {
+          error.value = data.error
         }
       },
     )
@@ -184,7 +298,25 @@ export function usePresence<
 
   attachScopeCleanup(stop)
 
-  return state
+  return {
+    peers,
+    isLoading,
+    user,
+    error,
+    publishPresence,
+  } as PresenceHandle<RoomSchema[RoomType]['presence'], Keys>
+}
+
+export function usePresenceX<
+  RoomSchema extends RoomSchemaShape,
+  RoomType extends keyof RoomSchema,
+  Keys extends keyof RoomSchema[RoomType]['presence'],
+>(
+  room: InstantVuxRoom<any, RoomSchema, RoomType>,
+  opts: PresenceOpts<RoomSchema[RoomType]['presence'], Keys> = {},
+): UsePresenceXResult<RoomSchema[RoomType]['presence'], Keys> {
+  const refs = usePresence(room, opts)
+  return createXResult(refs)
 }
 
 export function useSyncPresence<
@@ -192,42 +324,34 @@ export function useSyncPresence<
   RoomType extends keyof RoomSchema,
 >(
   room: InstantVuxRoom<any, RoomSchema, RoomType>,
-  data: Partial<RoomSchema[RoomType]['presence']>,
-  deps?: any[],
+  data: MaybeRefOrGetter<Partial<RoomSchema[RoomType]['presence']>>,
 ): void {
   if (isServerRuntime() || !hasRoomReactor(room)) {
     return
   }
 
   const joinStop = watchEffect((onCleanup) => {
-    const unsub = room.core._reactor.joinRoom(
-      room.type as string,
-      room.id,
-      data,
-    )
-
+    const roomType = toValue(room.type) as string
+    const roomId = toValue(room.id)
+    const unsub = room.core._reactor.joinRoom(roomType, roomId, toValue(data))
     onCleanup(unsub)
   })
 
   attachScopeCleanup(joinStop)
 
   const syncStop = watchEffect(() => {
-    if (deps) {
-      deps.forEach((dep) => {
-        if (typeof dep === 'function') {
-          dep()
-        }
-      })
-    }
-    else {
-      JSON.stringify(data)
-    }
-
-    room.core._reactor.publishPresence(room.type, room.id, data)
+    room.core._reactor.publishPresence(
+      toValue(room.type),
+      toValue(room.id),
+      toValue(data),
+    )
   })
 
   attachScopeCleanup(syncStop)
 }
+
+// -----------------
+// Typing indicator
 
 export function useTypingIndicator<
   RoomSchema extends RoomSchemaShape,
@@ -237,13 +361,15 @@ export function useTypingIndicator<
   inputName: string,
   opts: TypingIndicatorOpts = {},
 ): TypingIndicatorHandle<RoomSchema[RoomType]['presence']> {
+  const active = shallowRef<RoomSchema[RoomType]['presence'][]>([])
+
   if (isServerRuntime() || !hasRoomReactor(room)) {
     return {
-      active: [],
-      setActive() { },
+      active,
+      setActive() {},
       inputProps: {
-        onKeyDown() { },
-        onBlur() { },
+        onKeydown() {},
+        onBlur() {},
       },
     }
   }
@@ -254,28 +380,27 @@ export function useTypingIndicator<
     keys: [inputName] as (keyof RoomSchema[RoomType]['presence'])[],
   })
 
-  const state = reactive({
-    active: [] as RoomSchema[RoomType]['presence'][],
-  })
-
   const activeStop = watchEffect(() => {
-    if (opts.writeOnly) {
-      state.active = []
+    if (opts?.writeOnly) {
+      active.value = []
       return
     }
 
-    void presence.peers
-
-    const presenceSnapshot = room.core._reactor.getPresence(room.type, room.id)
-    state.active = Object.values(presenceSnapshot?.peers ?? {}).filter(
+    // Track peers so we re-run when presence updates
+    void presence.peers.value
+    const snapshot = room.core._reactor.getPresence(
+      toValue(room.type),
+      toValue(room.id),
+    )
+    active.value = Object.values(snapshot?.peers ?? {}).filter(
       (peer: any) => peer[inputName] === true,
-    ) as typeof state.active
+    )
   })
 
   attachScopeCleanup(activeStop)
 
   const setActive = (isActive: boolean) => {
-    room.core._reactor.publishPresence(room.type, room.id, {
+    room.core._reactor.publishPresence(toValue(room.type), toValue(room.id), {
       [inputName]: isActive ? true : null,
     } as Partial<RoomSchema[RoomType]['presence']>)
 
@@ -288,15 +413,15 @@ export function useTypingIndicator<
       return
     }
 
-    if (opts.timeout === null || opts.timeout === 0) {
+    if (opts?.timeout === null || opts?.timeout === 0) {
       return
     }
 
     timeoutId = setTimeout(() => {
-      room.core._reactor.publishPresence(room.type, room.id, {
+      room.core._reactor.publishPresence(toValue(room.type), toValue(room.id), {
         [inputName]: null,
       } as Partial<RoomSchema[RoomType]['presence']>)
-    }, opts.timeout ?? defaultActivityStopTimeout)
+    }, opts?.timeout ?? defaultActivityStopTimeout)
   }
 
   if (getCurrentScope()) {
@@ -306,12 +431,13 @@ export function useTypingIndicator<
         timeoutId = null
       }
 
+      // Clear sticky typing state on dispose, including timeout-disabled modes.
       setActive(false)
     })
   }
 
-  const onKeyDown = (event: KeyboardEvent) => {
-    const shouldStop = opts.stopOnEnter && event.key === 'Enter'
+  const onKeydown = (event: KeyboardEvent) => {
+    const shouldStop = opts?.stopOnEnter && event.key === 'Enter'
     setActive(!shouldStop)
   }
 
@@ -320,21 +446,39 @@ export function useTypingIndicator<
   }
 
   return {
-    get active() {
-      return state.active
-    },
+    active,
     setActive,
-    inputProps: { onKeyDown, onBlur },
+    inputProps: { onKeydown, onBlur },
   }
 }
+
+export function useTypingIndicatorX<
+  RoomSchema extends RoomSchemaShape,
+  RoomType extends keyof RoomSchema,
+>(
+  room: InstantVuxRoom<any, RoomSchema, RoomType>,
+  inputName: string,
+  opts: TypingIndicatorOpts = {},
+): UseTypingIndicatorXResult<RoomSchema[RoomType]['presence']> {
+  const refs = useTypingIndicator(room, inputName, opts)
+  return createXResult(refs)
+}
+
+// --------------
+// Hooks namespace
 
 export const rooms = {
   useTopicEffect,
   usePublishTopic,
   usePresence,
+  usePresenceX,
   useSyncPresence,
   useTypingIndicator,
+  useTypingIndicatorX,
 }
+
+// ------------
+// Class
 
 export class InstantVuxRoom<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -342,13 +486,13 @@ export class InstantVuxRoom<
   RoomType extends keyof RoomSchema,
 > {
   core: InstantCoreDatabase<Schema, boolean>
-  type: RoomType
-  id: string
+  type: ComputedRef<RoomType> | RoomType
+  id: ComputedRef<string> | string
 
   constructor(
     core: InstantCoreDatabase<Schema, boolean>,
-    type: RoomType,
-    id: string,
+    type: ComputedRef<RoomType> | RoomType,
+    id: ComputedRef<string> | string,
   ) {
     this.core = core
     this.type = type
