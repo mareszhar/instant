@@ -48,7 +48,7 @@ Legend: `yes` = implemented, `partial` = implemented with reduced scope, `no` = 
 | Stream helper type exports + `setInstantWarningsEnabled` | yes | no | no | no | yes | yes | Vux intentionally tracks React-family stream/warnings export completeness. |
 | Typing indicator `v-bind` listener key compatibility (`onKeydown`) | no | yes | n/a | n/a | n/a | n/a | Official Vue lowercases key to avoid Vue hyphenation pitfalls. |
 | Deprecated helper type aliases (`InstantQuery`, `InstantQueryResult`, `InstantSchema`, `InstantSchemaDatabase`, `InstantEntity`, `InstantGraph`) | no (intentional) | yes | yes | yes | yes | yes | In core these are `@deprecated`; Vux intentionally omits them. |
-| Vux-first typed query authoring (`defineQuery`, `useQueryX`, `useInfiniteQueryX`) | yes | no | no | no | no | no | Vux advantage; not a parity gap. |
+| Vux-first typed query authoring (`defineQuery`, `queryOnceX`, `useQueryX`, `useInfiniteQueryX`) | yes | no | no | no | no | no | Vux advantage; not a parity gap. |
 | SSR-safe inert guards for accidental server execution | yes | no explicit wrapper guards | no explicit wrapper guards | no explicit wrapper guards | partial (SSR snapshots + dedicated Next entrypoint) | mostly N/A | Vux advantage for resilience-first behavior. |
 
 ## Detailed Gap Findings
@@ -109,7 +109,7 @@ Impact:
 
 ## Non-Gaps / Vux Advantages
 
-- Additive typed query ergonomics (`defineQuery`, `useQueryX`, `useInfiniteQueryX`, `queryOnceX`) with contract tests.
+- Additive typed query ergonomics (`defineQuery`, `useQueryX`, `useInfiniteQueryX`, `queryOnceX`, `useAuthX`, `defineDb`) with contract tests.
 - `keepPreviousData` continuity path for query transitions.
 - SSR resilience contract with inert no-op guards and broad server-runtime tests.
 - Cursors component customization surface beyond official Vue (`className`, `style`, `renderCursor`).
