@@ -1,12 +1,11 @@
 export const useAccessStore = defineStore('access', () => {
   const db = useDb()
   const proxySafeDb = markRaw(db)
-
-  const { state: auth } = db.useAuthX()
   const connectionStatus = db.useConnectionStatus()
   const localId = db.useLocalId('idb-vux-demo-device')
   const appId = useRuntimeConfig().public.instantAppId ?? ''
 
+  const { state: auth } = db.useAuthX()
   const userLabel = computed(() => {
     return auth.user
       ? (auth.user.email ?? `Guest-${auth.user.id.slice(-6)}`)
@@ -57,10 +56,10 @@ export const useAccessStore = defineStore('access', () => {
 
   return {
     proxySafeDb,
-    auth,
     connectionStatus,
     localId,
     appId,
+    auth,
     userLabel,
     form,
     signInAsGuest,

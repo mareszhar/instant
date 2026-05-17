@@ -9,7 +9,7 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     feedback: null as Feedback | null,
   })
 
-  const { isLoading: queryIsLoading, error: queryError, workspaces: availableWorkspaces } = db.useQueryX(() => q({
+  const { isLoading, error, workspaces: available } = db.useQueryX(() => q({
     workspaces: {
       $: {
         where: { 'memberships.user.id': access.auth.user?.id ?? $skip },
@@ -20,11 +20,11 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
   }))
 
   const requestedInviteCode = useSessionStorage('requested-workspace-invite-code', '')
-  const requestWorkspace = (inviteCode: string) => requestedInviteCode.value = inviteCode
+  const request = (inviteCode: string) => requestedInviteCode.value = inviteCode
   const current = computed(() => {
     return !requestedInviteCode.value
       ? null
-      : availableWorkspaces.value.find(workspace => workspace.inviteCode === requestedInviteCode.value) ?? null
+      : available.value.find(workspace => workspace.inviteCode === requestedInviteCode.value) ?? null
   })
 
   function startProcessingForm() {
@@ -32,7 +32,7 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     form.feedback = null
   }
 
-  async function createWorkspace() {
+  async function create() {
     if (!access.auth.user?.id || !form.name || form.isProcessing)
       return
 
@@ -65,12 +65,12 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     form.isProcessing = false
   }
 
-  async function joinWorkspace() {
+  async function join() {
     if (!access.auth.user?.id || !form.inviteCode || form.isProcessing)
       return
 
     startProcessingForm()
-    const alreadyJoined = availableWorkspaces.value.find(workspace => workspace.inviteCode === form.inviteCode)
+    const alreadyJoined = available.value.find(workspace => workspace.inviteCode === form.inviteCode)
     let errorJoiningWorkspace: Error | undefined
 
     if (!alreadyJoined) {
@@ -95,7 +95,7 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     form.isProcessing = false
   }
 
-  async function deleteWorkspace(workspaceId: string) {
+  async function remove(workspaceId: string) {
     if (form.isProcessing)
       return
 
@@ -124,15 +124,15 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
 
   return {
     form,
-    queryIsLoading,
-    queryError,
-    availableWorkspaces,
+    isLoading,
+    error,
+    available,
     requestedInviteCode,
-    requestWorkspace,
+    request,
     current,
-    createWorkspace,
-    joinWorkspace,
-    deleteWorkspace,
+    create,
+    join,
+    remove,
     copyingFeedback,
     copyInviteCode,
   }

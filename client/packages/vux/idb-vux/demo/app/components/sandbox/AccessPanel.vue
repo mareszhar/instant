@@ -9,10 +9,10 @@ section.card.demo-access
   p.alert(v-if="feedback" :class="feedback.tone") {{ feedback.text }}
   p.muted(v-else)
     template(v-if="!access.auth.user?.id") Sign in to create or join a workspace.
-    template(v-else-if="workspaces.queryIsLoading") Loading workspaces...
-    template(v-else-if="workspaces.queryError") Error loading workspaces: {{ formatError(workspaces.queryError) }}
-    template(v-else-if="!workspaces.availableWorkspaces.length") No workspaces found. Create or join a workspace to continue.
-    template(v-else) {{ workspaces.availableWorkspaces.length }} workspace{{ workspaces.availableWorkspaces.length === 1 ? '' : 's' }} available.
+    template(v-else-if="workspaces.isLoading") Loading workspaces...
+    template(v-else-if="workspaces.error") Error loading workspaces: {{ formatError(workspaces.error) }}
+    template(v-else-if="!workspaces.available.length") No workspaces found. Create or join a workspace to continue.
+    template(v-else) {{ workspaces.available.length }} workspace{{ workspaces.available.length === 1 ? '' : 's' }} available.
 
   SignedOut(:db="access.proxySafeDb")
     .stack
@@ -69,7 +69,7 @@ section.card.demo-access
         span.inline-value {{ access.auth.user.id }}
 
     .demo-two-col
-      form.stack(@submit.prevent="workspaces.createWorkspace")
+      form.stack(@submit.prevent="workspaces.create")
         h4 Create workspace
         label.field
           span Name
@@ -84,7 +84,7 @@ section.card.demo-access
           :disabled="!workspaces.form.name || workspaces.form.isProcessing"
         ) Create
 
-      form.stack(@submit.prevent="workspaces.joinWorkspace")
+      form.stack(@submit.prevent="workspaces.join")
         h4 Join workspace
         label.field
           span Invite code
@@ -99,10 +99,10 @@ section.card.demo-access
           :disabled="!workspaces.form.inviteCode || workspaces.form.isProcessing"
         ) Join
 
-    .stack(v-if="workspaces.availableWorkspaces.length")
+    .stack(v-if="workspaces.available.length")
       h4 Your workspaces
       ul.task-list.demo-workspace-list
-        li(v-for="workspace in workspaces.availableWorkspaces" :key="workspace.id")
+        li(v-for="workspace in workspaces.available" :key="workspace.id")
           .workspace(:class="{ 'demo-workspace--active': workspace.id === workspaces.current?.id }")
             .workspace__main
               p.title {{ workspace.name }}
@@ -117,12 +117,12 @@ section.card.demo-access
               button.btn.secondary.compact(
                 v-if="workspace.id !== workspaces.current?.id"
                 type="button"
-                @click="workspaces.requestWorkspace(workspace.inviteCode)"
+                @click="workspaces.request(workspace.inviteCode)"
               ) Open
               button.btn.danger.compact(
                 type="button"
                 :disabled="workspaces.form.isProcessing"
-                @click="workspaces.deleteWorkspace(workspace.id)"
+                @click="workspaces.remove(workspace.id)"
               ) Delete
 </template>
 

@@ -9,7 +9,8 @@ main.app-shell.page
   MissingConfigPanel(v-if="!access.hasDatabase")
 
   template(v-else)
-    AccessPanel
+    //- AccessPanel
+    SandboxAccessPanel
 
     section.card(v-if="access.isSignedIn && !access.activeWorkspaceId")
       h3 Pick a Workspace
