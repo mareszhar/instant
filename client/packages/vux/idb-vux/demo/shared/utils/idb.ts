@@ -11,6 +11,7 @@ export type { AppSchema }
 
 export { id, lookup } from '@mszr/idb-vux'
 export const q = defineQuery<AppSchema>()
+export const $skip = undefined
 
 export function createInviteCode(length = 8): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -19,15 +20,6 @@ export function createInviteCode(length = 8): string {
     return alphabet[index]
   })
   return chars.join('')
-}
-
-export function formatError(error: unknown): string {
-  if (!error || typeof error !== 'object') {
-    return 'Unexpected error'
-  }
-
-  const maybe = error as { body?: { message?: string }, message?: string }
-  return maybe.body?.message ?? maybe.message ?? 'Unexpected error'
 }
 
 export function toConnectionLabel(status: ConnectionStatus): string {
