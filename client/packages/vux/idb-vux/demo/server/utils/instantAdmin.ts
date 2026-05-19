@@ -51,7 +51,7 @@ export function getAdminDb(event: H3Event<EventHandlerRequest>) {
   return adminDb
 }
 
-export function getSyncedInstantUser(
+export async function getSyncedInstantUser(
   event: H3Event<EventHandlerRequest>,
 ): Promise<SyncedInstantUser | null> {
   const runtimeConfig = useRuntimeConfig(event)
