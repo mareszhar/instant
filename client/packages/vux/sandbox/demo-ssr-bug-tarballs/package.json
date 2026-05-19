@@ -19,20 +19,20 @@
     "@instantdb/core": "file:../../packs/instantdb-core-0.0.0.tgz",
     "@instantdb/version": "file:../../packs/instantdb-version-0.0.0.tgz",
     "@mszr/idb-vux": "file:../../packs/mszr-idb-vux-0.1.0.tgz",
-    "nuxt": "^4.4.5",
+    "nuxt": "^4.4.6",
     "vue": "^3.5.34",
     "vue-router": "^5.0.7"
   },
   "devDependencies": {
     "@pinia/nuxt": "^0.11.3",
-    "@vue/language-plugin-pug": "^3.2.9",
+    "@vue/language-plugin-pug": "^3.3.0",
     "@vueuse/core": "^14.3.0",
     "@vueuse/nuxt": "^14.3.0",
     "pinia": "^3.0.4",
     "pug": "^3.0.4",
     "stylus": "^0.64.0",
     "typescript": "^6.0.3",
-    "vue-tsc": "^3.2.9"
+    "vue-tsc": "^3.3.0"
   },
   "overrides": {
     "@instantdb/core": "file:../../packs/instantdb-core-0.0.0.tgz",
