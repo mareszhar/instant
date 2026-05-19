@@ -195,9 +195,9 @@ q({
 
 declare const db: InstantVuxDatabase<Schema, false>
 
-const queryStateFromConst = db.useQuery(transparentQuery)
-const firstAssigneeIdFromConst: string | undefined = queryStateFromConst.data.value?.quests[0]?.assignee?.id
-const firstQuestTitleFromConst: string | undefined = queryStateFromConst.data.value?.quests[0]?.title
+const queryFromConst = db.useQuery(transparentQuery)
+const firstAssigneeIdFromConst: string | undefined = queryFromConst.data.value?.quests[0]?.assignee?.id
+const firstQuestTitleFromConst: string | undefined = queryFromConst.data.value?.quests[0]?.title
 
 const factoryQuery = q({
   quests: {
@@ -210,12 +210,12 @@ const factoryQuery = q({
   },
 })
 
-const queryStateFromFactory = db.useQuery(() => factoryQuery)
+const queryFromFactory = db.useQuery(() => factoryQuery)
 
-const firstAssigneeIdFromFactory: string | undefined = queryStateFromFactory.data.value?.quests[0]?.assignee?.id
-const firstQuestTitleFromFactory: string | undefined = queryStateFromFactory.data.value?.quests[0]?.title
+const firstAssigneeIdFromFactory: string | undefined = queryFromFactory.data.value?.quests[0]?.assignee?.id
+const firstQuestTitleFromFactory: string | undefined = queryFromFactory.data.value?.quests[0]?.title
 
-const queryStateFromInlineQ = db.useQuery(() => q({
+const queryFromInlineQ = db.useQuery(() => q({
   quests: {
     assignee: {},
     $: {
@@ -226,8 +226,8 @@ const queryStateFromInlineQ = db.useQuery(() => q({
   },
 }))
 
-const firstAssigneeIdFromInlineQ: string | undefined = queryStateFromInlineQ.data.value?.quests[0]?.assignee?.id
-const firstQuestTitleFromInlineQ: string | undefined = queryStateFromInlineQ.data.value?.quests[0]?.title
+const firstAssigneeIdFromInlineQ: string | undefined = queryFromInlineQ.data.value?.quests[0]?.assignee?.id
+const firstQuestTitleFromInlineQ: string | undefined = queryFromInlineQ.data.value?.quests[0]?.title
 
 declare const maybeAssigneeId: string | undefined
 const queryWithOptionalWhereValue = q({
@@ -242,9 +242,9 @@ const queryWithOptionalWhereValue = q({
   },
 })
 
-const queryStateFromOptionalWhereValue = db.useQuery(() => queryWithOptionalWhereValue)
-const firstAssigneeIdFromOptionalWhereValue: string | undefined = queryStateFromOptionalWhereValue.data.value?.quests[0]?.assignee?.id
-const firstQuestTitleFromOptionalWhereValue: string | undefined = queryStateFromOptionalWhereValue.data.value?.quests[0]?.title
+const queryFromOptionalWhereValue = db.useQuery(() => queryWithOptionalWhereValue)
+const firstAssigneeIdFromOptionalWhereValue: string | undefined = queryFromOptionalWhereValue.data.value?.quests[0]?.assignee?.id
+const firstQuestTitleFromOptionalWhereValue: string | undefined = queryFromOptionalWhereValue.data.value?.quests[0]?.title
 
 void firstAssigneeIdFromConst
 void firstQuestTitleFromConst

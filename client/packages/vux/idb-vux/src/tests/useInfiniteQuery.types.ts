@@ -21,7 +21,7 @@ type Schema = typeof schema
 
 declare const db: InstantVuxDatabase<Schema, false>
 
-const infiniteState = db.useInfiniteQuery({
+const infiniteQuery = db.useInfiniteQuery({
   posts: {
     $: {
       limit: 20,
@@ -32,15 +32,15 @@ const infiniteState = db.useInfiniteQuery({
   },
 })
 
-const { isLoading, error, data, canLoadNextPage } = infiniteState
+const { isLoading, error, data, canLoadNextPage } = infiniteQuery
 const firstTitle: string | undefined = data.value?.posts[0]?.title
 const canLoad: boolean = canLoadNextPage.value
 const loading: boolean = isLoading.value
 const errorMessage: string | undefined = error.value?.message
 
-infiniteState.loadNextPage()
+infiniteQuery.loadNextPage()
 
-const filteredState = db.useInfiniteQuery(() => ({
+const filteredQuery = db.useInfiniteQuery(() => ({
   posts: {
     $: {
       where: {
@@ -51,7 +51,7 @@ const filteredState = db.useInfiniteQuery(() => ({
   },
 }))
 
-const filteredTitle: string | undefined = filteredState.data.value?.posts[0]?.title
+const filteredTitle: string | undefined = filteredQuery.data.value?.posts[0]?.title
 
 const infiniteQueryRef = ref<null | {
   posts: {
@@ -73,8 +73,8 @@ const infiniteQueryRef = ref<null | {
   },
 })
 const infiniteOptsRef = ref({ ruleParams: { tenant: 'a' } })
-const infiniteFromRefState = db.useInfiniteQuery(infiniteQueryRef, infiniteOptsRef)
-const infiniteFromRefTitle: string | undefined = infiniteFromRefState.data.value?.posts[0]?.title
+const infiniteFromRef = db.useInfiniteQuery(infiniteQueryRef, infiniteOptsRef)
+const infiniteFromRefTitle: string | undefined = infiniteFromRef.data.value?.posts[0]?.title
 
 void firstTitle
 void canLoad

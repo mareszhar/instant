@@ -39,14 +39,14 @@ Each X API returns:
 
 1. top-level refs/computed refs for normal destructuring,
 2. `refs` alias for explicit ref-forwarding,
-3. `state` alias for auto-unwrapped script-friendly reads.
+3. `state` projection for auto-unwrapped script-friendly reads.
 
 ```ts
-const queryX = db.useQueryX({ todos: {} })
+const query = db.useQueryX({ todos: {} })
 
-queryX.todos.value
-queryX.refs.todos.value
-queryX.state.todos
+query.todos.value
+query.refs.todos.value
+query.state.todos
 ```
 
 All access paths read from the same underlying reactive source for that hook instance.
@@ -59,8 +59,8 @@ All access paths read from the same underlying reactive source for that hook ins
 
 ```ts
 function useTodos() {
-  const todosX = db.useQueryX({ todos: {} })
-  return { ...todosX.refs }
+  const query = db.useQueryX({ todos: {} })
+  return { ...query.refs }
 }
 ```
 

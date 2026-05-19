@@ -36,7 +36,7 @@ type Schema = typeof schema
 
 declare const db: InstantVuxDatabase<Schema, false>
 
-const regularQueryState = db.useQuery({
+const regularQuery = db.useQuery({
   quests: {
     assignee: {},
     $: {
@@ -48,13 +48,13 @@ const regularQueryState = db.useQuery({
   },
 })
 
-const { isLoading, error, data } = regularQueryState
+const { isLoading, error, data } = regularQuery
 const loadingFromDestructuredRef: boolean = isLoading.value
 const errorFromDestructuredRef: { message: string } | undefined = error.value
 const firstQuestTitleFromConst: string | undefined = data.value?.quests[0]?.title
 const firstAssigneeEmailFromConst: string | undefined = data.value?.quests[0]?.assignee?.email
 
-const regularFactoryState = db.useQuery(() => ({
+const regularFactoryQuery = db.useQuery(() => ({
   quests: {
     assignee: {},
     $: {
@@ -65,8 +65,8 @@ const regularFactoryState = db.useQuery(() => ({
   },
 }))
 
-const firstQuestTitleFromFactory: string | undefined = regularFactoryState.data.value?.quests[0]?.title
-const firstAssigneeEmailFromFactory: string | undefined = regularFactoryState.data.value?.quests[0]?.assignee?.email
+const firstQuestTitleFromFactory: string | undefined = regularFactoryQuery.data.value?.quests[0]?.title
+const firstAssigneeEmailFromFactory: string | undefined = regularFactoryQuery.data.value?.quests[0]?.assignee?.email
 
 db.useQuery({
   // @ts-expect-error - unknown namespace should fail for regular object usage
@@ -86,7 +86,7 @@ const invalidRegularWhereQuery = {
 // @ts-expect-error - unknown where key should fail for regular query typing
 const shouldRejectInvalidRegularWhere: ValidQuery<typeof invalidRegularWhereQuery, Schema> = invalidRegularWhereQuery
 
-const usersByNameState = db.useQuery({
+const usersByNameQuery = db.useQuery({
   users: {
     $: {
       where: {
@@ -96,7 +96,7 @@ const usersByNameState = db.useQuery({
   },
 })
 
-const firstUserNameFromConst: string | undefined = usersByNameState.data.value?.users[0]?.name
+const firstUserNameFromConst: string | undefined = usersByNameQuery.data.value?.users[0]?.name
 
 const queryRef = ref<null | {
   quests: {
@@ -119,8 +119,8 @@ const queryRef = ref<null | {
 })
 
 const optsRef = ref({ keepPreviousData: true })
-const queryFromRefState = db.useQuery(queryRef, optsRef)
-const queryFromRefTitle: string | undefined = queryFromRefState.data.value?.quests[0]?.title
+const queryFromRef = db.useQuery(queryRef, optsRef)
+const queryFromRefTitle: string | undefined = queryFromRef.data.value?.quests[0]?.title
 
 void firstQuestTitleFromConst
 void firstAssigneeEmailFromConst

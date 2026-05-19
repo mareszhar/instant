@@ -37,7 +37,7 @@ declare const db: InstantVuxDatabase<Schema, false>
 declare const maybeAssigneeId: string | undefined
 const q = defineQuery<Schema>()
 
-const queryXState = db.useQueryX({
+const query = db.useQueryX({
   quests: {
     assignee: {},
     $: {
@@ -48,17 +48,17 @@ const queryXState = db.useQueryX({
   },
 })
 
-const loadingFromRef: boolean = queryXState.isLoading.value
-const loadingFromState: boolean = queryXState.state.isLoading
+const loadingFromRef: boolean = query.isLoading.value
+const loadingFromState: boolean = query.state.isLoading
 
-const firstQuestTitleFromRef: string | undefined = queryXState.quests.value[0]?.title
-const firstAssigneeEmailFromRef: string | undefined = queryXState.quests.value[0]?.assignee?.email
-const firstQuestTitleFromState: string | undefined = queryXState.state.quests[0]?.title
+const firstQuestTitleFromRef: string | undefined = query.quests.value[0]?.title
+const firstAssigneeEmailFromRef: string | undefined = query.quests.value[0]?.assignee?.email
+const firstQuestTitleFromState: string | undefined = query.state.quests[0]?.title
 
 // @ts-expect-error - X state is a readonly projection over refs
-queryXState.state.isLoading = false
+query.state.isLoading = false
 
-const queryXFromFactory = db.useQueryX(q({
+const queryFromQ = db.useQueryX(q({
   quests: {
     assignee: {},
     $: {
@@ -69,10 +69,10 @@ const queryXFromFactory = db.useQueryX(q({
   },
 }))
 
-const firstQuestTitleFromQFactoryRef: string | undefined = queryXFromFactory.quests.value[0]?.title
-const firstQuestTitleFromQFactoryState: string | undefined = queryXFromFactory.state.quests[0]?.title
+const firstQuestTitleFromQFactoryRef: string | undefined = queryFromQ.quests.value[0]?.title
+const firstQuestTitleFromQFactoryState: string | undefined = queryFromQ.state.quests[0]?.title
 
-const queryXFromPlainFactory = db.useQueryX(() => ({
+const queryFromFactory = db.useQueryX(() => ({
   quests: {
     assignee: {},
     $: {
@@ -83,11 +83,11 @@ const queryXFromPlainFactory = db.useQueryX(() => ({
   },
 }))
 
-const loadingFromPlainFactory: boolean = queryXFromPlainFactory.isLoading.value
-const firstQuestTitleFromPlainFactory: string | undefined = queryXFromPlainFactory.quests.value[0]?.title
-const firstAssigneeIdFromPlainFactoryData: string | undefined = queryXFromPlainFactory.data.value?.quests[0]?.assignee?.id
+const loadingFromPlainFactory: boolean = queryFromFactory.isLoading.value
+const firstQuestTitleFromPlainFactory: string | undefined = queryFromFactory.quests.value[0]?.title
+const firstAssigneeIdFromPlainFactoryData: string | undefined = queryFromFactory.data.value?.quests[0]?.assignee?.id
 
-const { quests, isLoading, state } = db.useQueryX({
+const { quests, isLoading, state: queryState } = db.useQueryX({
   quests: {
     assignee: {},
   },
@@ -95,9 +95,9 @@ const { quests, isLoading, state } = db.useQueryX({
 
 const questsFromDestructuredRef: string | undefined = quests.value[0]?.title
 const loadingFromDestructuredRef: boolean = isLoading.value
-const questsFromDestructuredState: string | undefined = state.quests[0]?.title
+const questsFromDestructuredState: string | undefined = queryState.quests[0]?.title
 
-const spreadRefs = { ...queryXState.refs }
+const spreadRefs = { ...query.refs }
 const firstQuestTitleFromSpreadRefs: string | undefined = spreadRefs.quests.value[0]?.title
 
 db.useQueryX({

@@ -107,7 +107,7 @@ This pattern is riskier:
 </template>
 ```
 
-On the server, `todos.value` is `[]`, so this renders the empty state. If the client has data before its first hydration render, the client wants to render the list instead. That can produce a hydration warning and a misleading empty-state flash.
+On the server, the `todos` ref resolves to `[]`, so this renders the empty state. If the client has data before its first hydration render, the client wants to render the list instead. That can produce a hydration warning and a misleading empty-state flash.
 
 Prefer an explicit loading gate:
 
@@ -124,10 +124,10 @@ Prefer an explicit loading gate:
 Auth-dependent queries are the most common place to confuse "safe" with "same".
 
 ```ts
-const auth = db.useAuthX()
+const { state: auth } = db.useAuthX()
 
 const query = db.useQueryX(() => {
-  if (!auth.state.user) {
+  if (!auth.user) {
     return null
   }
 
@@ -135,7 +135,7 @@ const query = db.useQueryX(() => {
     todos: {
       $: {
         where: {
-          'owner.id': auth.state.user.id,
+          'owner.id': auth.user.id,
         },
       },
     },
@@ -145,7 +145,7 @@ const query = db.useQueryX(() => {
 
 On the server:
 
-- `auth.state.user` is `undefined`
+- `auth.user` is `undefined`
 - the query returns `null`
 - `query.isLoading.value` is `true`
 - `query.todos.value` is `[]`
@@ -161,11 +161,30 @@ That is resilient because it does not crash. It is not full SSR because the serv
 Render this as loading/auth-gated UI, not as final empty data:
 
 ```vue
+<script setup lang="ts">
+const { state: auth } = db.useAuthX()
+const { state: todosQuery } = db.useQueryX(() => {
+  if (!auth.user) {
+    return null
+  }
+
+  return {
+    todos: {
+      $: {
+        where: {
+          'owner.id': auth.user.id,
+        },
+      },
+    },
+  }
+})
+</script>
+
 <template>
   <AuthSkeleton v-if="auth.isLoading" />
   <SignedOutPanel v-else-if="!auth.user" />
-  <TodoSkeleton v-else-if="query.isLoading" />
-  <TodoList v-else :todos />
+  <TodoSkeleton v-else-if="todosQuery.isLoading" />
+  <TodoList v-else :todos="todosQuery.todos" />
 </template>
 ```
 

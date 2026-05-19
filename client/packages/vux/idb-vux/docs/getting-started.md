@@ -45,7 +45,7 @@ const useDb = defineDb({
 ## First query
 
 ```ts
-const todos = db.useQuery({
+const query = db.useQuery({
   todos: {},
 })
 ```

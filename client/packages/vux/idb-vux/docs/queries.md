@@ -15,7 +15,7 @@ If you are standardizing on the Vux additive ergonomics surface, see [DX/UX enha
 ## Baseline (`useQuery`)
 
 ```ts
-const state = db.useQuery({
+const query = db.useQuery({
   quests: {
     assignee: {},
     $: {
@@ -26,7 +26,7 @@ const state = db.useQuery({
   },
 })
 
-const quests = computed(() => state.data.value?.quests ?? [])
+const quests = computed(() => query.data.value?.quests ?? [])
 ```
 
 ## Authoring helper (`defineQuery`)
@@ -38,7 +38,7 @@ import { defineQuery } from '@mszr/idb-vux'
 
 const q = defineQuery<Schema>()
 
-const query = q({
+const questsQuery = q({
   quests: {
     assignee: {},
     $: {
@@ -49,7 +49,7 @@ const query = q({
   },
 })
 
-const state = db.useQuery(query)
+const query = db.useQuery(questsQuery)
 ```
 
 ## One-off reads (`queryOnceX`)
@@ -82,7 +82,7 @@ Notes:
 `useQueryX` keeps the same subscription semantics as `useQuery`, but exposes ref-friendly namespaces and state access.
 
 ```ts
-const queryX = db.useQueryX({
+const { isLoading, quests } = db.useQueryX({
   quests: {
     assignee: {},
     $: {
@@ -93,7 +93,6 @@ const queryX = db.useQueryX({
   },
 })
 
-const { quests, isLoading } = queryX
 const firstTitle = computed(() => quests.value[0]?.title)
 ```
 
@@ -103,7 +102,7 @@ When query inputs change (for example, filter tabs), you can keep the previous
 result visible while the new query loads:
 
 ```ts
-const queryX = db.useQueryX(() => ({
+const query = db.useQueryX(() => ({
   quests: {
     $: {
       where: {

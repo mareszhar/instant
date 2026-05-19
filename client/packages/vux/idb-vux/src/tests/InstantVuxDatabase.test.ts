@@ -178,14 +178,14 @@ describe('instantVuxDatabase', () => {
     })
 
     it('starts in loading state', () => {
-      let state: any
+      let query: any
       scope.run(() => {
-        state = db.useQuery({ goals: {} } as any)
+        query = db.useQuery({ goals: {} } as any)
       })
 
-      expect(state.isLoading.value).toBe(true)
-      expect(state.data.value).toBeUndefined()
-      expect(state.error.value).toBeUndefined()
+      expect(query.isLoading.value).toBe(true)
+      expect(query.data.value).toBeUndefined()
+      expect(query.error.value).toBeUndefined()
     })
 
     it('subscribes to core on mount', async () => {
@@ -204,9 +204,9 @@ describe('instantVuxDatabase', () => {
         return () => { }
       })
 
-      let state: any
+      let query: any
       scope.run(() => {
-        state = db.useQuery({ goals: {} } as any)
+        query = db.useQuery({ goals: {} } as any)
       })
       await nextTick()
 
@@ -218,8 +218,8 @@ describe('instantVuxDatabase', () => {
       })
       await nextTick()
 
-      expect(state.isLoading.value).toBe(false)
-      expect(state.data.value).toEqual({ goals: [{ id: '1', title: 'Test' }] })
+      expect(query.isLoading.value).toBe(false)
+      expect(query.data.value).toEqual({ goals: [{ id: '1', title: 'Test' }] })
     })
 
     it('supports reactive destructuring for parity-style query usage', async () => {
@@ -265,12 +265,12 @@ describe('instantVuxDatabase', () => {
       })
 
       const observedGoalCounts: number[] = []
-      let state: any
+      let query: any
       scope.run(() => {
-        state = db.useQuery({ goals: {} } as any)
+        query = db.useQuery({ goals: {} } as any)
 
         watchEffect(() => {
-          observedGoalCounts.push(state.data.value?.goals?.length ?? 0)
+          observedGoalCounts.push(query.data.value?.goals?.length ?? 0)
         })
       })
       await nextTick()
@@ -290,7 +290,7 @@ describe('instantVuxDatabase', () => {
       await nextTick()
 
       expect(observedGoalCounts).toEqual([0, 1])
-      expect(state.data.value?.goals).toEqual([
+      expect(query.data.value?.goals).toEqual([
         { id: '1', title: 'A' },
         { id: '2', title: 'B' },
       ])
@@ -310,14 +310,14 @@ describe('instantVuxDatabase', () => {
     })
 
     it('handles null query', async () => {
-      let state: any
+      let query: any
       scope.run(() => {
-        state = db.useQuery(null)
+        query = db.useQuery(null)
       })
       await nextTick()
 
-      expect(state.isLoading.value).toBe(true)
-      expect(state.data.value).toBeUndefined()
+      expect(query.isLoading.value).toBe(true)
+      expect(query.data.value).toBeUndefined()
       expect(mockCore.subscribeQuery).not.toHaveBeenCalled()
     })
 
@@ -342,14 +342,14 @@ describe('instantVuxDatabase', () => {
     })
 
     it('skips subscription when function returns null', async () => {
-      let state: any
+      let query: any
       scope.run(() => {
-        state = db.useQuery(() => null)
+        query = db.useQuery(() => null)
       })
       await nextTick()
 
-      expect(state.isLoading.value).toBe(true)
-      expect(state.data.value).toBeUndefined()
+      expect(query.isLoading.value).toBe(true)
+      expect(query.data.value).toBeUndefined()
       expect(mockCore.subscribeQuery).not.toHaveBeenCalled()
     })
 
@@ -396,14 +396,14 @@ describe('instantVuxDatabase', () => {
         pageInfo: {},
       })
 
-      let state: any
+      let query: any
       scope.run(() => {
-        state = db.useQuery({ goals: {} } as any)
+        query = db.useQuery({ goals: {} } as any)
       })
       await nextTick()
 
-      expect(state.isLoading.value).toBe(false)
-      expect(state.data.value).toEqual({ goals: [{ id: '1' }] })
+      expect(query.isLoading.value).toBe(false)
+      expect(query.data.value).toEqual({ goals: [{ id: '1' }] })
     })
 
     it('normalizes direct undefined where values before subscribing', async () => {
@@ -443,9 +443,9 @@ describe('instantVuxDatabase', () => {
       })
 
       const queryFilter = ref('active')
-      let state: any
+      let query: any
       scope.run(() => {
-        state = db.useQuery(() => ({
+        query = db.useQuery(() => ({
           goals: {
             $: {
               where: {
@@ -466,25 +466,25 @@ describe('instantVuxDatabase', () => {
       queryFilter.value = 'done'
       await nextTick()
 
-      expect(state.isLoading.value).toBe(true)
-      expect(state.data.value).toEqual({
+      expect(query.isLoading.value).toBe(true)
+      expect(query.data.value).toEqual({
         goals: [{ id: '1', status: 'active' }],
       })
-      expect(state.pageInfo.value).toEqual({ goals: { hasNextPage: false } })
+      expect(query.pageInfo.value).toEqual({ goals: { hasNextPage: false } })
       expect(mockCore.subscribeQuery).toHaveBeenCalledTimes(2)
     })
 
     it('returns inert state on server runtime', () => {
       withServerRuntime(() => {
         const scopeInServer = effectScope()
-        let state: any
+        let query: any
 
         scopeInServer.run(() => {
-          state = db.useQuery({ goals: {} } as any)
+          query = db.useQuery({ goals: {} } as any)
         })
 
-        expect(state.isLoading.value).toBe(true)
-        expect(state.data.value).toBeUndefined()
+        expect(query.isLoading.value).toBe(true)
+        expect(query.data.value).toBeUndefined()
         expect(mockCore.subscribeQuery).not.toHaveBeenCalled()
 
         scopeInServer.stop()
@@ -497,13 +497,13 @@ describe('instantVuxDatabase', () => {
       const brokenDb = new InstantVuxDatabase(brokenCore as any)
 
       const scope = effectScope()
-      let state: any
+      let query: any
 
       scope.run(() => {
-        state = brokenDb.useQuery({ goals: {} } as any)
+        query = brokenDb.useQuery({ goals: {} } as any)
       })
 
-      expect(state.isLoading.value).toBe(true)
+      expect(query.isLoading.value).toBe(true)
       expect(brokenCore.subscribeQuery).not.toHaveBeenCalled()
       scope.stop()
     })
@@ -521,36 +521,36 @@ describe('instantVuxDatabase', () => {
     })
 
     it('exposes refs plus state alias and defaults namespaces to empty arrays', async () => {
-      let state: any
+      let query: any
       scope.run(() => {
-        state = db.useQueryX({ goals: {} } as any)
+        query = db.useQueryX({ goals: {} } as any)
       })
       await nextTick()
 
-      expect(state.refs).toBe(state)
-      expect(isPiniaSetupStoreHydratable(state)).toBe(false)
-      expect(isPiniaSetupStoreHydratable(state.state)).toBe(false)
-      expect(state.isLoading.value).toBe(true)
-      expect(state.goals.value).toEqual([])
-      expect(state.state.goals).toEqual([])
-      expect(state.state.data).toBeUndefined()
+      expect(query.refs).toBe(query)
+      expect(isPiniaSetupStoreHydratable(query)).toBe(false)
+      expect(isPiniaSetupStoreHydratable(query.state)).toBe(false)
+      expect(query.isLoading.value).toBe(true)
+      expect(query.goals.value).toEqual([])
+      expect(query.state.goals).toEqual([])
+      expect(query.state.data).toBeUndefined()
 
-      const spreadRefs = { ...state.refs }
+      const spreadRefs = { ...query.refs }
       expect(Object.keys(spreadRefs)).toContain('goals')
       expect(spreadRefs.goals.value).toEqual([])
     })
 
     it('materializes declared root namespaces for refs spreads', async () => {
-      let state: any
+      let query: any
       scope.run(() => {
-        state = db.useQueryX({
+        query = db.useQueryX({
           goals: {},
           todos: {},
         } as any)
       })
       await nextTick()
 
-      const spreadRefs = { ...state.refs }
+      const spreadRefs = { ...query.refs }
       expect(Object.keys(spreadRefs)).toEqual(expect.arrayContaining(['goals', 'todos']))
       expect(spreadRefs.goals.value).toEqual([])
       expect(spreadRefs.todos.value).toEqual([])
@@ -563,9 +563,9 @@ describe('instantVuxDatabase', () => {
         return () => { }
       })
 
-      let state: any
+      let query: any
       scope.run(() => {
-        state = db.useQueryX({ goals: {} } as any)
+        query = db.useQueryX({ goals: {} } as any)
       })
       await nextTick()
 
@@ -580,15 +580,15 @@ describe('instantVuxDatabase', () => {
       })
       await nextTick()
 
-      expect(state.isLoading.value).toBe(false)
-      expect(state.state.isLoading).toBe(false)
-      expect(state.goals.value).toEqual([{ id: '1', title: 'Test' }])
-      expect(state.state.goals).toEqual([{ id: '1', title: 'Test' }])
-      expect(state.state.error).toBeUndefined()
-      expect(state.data.value).toEqual(payload)
-      expect(state.state.data).toEqual(payload)
-      expect(state.data.value).toBe(state.state.data)
-      expect(state.goals.value).toBe(state.state.goals)
+      expect(query.isLoading.value).toBe(false)
+      expect(query.state.isLoading).toBe(false)
+      expect(query.goals.value).toEqual([{ id: '1', title: 'Test' }])
+      expect(query.state.goals).toEqual([{ id: '1', title: 'Test' }])
+      expect(query.state.error).toBeUndefined()
+      expect(query.data.value).toEqual(payload)
+      expect(query.state.data).toEqual(payload)
+      expect(query.data.value).toBe(query.state.data)
+      expect(query.goals.value).toBe(query.state.goals)
     })
 
     it('keeps no-value state reads reactive', async () => {
@@ -599,11 +599,11 @@ describe('instantVuxDatabase', () => {
       })
 
       const observedGoalCounts: number[] = []
-      let state: any
+      let query: any
       scope.run(() => {
-        state = db.useQueryX({ goals: {} } as any)
+        query = db.useQueryX({ goals: {} } as any)
         watchEffect(() => {
-          observedGoalCounts.push(state.state.goals.length)
+          observedGoalCounts.push(query.state.goals.length)
         })
       })
       await nextTick()
@@ -619,16 +619,16 @@ describe('instantVuxDatabase', () => {
     })
 
     it('keeps null-skip behavior aligned with useQuery', async () => {
-      let state: any
+      let query: any
       scope.run(() => {
-        state = db.useQueryX(() => null)
+        query = db.useQueryX(() => null)
       })
       await nextTick()
 
-      expect(state.isLoading.value).toBe(true)
-      expect(state.data.value).toBeUndefined()
-      expect(state.goals.value).toEqual([])
-      expect(state.state.goals).toEqual([])
+      expect(query.isLoading.value).toBe(true)
+      expect(query.data.value).toBeUndefined()
+      expect(query.goals.value).toEqual([])
+      expect(query.state.goals).toEqual([])
       expect(mockCore.subscribeQuery).not.toHaveBeenCalled()
     })
 
@@ -644,10 +644,10 @@ describe('instantVuxDatabase', () => {
       })
 
       const statusFilter = ref<'active' | 'done' | null>(null)
-      let state: any
+      let query: any
 
       scope.run(() => {
-        state = db.useQueryX(() => {
+        query = db.useQueryX(() => {
           if (!statusFilter.value)
             return null
 
@@ -665,7 +665,7 @@ describe('instantVuxDatabase', () => {
       await nextTick()
 
       expect(mockCore.subscribeQuery).not.toHaveBeenCalled()
-      expect(state.goals.value).toEqual([])
+      expect(query.goals.value).toEqual([])
 
       statusFilter.value = 'active'
       await nextTick()
@@ -677,15 +677,15 @@ describe('instantVuxDatabase', () => {
         error: undefined,
       })
       await nextTick()
-      expect(state.goals.value).toEqual([{ id: '1', title: 'Active goal' }])
+      expect(query.goals.value).toEqual([{ id: '1', title: 'Active goal' }])
 
       statusFilter.value = 'done'
       await nextTick()
 
       expect(mockCore.subscribeQuery).toHaveBeenCalledTimes(2)
       expect(unsubscribes[0]).toHaveBeenCalled()
-      expect(state.isLoading.value).toBe(true)
-      expect(state.goals.value).toEqual([])
+      expect(query.isLoading.value).toBe(true)
+      expect(query.goals.value).toEqual([])
     })
   })
 

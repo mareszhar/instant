@@ -75,18 +75,18 @@ describe('instantVuxDatabase.useInfiniteQuery', () => {
   })
 
   it('starts in loading state', async () => {
-    let state: any
+    let infiniteQuery: any
 
     scope.run(() => {
-      state = db.useInfiniteQuery({ posts: { $: { limit: 2 } } } as any)
+      infiniteQuery = db.useInfiniteQuery({ posts: { $: { limit: 2 } } } as any)
     })
     await nextTick()
 
-    expect(state.isLoading.value).toBe(true)
-    expect(state.data.value).toBeUndefined()
-    expect(state.error.value).toBeUndefined()
-    expect(state.canLoadNextPage.value).toBe(false)
-    expect(typeof state.loadNextPage).toBe('function')
+    expect(infiniteQuery.isLoading.value).toBe(true)
+    expect(infiniteQuery.data.value).toBeUndefined()
+    expect(infiniteQuery.error.value).toBeUndefined()
+    expect(infiniteQuery.canLoadNextPage.value).toBe(false)
+    expect(typeof infiniteQuery.loadNextPage).toBe('function')
   })
 
   it('bootstraps from cached snapshot before subscription emits', async () => {
@@ -95,9 +95,9 @@ describe('instantVuxDatabase.useInfiniteQuery', () => {
       pageInfo: {},
     })
 
-    let state: any
+    let infiniteQuery: any
     scope.run(() => {
-      state = db.useInfiniteQuery({
+      infiniteQuery = db.useInfiniteQuery({
         posts: {
           $: {
             limit: 20,
@@ -108,10 +108,10 @@ describe('instantVuxDatabase.useInfiniteQuery', () => {
     })
     await nextTick()
 
-    expect(state.isLoading.value).toBe(false)
-    expect(state.data.value).toEqual({ posts: [{ id: 'p1', title: 'cached' }] })
-    expect(state.error.value).toBeUndefined()
-    expect(state.canLoadNextPage.value).toBe(false)
+    expect(infiniteQuery.isLoading.value).toBe(false)
+    expect(infiniteQuery.data.value).toEqual({ posts: [{ id: 'p1', title: 'cached' }] })
+    expect(infiniteQuery.error.value).toBeUndefined()
+    expect(infiniteQuery.canLoadNextPage.value).toBe(false)
   })
 
   it('subscribes and updates state from callback', async () => {
@@ -124,9 +124,9 @@ describe('instantVuxDatabase.useInfiniteQuery', () => {
       }
     })
 
-    let state: any
+    let infiniteQuery: any
     scope.run(() => {
-      state = db.useInfiniteQuery({ posts: { $: { limit: 2 } } } as any)
+      infiniteQuery = db.useInfiniteQuery({ posts: { $: { limit: 2 } } } as any)
     })
     await nextTick()
 
@@ -139,10 +139,10 @@ describe('instantVuxDatabase.useInfiniteQuery', () => {
     })
     await nextTick()
 
-    expect(state.isLoading.value).toBe(false)
-    expect(state.data.value).toEqual({ posts: [{ id: 'p2', title: 'live' }] })
-    expect(state.canLoadNextPage.value).toBe(true)
-    expect(state.error.value).toBeUndefined()
+    expect(infiniteQuery.isLoading.value).toBe(false)
+    expect(infiniteQuery.data.value).toEqual({ posts: [{ id: 'p2', title: 'live' }] })
+    expect(infiniteQuery.canLoadNextPage.value).toBe(true)
+    expect(infiniteQuery.error.value).toBeUndefined()
   })
 
   it('supports reactive destructuring for parity-style infinite query usage', async () => {
@@ -233,13 +233,13 @@ describe('instantVuxDatabase.useInfiniteQuery', () => {
       loadNextPage,
     }))
 
-    let state: any
+    let infiniteQuery: any
     scope.run(() => {
-      state = db.useInfiniteQuery({ posts: { $: { limit: 2 } } } as any)
+      infiniteQuery = db.useInfiniteQuery({ posts: { $: { limit: 2 } } } as any)
     })
     await nextTick()
 
-    state.loadNextPage()
+    infiniteQuery.loadNextPage()
     expect(loadNextPage).toHaveBeenCalledTimes(1)
   })
 
@@ -258,10 +258,10 @@ describe('instantVuxDatabase.useInfiniteQuery', () => {
     })
 
     const filter = ref<'done' | 'pending'>('pending')
-    let state: any
+    let infiniteQuery: any
 
     scope.run(() => {
-      state = db.useInfiniteQuery(() => ({
+      infiniteQuery = db.useInfiniteQuery(() => ({
         posts: {
           $: {
             where: {
@@ -280,29 +280,29 @@ describe('instantVuxDatabase.useInfiniteQuery', () => {
       canLoadNextPage: true,
     })
     await nextTick()
-    expect(state.data.value).toEqual({ posts: [{ id: 'p1', status: 'pending' }] })
+    expect(infiniteQuery.data.value).toEqual({ posts: [{ id: 'p1', status: 'pending' }] })
 
     filter.value = 'done'
     await nextTick()
 
     expect(subs[0]?.unsubscribe).toHaveBeenCalled()
     expect(mockCore.subscribeInfiniteQuery).toHaveBeenCalledTimes(2)
-    expect(state.isLoading.value).toBe(true)
-    expect(state.data.value).toBeUndefined()
-    expect(state.canLoadNextPage.value).toBe(false)
+    expect(infiniteQuery.isLoading.value).toBe(true)
+    expect(infiniteQuery.data.value).toBeUndefined()
+    expect(infiniteQuery.canLoadNextPage.value).toBe(false)
   })
 
   it('skips subscription when query resolves to null', async () => {
-    let state: any
+    let infiniteQuery: any
 
     scope.run(() => {
-      state = db.useInfiniteQuery(() => null)
+      infiniteQuery = db.useInfiniteQuery(() => null)
     })
     await nextTick()
 
     expect(mockCore.subscribeInfiniteQuery).not.toHaveBeenCalled()
-    expect(state.isLoading.value).toBe(true)
-    expect(state.data.value).toBeUndefined()
+    expect(infiniteQuery.isLoading.value).toBe(true)
+    expect(infiniteQuery.data.value).toBeUndefined()
   })
 
   it('unsubscribes on scope dispose', async () => {
@@ -324,15 +324,15 @@ describe('instantVuxDatabase.useInfiniteQuery', () => {
   it('returns inert no-op state on server runtime', () => {
     withServerRuntime(() => {
       const scopeInServer = effectScope()
-      let state: any
+      let infiniteQuery: any
 
       scopeInServer.run(() => {
-        state = db.useInfiniteQuery({ posts: { $: { limit: 2 } } } as any)
+        infiniteQuery = db.useInfiniteQuery({ posts: { $: { limit: 2 } } } as any)
       })
 
-      state.loadNextPage()
-      expect(state.isLoading.value).toBe(true)
-      expect(state.data.value).toBeUndefined()
+      infiniteQuery.loadNextPage()
+      expect(infiniteQuery.isLoading.value).toBe(true)
+      expect(infiniteQuery.data.value).toBeUndefined()
       expect(mockCore.subscribeInfiniteQuery).not.toHaveBeenCalled()
 
       scopeInServer.stop()
@@ -383,9 +383,9 @@ describe('instantVuxDatabase.useInfiniteQueryX', () => {
   })
 
   it('exposes refs/state and defaults namespaces to empty arrays', async () => {
-    let state: any
+    let infiniteQuery: any
     scope.run(() => {
-      state = db.useInfiniteQueryX({
+      infiniteQuery = db.useInfiniteQueryX({
         posts: {
           $: {
             limit: 2,
@@ -395,14 +395,14 @@ describe('instantVuxDatabase.useInfiniteQueryX', () => {
     })
     await nextTick()
 
-    expect(state.refs).toBe(state)
-    expect(state.isLoading.value).toBe(true)
-    expect(state.canLoadNextPage.value).toBe(false)
-    expect(state.posts.value).toEqual([])
-    expect(state.state.posts).toEqual([])
-    expect(state.state.data).toBeUndefined()
+    expect(infiniteQuery.refs).toBe(infiniteQuery)
+    expect(infiniteQuery.isLoading.value).toBe(true)
+    expect(infiniteQuery.canLoadNextPage.value).toBe(false)
+    expect(infiniteQuery.posts.value).toEqual([])
+    expect(infiniteQuery.state.posts).toEqual([])
+    expect(infiniteQuery.state.data).toBeUndefined()
 
-    const spreadRefs = { ...state.refs }
+    const spreadRefs = { ...infiniteQuery.refs }
     expect(Object.keys(spreadRefs)).toContain('posts')
     expect(spreadRefs.posts.value).toEqual([])
   })
@@ -417,9 +417,9 @@ describe('instantVuxDatabase.useInfiniteQueryX', () => {
       }
     })
 
-    let state: any
+    let infiniteQuery: any
     scope.run(() => {
-      state = db.useInfiniteQueryX({
+      infiniteQuery = db.useInfiniteQueryX({
         posts: {
           $: {
             limit: 2,
@@ -440,16 +440,16 @@ describe('instantVuxDatabase.useInfiniteQueryX', () => {
     })
     await nextTick()
 
-    expect(state.isLoading.value).toBe(false)
-    expect(state.state.isLoading).toBe(false)
-    expect(state.canLoadNextPage.value).toBe(true)
-    expect(state.state.canLoadNextPage).toBe(true)
-    expect(state.posts.value).toEqual([{ id: 'p2', title: 'live' }])
-    expect(state.state.posts).toEqual([{ id: 'p2', title: 'live' }])
-    expect(state.data.value).toEqual(payload)
-    expect(state.state.data).toEqual(payload)
-    expect(state.data.value).toBe(state.state.data)
-    expect(state.posts.value).toBe(state.state.posts)
+    expect(infiniteQuery.isLoading.value).toBe(false)
+    expect(infiniteQuery.state.isLoading).toBe(false)
+    expect(infiniteQuery.canLoadNextPage.value).toBe(true)
+    expect(infiniteQuery.state.canLoadNextPage).toBe(true)
+    expect(infiniteQuery.posts.value).toEqual([{ id: 'p2', title: 'live' }])
+    expect(infiniteQuery.state.posts).toEqual([{ id: 'p2', title: 'live' }])
+    expect(infiniteQuery.data.value).toEqual(payload)
+    expect(infiniteQuery.state.data).toEqual(payload)
+    expect(infiniteQuery.data.value).toBe(infiniteQuery.state.data)
+    expect(infiniteQuery.posts.value).toBe(infiniteQuery.state.posts)
   })
 
   it('passes loadNextPage through and keeps callable from refs/state', async () => {
@@ -459,9 +459,9 @@ describe('instantVuxDatabase.useInfiniteQueryX', () => {
       loadNextPage,
     }))
 
-    let state: any
+    let infiniteQuery: any
     scope.run(() => {
-      state = db.useInfiniteQueryX({
+      infiniteQuery = db.useInfiniteQueryX({
         posts: {
           $: {
             limit: 2,
@@ -471,26 +471,26 @@ describe('instantVuxDatabase.useInfiniteQueryX', () => {
     })
     await nextTick()
 
-    state.loadNextPage()
-    state.refs.loadNextPage()
-    state.state.loadNextPage()
+    infiniteQuery.loadNextPage()
+    infiniteQuery.refs.loadNextPage()
+    infiniteQuery.state.loadNextPage()
 
     expect(loadNextPage).toHaveBeenCalledTimes(3)
   })
 
   it('keeps null-skip behavior aligned with useInfiniteQuery', async () => {
-    let state: any
+    let infiniteQuery: any
     scope.run(() => {
-      state = db.useInfiniteQueryX(() => null)
+      infiniteQuery = db.useInfiniteQueryX(() => null)
     })
     await nextTick()
 
     expect(mockCore.subscribeInfiniteQuery).not.toHaveBeenCalled()
-    expect(state.isLoading.value).toBe(true)
-    expect(state.canLoadNextPage.value).toBe(false)
-    expect(state.data.value).toBeUndefined()
-    expect(state.posts.value).toEqual([])
-    expect(state.state.posts).toEqual([])
+    expect(infiniteQuery.isLoading.value).toBe(true)
+    expect(infiniteQuery.canLoadNextPage.value).toBe(false)
+    expect(infiniteQuery.data.value).toBeUndefined()
+    expect(infiniteQuery.posts.value).toEqual([])
+    expect(infiniteQuery.state.posts).toEqual([])
   })
 
   it('resubscribes when reactive dependencies change in factory queries', async () => {
@@ -508,10 +508,10 @@ describe('instantVuxDatabase.useInfiniteQueryX', () => {
     })
 
     const statusFilter = ref<'pending' | 'done' | null>(null)
-    let state: any
+    let infiniteQuery: any
 
     scope.run(() => {
-      state = db.useInfiniteQueryX(() => {
+      infiniteQuery = db.useInfiniteQueryX(() => {
         if (!statusFilter.value)
           return null
 
@@ -530,7 +530,7 @@ describe('instantVuxDatabase.useInfiniteQueryX', () => {
     await nextTick()
 
     expect(mockCore.subscribeInfiniteQuery).not.toHaveBeenCalled()
-    expect(state.posts.value).toEqual([])
+    expect(infiniteQuery.posts.value).toEqual([])
 
     statusFilter.value = 'pending'
     await nextTick()
@@ -543,26 +543,26 @@ describe('instantVuxDatabase.useInfiniteQueryX', () => {
       canLoadNextPage: true,
     })
     await nextTick()
-    expect(state.posts.value).toEqual([{ id: 'p1', status: 'pending' }])
-    expect(state.canLoadNextPage.value).toBe(true)
+    expect(infiniteQuery.posts.value).toEqual([{ id: 'p1', status: 'pending' }])
+    expect(infiniteQuery.canLoadNextPage.value).toBe(true)
 
     statusFilter.value = 'done'
     await nextTick()
 
     expect(mockCore.subscribeInfiniteQuery).toHaveBeenCalledTimes(2)
     expect(subs[0]?.unsubscribe).toHaveBeenCalled()
-    expect(state.isLoading.value).toBe(true)
-    expect(state.posts.value).toEqual([])
-    expect(state.canLoadNextPage.value).toBe(false)
+    expect(infiniteQuery.isLoading.value).toBe(true)
+    expect(infiniteQuery.posts.value).toEqual([])
+    expect(infiniteQuery.canLoadNextPage.value).toBe(false)
   })
 
   it('returns inert no-op state on server runtime', () => {
     withServerRuntime(() => {
       const scopeInServer = effectScope()
-      let state: any
+      let infiniteQuery: any
 
       scopeInServer.run(() => {
-        state = db.useInfiniteQueryX({
+        infiniteQuery = db.useInfiniteQueryX({
           posts: {
             $: {
               limit: 2,
@@ -571,10 +571,10 @@ describe('instantVuxDatabase.useInfiniteQueryX', () => {
         } as any)
       })
 
-      state.loadNextPage()
-      expect(state.isLoading.value).toBe(true)
-      expect(state.data.value).toBeUndefined()
-      expect(state.posts.value).toEqual([])
+      infiniteQuery.loadNextPage()
+      expect(infiniteQuery.isLoading.value).toBe(true)
+      expect(infiniteQuery.data.value).toBeUndefined()
+      expect(infiniteQuery.posts.value).toEqual([])
       expect(mockCore.subscribeInfiniteQuery).not.toHaveBeenCalled()
 
       scopeInServer.stop()

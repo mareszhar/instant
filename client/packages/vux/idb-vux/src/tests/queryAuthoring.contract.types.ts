@@ -69,9 +69,9 @@ const authoredInfiniteQueryObject = {
 const authoredQ = q(authoredQueryObject)
 const authoredInfiniteQ = q(authoredInfiniteQueryObject)
 
-const regularStateFromQ = db.useQuery(authoredQ)
-const regularStateFromFactory = db.useQuery(() => authoredQ)
-const regularStateFromObject = db.useQuery({
+const regularQueryFromQ = db.useQuery(authoredQ)
+const regularQueryFromFactory = db.useQuery(() => authoredQ)
+const regularQueryFromObject = db.useQuery({
   quests: {
     requestor: {},
     $: {
@@ -82,12 +82,12 @@ const regularStateFromObject = db.useQuery({
   },
 })
 
-const regularInfiniteStateFromQ = db.useInfiniteQuery(authoredInfiniteQ)
-const regularInfiniteStateFromFactory = db.useInfiniteQuery(() => authoredInfiniteQ)
+const regularInfiniteQueryFromQ = db.useInfiniteQuery(authoredInfiniteQ)
+const regularInfiniteQueryFromFactory = db.useInfiniteQuery(() => authoredInfiniteQ)
 
-const queryXFromObject = db.useQueryX(authoredQueryObject)
-const queryXFromFactory = db.useQueryX(() => authoredQueryObject)
-const queryXFromQ = db.useQueryX(authoredQ)
+const queryFromObject = db.useQueryX(authoredQueryObject)
+const queryFromFactory = db.useQueryX(() => authoredQueryObject)
+const queryFromQ = db.useQueryX(authoredQ)
 const queryOnceXFromObject = db.queryOnceX(authoredQueryObject)
 const queryOnceXFromQ = db.queryOnceX(authoredQ)
 
@@ -95,16 +95,16 @@ const infiniteXFromObject = db.useInfiniteQueryX(authoredInfiniteQueryObject)
 const infiniteXFromFactory = db.useInfiniteQueryX(() => authoredInfiniteQueryObject)
 const infiniteXFromQ = db.useInfiniteQueryX(authoredInfiniteQ)
 
-const qRequestorEmail: string | undefined = regularStateFromQ.data.value?.quests[0]?.requestor?.email
-const regularFromFactoryRequestorName: string | undefined = regularStateFromFactory.data.value?.quests[0]?.requestor?.name
-const regularFromObjectRequestorName: string | undefined = regularStateFromObject.data.value?.quests[0]?.requestor?.name
-const regularInfiniteCanLoad: boolean = regularInfiniteStateFromQ.canLoadNextPage.value
-const regularInfiniteFactoryCanLoad: boolean = regularInfiniteStateFromFactory.canLoadNextPage.value
+const qRequestorEmail: string | undefined = regularQueryFromQ.data.value?.quests[0]?.requestor?.email
+const regularFromFactoryRequestorName: string | undefined = regularQueryFromFactory.data.value?.quests[0]?.requestor?.name
+const regularFromObjectRequestorName: string | undefined = regularQueryFromObject.data.value?.quests[0]?.requestor?.name
+const regularInfiniteCanLoad: boolean = regularInfiniteQueryFromQ.canLoadNextPage.value
+const regularInfiniteFactoryCanLoad: boolean = regularInfiniteQueryFromFactory.canLoadNextPage.value
 
-const queryXRequestorEmail: string | undefined = queryXFromObject.quests.value[0]?.requestor?.email
-const queryXRequestorEmailFromState: string | undefined = queryXFromObject.state.quests[0]?.requestor?.email
-const queryXFactoryRequestorEmail: string | undefined = queryXFromFactory.quests.value[0]?.requestor?.email
-const queryXFromQTitle: string | undefined = queryXFromQ.quests.value[0]?.title
+const queryRequestorEmail: string | undefined = queryFromObject.quests.value[0]?.requestor?.email
+const queryRequestorEmailFromState: string | undefined = queryFromObject.state.quests[0]?.requestor?.email
+const queryFactoryRequestorEmail: string | undefined = queryFromFactory.quests.value[0]?.requestor?.email
+const queryFromQTitle: string | undefined = queryFromQ.quests.value[0]?.title
 
 const infiniteXRequestorEmail: string | undefined = infiniteXFromObject.quests.value[0]?.requestor?.email
 const infiniteXRequestorEmailFromState: string | undefined = infiniteXFromObject.state.quests[0]?.requestor?.email
@@ -221,10 +221,10 @@ void regularFromFactoryRequestorName
 void regularFromObjectRequestorName
 void regularInfiniteCanLoad
 void regularInfiniteFactoryCanLoad
-void queryXRequestorEmail
-void queryXRequestorEmailFromState
-void queryXFactoryRequestorEmail
-void queryXFromQTitle
+void queryRequestorEmail
+void queryRequestorEmailFromState
+void queryFactoryRequestorEmail
+void queryFromQTitle
 void infiniteXRequestorEmail
 void infiniteXRequestorEmailFromState
 void infiniteXCanLoad

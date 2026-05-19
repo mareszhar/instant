@@ -36,7 +36,7 @@ declare const maybeStatus: string | undefined
 
 const q = defineQuery<Schema>()
 
-const state = db.useInfiniteQueryX({
+const infiniteQuery = db.useInfiniteQueryX({
   posts: {
     $: {
       limit: 20,
@@ -50,12 +50,12 @@ const state = db.useInfiniteQueryX({
   },
 })
 
-const firstTitle: string | undefined = state.posts.value[0]?.title
-const firstTitleFromState: string | undefined = state.state.posts[0]?.title
-const loading: boolean = state.isLoading.value
-const canLoad: boolean = state.canLoadNextPage.value
+const firstTitle: string | undefined = infiniteQuery.posts.value[0]?.title
+const firstTitleFromState: string | undefined = infiniteQuery.state.posts[0]?.title
+const loading: boolean = infiniteQuery.isLoading.value
+const canLoad: boolean = infiniteQuery.canLoadNextPage.value
 
-state.loadNextPage()
+infiniteQuery.loadNextPage()
 
 const fromQ = db.useInfiniteQueryX(q({
   posts: {
@@ -87,7 +87,7 @@ const fromFactory = db.useInfiniteQueryX(() => ({
 
 const titleFromFactory: string | undefined = fromFactory.posts.value[0]?.title
 
-const spreadRefs = { ...state.refs }
+const spreadRefs = { ...infiniteQuery.refs }
 const spreadTitle: string | undefined = spreadRefs.posts.value[0]?.title
 const spreadCanLoad: boolean = spreadRefs.canLoadNextPage.value
 

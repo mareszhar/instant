@@ -151,19 +151,19 @@ describe('instantVuxRoom hooks', () => {
     )
 
     const scope = effectScope()
-    let state: any
+    let presence: any
 
     scope.run(() => {
-      state = (rooms.usePresence as any)(room, { keys: ['name'] })
+      presence = (rooms.usePresence as any)(room, { keys: ['name'] })
     })
 
     await nextTick()
 
-    expect(state.isLoading.value).toBe(false)
-    expect(state.peers.value).toEqual({ p1: { name: 'Alice' } })
-    expect(state.user.value).toEqual({ name: 'Me' })
+    expect(presence.isLoading.value).toBe(false)
+    expect(presence.peers.value).toEqual({ p1: { name: 'Alice' } })
+    expect(presence.user.value).toEqual({ name: 'Me' })
 
-    state.publishPresence({ status: 'online' })
+    presence.publishPresence({ status: 'online' })
     expect(mockCore._reactor.publishPresence).toHaveBeenCalledWith(
       'chat',
       'room-1',
@@ -177,9 +177,9 @@ describe('instantVuxRoom hooks', () => {
     })
     await nextTick()
 
-    expect(state.peers.value).toEqual({ p2: { name: 'Bob' } })
-    expect(state.isLoading.value).toBe(false)
-    expect((state as any).error.value).toEqual({ message: 'Presence failed' })
+    expect(presence.peers.value).toEqual({ p2: { name: 'Bob' } })
+    expect(presence.isLoading.value).toBe(false)
+    expect((presence as any).error.value).toEqual({ message: 'Presence failed' })
 
     scope.stop()
     expect(unsub).toHaveBeenCalled()
