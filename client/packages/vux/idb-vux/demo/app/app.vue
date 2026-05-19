@@ -43,13 +43,10 @@ main.app-shell.page
         :key="`cursor-${access.activeWorkspaceId}`"
         :workspace-id="access.activeWorkspaceId"
       )
-
-  .card(v-if="items.length")
 </template>
 
 <script setup lang="ts">
 const access = useAccess()
-const items = ref([1, 2, 3])
 </script>
 
 <style lang="stylus">
