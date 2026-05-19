@@ -2,7 +2,7 @@ import type { AuthState, ConnectionStatus } from '@instantdb/core'
 import type { EffectScope } from 'vue'
 import { i } from '@instantdb/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { effectScope, isReactive, isRef, nextTick, ref, toValue, watchEffect } from 'vue'
+import { effectScope, isReactive, isRef, nextTick, ref, toValue, watch, watchEffect } from 'vue'
 import { defineDb } from '../defineDb.js'
 import { InstantVuxDatabase } from '../InstantVuxDatabase.js'
 
@@ -474,6 +474,73 @@ describe('instantVuxDatabase', () => {
       expect(mockCore.subscribeQuery).toHaveBeenCalledTimes(2)
     })
 
+    it('tracks X state property reads inside auth-gated query factories', async () => {
+      let authCb: ((auth: any) => void) | undefined
+      mockCore.subscribeAuth.mockImplementation((cb: any) => {
+        authCb = cb
+        return () => { }
+      })
+
+      const unsubscribes: ReturnType<typeof vi.fn>[] = []
+      mockCore.subscribeQuery.mockImplementation((_query: any) => {
+        const unsub = vi.fn()
+        unsubscribes.push(unsub)
+        return unsub
+      })
+
+      scope.run(() => {
+        const { state: auth } = db.useAuthX()
+
+        db.useQuery(() => {
+          if (!auth.user?.id) {
+            return null
+          }
+
+          return {
+            goals: {
+              $: {
+                where: {
+                  'owner.id': auth.user.id,
+                },
+              },
+            },
+          }
+        })
+      })
+      await nextTick()
+
+      expect(mockCore.subscribeQuery).not.toHaveBeenCalled()
+
+      authCb?.({ user: { id: 'u1', email: 'test@test.com' } })
+      await nextTick()
+
+      expect(mockCore.subscribeQuery).toHaveBeenCalledTimes(1)
+      expect(mockCore.subscribeQuery.mock.calls[0]?.[0]).toEqual({
+        goals: {
+          $: {
+            where: {
+              'owner.id': 'u1',
+            },
+          },
+        },
+      })
+
+      authCb?.({ user: { id: 'u2', email: 'test2@test.com' } })
+      await nextTick()
+
+      expect(unsubscribes[0]).toHaveBeenCalled()
+      expect(mockCore.subscribeQuery).toHaveBeenCalledTimes(2)
+      expect(mockCore.subscribeQuery.mock.calls[1]?.[0]).toEqual({
+        goals: {
+          $: {
+            where: {
+              'owner.id': 'u2',
+            },
+          },
+        },
+      })
+    })
+
     it('returns inert state on server runtime', () => {
       withServerRuntime(() => {
         const scopeInServer = effectScope()
@@ -901,6 +968,35 @@ describe('instantVuxDatabase', () => {
       authCb?.({ user: { id: 'u1', email: 'test@test.com' } })
       await nextTick()
 
+      expect(observedUserIds).toEqual([undefined, 'u1'])
+    })
+
+    it('tracks state property getters, not the raw state object shell', async () => {
+      let authCb: ((auth: any) => void) | undefined
+      mockCore.subscribeAuth.mockImplementation((cb: any) => {
+        authCb = cb
+        return () => { }
+      })
+
+      const observedShells: any[] = []
+      const observedUsers: any[] = []
+      const observedUserIds: Array<string | undefined> = []
+
+      scope.run(() => {
+        const { state: auth } = db.useAuthX()
+
+        watch(() => auth, value => observedShells.push(value), { immediate: true })
+        watch(() => auth.user, value => observedUsers.push(value), { immediate: true })
+        watch(() => auth.user?.id, value => observedUserIds.push(value), { immediate: true })
+      })
+      await nextTick()
+
+      const payload = { id: 'u1', email: 'test@test.com' }
+      authCb?.({ user: payload })
+      await nextTick()
+
+      expect(observedShells).toHaveLength(1)
+      expect(observedUsers).toEqual([undefined, payload])
       expect(observedUserIds).toEqual([undefined, 'u1'])
     })
 

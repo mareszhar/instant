@@ -2,7 +2,7 @@
 
 Canonical maintainer docs index for the Vux workspace.
 
-Last refreshed: `2026-05-15`
+Last refreshed: `2026-05-19`
 
 ## Docs vs notes
 
@@ -30,6 +30,7 @@ Last refreshed: `2026-05-15`
 
 | Note | Updated | Scope |
 | --- | --- | --- |
+| [Raw getter state projection pattern](./notes/raw-getter-state-projection.md) | 2026-05-19 | Maintainer rationale for X `state` as a Pinia-friendly `markRaw` getter projection over refs. |
 | [Vue SDK recon audit](./notes/vue-sdk-recon-audit.md) | 2026-05-15 | Deep official Vue vs Vux parity and divergence assessment with superset recommendations. |
 | [Feature parity audit](./notes/feature-parity-audit.md) | 2026-05-15 | Cross-SDK parity matrix now including official Vue column and updated findings. |
 | [Misc DX/UX proposals feasibility](./notes/misc-dx-ux-proposals-feasibility.md) | 2026-05-13 | Additive ergonomics proposals for setup/auth/query workflows and boilerplate reduction. |

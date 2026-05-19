@@ -53,6 +53,60 @@ All access paths read from the same underlying reactive source for that hook ins
 
 `state` is a readonly projection over the underlying refs. It is intentionally not writable source state and is safe to return from Pinia setup stores in SSR without manually wrapping it in `skipHydrate`.
 
+## How `state` reactivity works
+
+`state` exists only on X APIs, such as `useAuthX` and `useQueryX`.
+
+The `state` object itself is stable and raw. Its properties are getter reads over the underlying refs, so read the property you care about:
+
+```ts
+const { state: auth } = db.useAuthX()
+
+watch(() => auth, () => {
+  // Not useful: `auth` is the same raw object.
+})
+
+watch(() => auth.user, (user) => {
+  // Runs when the underlying user ref changes.
+})
+
+watch(() => auth.user?.id, (userId) => {
+  // Runs when the tracked user/id read changes.
+})
+```
+
+The same rule applies inside query factories. This reruns when auth resolves or changes because the factory reads `auth.user`:
+
+```ts
+const { state: auth } = db.useAuthX()
+
+const query = db.useQueryX(() => {
+  if (!auth.user?.id) {
+    return null
+  }
+
+  return {
+    todos: {
+      $: {
+        where: {
+          'owner.id': auth.user.id,
+        },
+      },
+    },
+  }
+})
+```
+
+Use `state` for reads. Use top-level refs or `refs` when you need explicit ref values:
+
+```ts
+const auth = db.useAuthX()
+
+auth.state.user
+auth.user.value
+auth.refs.user.value
+```
+
 ## Practical usage patterns
 
 `refs` passthrough from composables:
