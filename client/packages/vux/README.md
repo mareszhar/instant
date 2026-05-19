@@ -23,6 +23,7 @@ Welcome to the Vux maintainer area inside **idb**.
 - Maintainer docs index: [`docs/README.md`](./docs/README.md)
 - SDK user entrypoint: [`idb-vux/README.md`](./idb-vux/README.md)
 - SDK docs quick start: [`idb-vux/docs/getting-started.md`](./idb-vux/docs/getting-started.md)
+- Current SSR contract: [`idb-vux/docs/nuxt-ssr-resilience.md`](./idb-vux/docs/nuxt-ssr-resilience.md)
 
 ## Top maintainer commands
 

@@ -9,8 +9,8 @@ main.app-shell.page
   MissingConfigPanel(v-if="!access.hasDatabase")
 
   template(v-else)
-    //- AccessPanel
-    SandboxAccessPanel
+    AccessPanel
+    //- SandboxAccessPanel
 
     section.card(v-if="access.isSignedIn && !access.activeWorkspaceId")
       h3 Pick a Workspace
@@ -43,10 +43,13 @@ main.app-shell.page
         :key="`cursor-${access.activeWorkspaceId}`"
         :workspace-id="access.activeWorkspaceId"
       )
+
+  .card(v-if="items.length")
 </template>
 
 <script setup lang="ts">
 const access = useAccess()
+const items = ref([1, 2, 3])
 </script>
 
 <style lang="stylus">

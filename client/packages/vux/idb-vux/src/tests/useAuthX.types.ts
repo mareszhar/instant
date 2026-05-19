@@ -24,6 +24,9 @@ const loadingFromState: boolean = authX.state.isLoading
 const userIdFromState: string | undefined = authX.state.user?.id
 const errorFromState: string | undefined = authX.state.error?.message
 
+// @ts-expect-error - X state is a readonly projection over refs
+authX.state.isLoading = false
+
 const { user, isLoading, error, refs, state } = db.useAuthX()
 
 const loadingFromDestructuredRef: boolean = isLoading.value

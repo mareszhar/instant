@@ -2,7 +2,7 @@ import type { AuthState, ConnectionStatus } from '@instantdb/core'
 import type { EffectScope } from 'vue'
 import { i } from '@instantdb/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { effectScope, nextTick, ref, toValue, watchEffect } from 'vue'
+import { effectScope, isReactive, isRef, nextTick, ref, toValue, watchEffect } from 'vue'
 import { defineDb } from '../defineDb.js'
 import { InstantVuxDatabase } from '../InstantVuxDatabase.js'
 
@@ -50,6 +50,10 @@ function createMockCore() {
       (_cb: (status: ConnectionStatus) => void) => () => { },
     ),
   }
+}
+
+function isPiniaSetupStoreHydratable(value: unknown) {
+  return (isRef(value) && !(value as any).effect) || isReactive(value)
 }
 
 describe('instantVuxDatabase', () => {
@@ -524,6 +528,8 @@ describe('instantVuxDatabase', () => {
       await nextTick()
 
       expect(state.refs).toBe(state)
+      expect(isPiniaSetupStoreHydratable(state)).toBe(false)
+      expect(isPiniaSetupStoreHydratable(state.state)).toBe(false)
       expect(state.isLoading.value).toBe(true)
       expect(state.goals.value).toEqual([])
       expect(state.state.goals).toEqual([])
@@ -583,6 +589,33 @@ describe('instantVuxDatabase', () => {
       expect(state.state.data).toEqual(payload)
       expect(state.data.value).toBe(state.state.data)
       expect(state.goals.value).toBe(state.state.goals)
+    })
+
+    it('keeps no-value state reads reactive', async () => {
+      let queryCb: ((result: any) => void) | undefined
+      mockCore.subscribeQuery.mockImplementation((_q: any, cb: any) => {
+        queryCb = cb
+        return () => { }
+      })
+
+      const observedGoalCounts: number[] = []
+      let state: any
+      scope.run(() => {
+        state = db.useQueryX({ goals: {} } as any)
+        watchEffect(() => {
+          observedGoalCounts.push(state.state.goals.length)
+        })
+      })
+      await nextTick()
+
+      queryCb?.({
+        data: { goals: [{ id: '1' }, { id: '2' }] },
+        pageInfo: {},
+        error: undefined,
+      })
+      await nextTick()
+
+      expect(observedGoalCounts).toEqual([0, 2])
     })
 
     it('keeps null-skip behavior aligned with useQuery', async () => {
@@ -809,6 +842,8 @@ describe('instantVuxDatabase', () => {
       await nextTick()
 
       expect(authX.refs).toBe(authX)
+      expect(isPiniaSetupStoreHydratable(authX)).toBe(false)
+      expect(isPiniaSetupStoreHydratable(authX.state)).toBe(false)
       expect(authX.isLoading.value).toBe(true)
       expect(authX.user.value).toBeUndefined()
       expect(authX.error.value).toBeUndefined()
@@ -844,6 +879,29 @@ describe('instantVuxDatabase', () => {
       expect(authX.state.isLoading).toBe(false)
       expect(authX.state.user).toEqual(payload)
       expect(authX.user.value).toBe(authX.state.user)
+    })
+
+    it('keeps no-value auth state reads reactive', async () => {
+      let authCb: ((auth: any) => void) | undefined
+      mockCore.subscribeAuth.mockImplementation((cb: any) => {
+        authCb = cb
+        return () => { }
+      })
+
+      const observedUserIds: Array<string | undefined> = []
+      let authX: any
+      scope.run(() => {
+        authX = db.useAuthX()
+        watchEffect(() => {
+          observedUserIds.push(authX.state.user?.id)
+        })
+      })
+      await nextTick()
+
+      authCb?.({ user: { id: 'u1', email: 'test@test.com' } })
+      await nextTick()
+
+      expect(observedUserIds).toEqual([undefined, 'u1'])
     })
 
     it('returns inert loading state on server runtime', () => {
@@ -1091,6 +1149,7 @@ describe('instantVuxDatabase', () => {
         status = db.useConnectionStatus()
       })
 
+      expect(isPiniaSetupStoreHydratable(status)).toBe(false)
       expect(status.value).toBe('connecting')
       scope.stop()
     })
@@ -1184,6 +1243,7 @@ describe('instantVuxDatabase', () => {
         localId = db.useLocalId('device')
       })
 
+      expect(isPiniaSetupStoreHydratable(localId)).toBe(false)
       expect(localId.value).toBeNull()
       scope.stop()
     })

@@ -28,7 +28,7 @@ This package is a DX/UX-first Vue SDK that goes beyond the official `@instantdb/
 
 - 👾 **Realtime Primitives** — Presence, topics, and typing indicators ready to go with specialized Vue components.
 
-- 🧊 **SSR Resilience** — Safe execution in Nuxt and Vite SSR environments from day one, without forcing `ssr: false`.
+- 🧊 **SSR Resilience** — Safe inert execution in Nuxt and Vite SSR environments from day one, without forcing `ssr: false`; full SSR data hydration is planned separately.
 
 ## Relationship to `@instantdb/vue`
 
@@ -72,7 +72,7 @@ Split into focused modules so you can jump directly to what you need:
 3. [Infinite queries (`useInfiniteQuery`, `useInfiniteQueryX`)](./docs/infinite-queries.md)
 4. [Realtime rooms and components](./docs/realtime-rooms.md)
 5. [DX/UX enhancements (Vux-only additions)](./docs/dx-ux-enhancements.md)
-6. [Nuxt and SSR resilience](./docs/nuxt-ssr-resilience.md)
+6. [Nuxt and SSR resilience](./docs/nuxt-ssr-resilience.md) - current SSR contract, hydration caveats, and Pinia setup-store guidance.
 7. [API reference](./docs/api-reference.md)
 8. [Examples](./examples) - quick micro-examples illustrating API usage in a real TypeScript environment.
 

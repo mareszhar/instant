@@ -40,7 +40,6 @@ import {
   getCurrentScope,
   onScopeDispose,
   reactive,
-  readonly,
   ref,
   toValue,
   watch,
@@ -918,9 +917,10 @@ export class InstantVuxDatabase<
       : 'connecting'
 
     const status = ref(initialStatus)
+    const statusView = computed(() => status.value)
 
     if (isServerRuntime() || !isReactorReadyForSubscriptions(this.core)) {
-      return readonly(status)
+      return statusView
     }
 
     const unsub = this.core.subscribeConnectionStatus(
@@ -931,7 +931,7 @@ export class InstantVuxDatabase<
 
     attachScopeCleanup(unsub)
 
-    return readonly(status)
+    return statusView
   }
 
   useConnectionStatusX = (): UseConnectionStatusXResult => {
@@ -945,9 +945,10 @@ export class InstantVuxDatabase<
 
   useLocalId = (name: MaybeRefOrGetter<string>): UseLocalIdResult => {
     const localId = ref<string | null>(null)
+    const localIdView = computed(() => localId.value)
 
     if (isServerRuntime() || !isReactorReadyForSubscriptions(this.core)) {
-      return readonly(localId)
+      return localIdView
     }
 
     let mounted = true
@@ -983,7 +984,7 @@ export class InstantVuxDatabase<
       stop()
     })
 
-    return readonly(localId)
+    return localIdView
   }
 
   useLocalIdX = (

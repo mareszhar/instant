@@ -1,5 +1,5 @@
 import type { ComputedRef, Ref, ShallowRef } from 'vue'
-import { isRef, reactive } from 'vue'
+import { isRef, markRaw } from 'vue'
 
 export type XRefLike<T = unknown>
   = | Ref<T>
@@ -7,7 +7,7 @@ export type XRefLike<T = unknown>
     | ComputedRef<T>
 
 export type StateFromRefs<Refs extends object> = {
-  [K in keyof Refs]: Refs[K] extends XRefLike<infer V> ? V : Refs[K]
+  readonly [K in keyof Refs]: Refs[K] extends XRefLike<infer V> ? V : Refs[K]
 }
 
 export type XResult<
@@ -15,7 +15,7 @@ export type XResult<
   State extends object = StateFromRefs<Refs>,
 > = Refs & {
   refs: Refs
-  state: State
+  state: Readonly<State>
 }
 
 export function createStateFromRefs<Refs extends object>(
@@ -35,7 +35,7 @@ export function createStateFromRefs<Refs extends object>(
     })
   }
 
-  return reactive(stateBaseTarget) as StateFromRefs<Refs>
+  return markRaw(stateBaseTarget) as StateFromRefs<Refs>
 }
 
 export function createXResult<Refs extends object>(
@@ -56,13 +56,13 @@ export function createXResult<
   state?: State,
 ): XResult<Refs> | XResult<Refs, State> {
   if (state !== undefined) {
-    const result = refs as XResult<Refs, State>
+    const result = markRaw(refs) as XResult<Refs, State>
     result.refs = refs
-    result.state = state
+    result.state = markRaw(state)
     return result
   }
 
-  const result = refs as XResult<Refs>
+  const result = markRaw(refs) as XResult<Refs>
   result.refs = refs
   result.state = createStateFromRefs(refs)
   return result

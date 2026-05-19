@@ -55,6 +55,9 @@ const firstQuestTitleFromRef: string | undefined = queryXState.quests.value[0]?.
 const firstAssigneeEmailFromRef: string | undefined = queryXState.quests.value[0]?.assignee?.email
 const firstQuestTitleFromState: string | undefined = queryXState.state.quests[0]?.title
 
+// @ts-expect-error - X state is a readonly projection over refs
+queryXState.state.isLoading = false
+
 const queryXFromFactory = db.useQueryX(q({
   quests: {
     assignee: {},

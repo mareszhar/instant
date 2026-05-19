@@ -25,6 +25,7 @@ This page is intentionally concise. Use conceptual guides for workflow details:
   - delegates: `transact`, `queryOnce`, `queryOnceX`, `getAuth`, `getLocalId`
   - query hooks: `useQuery`, `useInfiniteQuery` (full parity behavior shipped)
   - ergonomic query hooks: `useQueryX`, `useInfiniteQueryX`
+    - X `state` aliases are readonly ref projections and are Pinia SSR-hydration tolerant.
   - auth/status hooks:
     - baseline: `useAuth`, `useUser({ requireUser })`, `useConnectionStatus`, `useLocalId`
     - additive X: `useAuthX`, `useUserX`, `useConnectionStatusX`, `useLocalIdX`

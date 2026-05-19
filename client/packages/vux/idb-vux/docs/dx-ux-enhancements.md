@@ -51,6 +51,8 @@ queryX.state.todos
 
 All access paths read from the same underlying reactive source for that hook instance.
 
+`state` is a readonly projection over the underlying refs. It is intentionally not writable source state and is safe to return from Pinia setup stores in SSR without manually wrapping it in `skipHydrate`.
+
 ## Practical usage patterns
 
 `refs` passthrough from composables:
@@ -70,6 +72,21 @@ if (!auth.isLoading && auth.user) {
   console.log(auth.user.email)
 }
 ```
+
+Pinia setup store:
+
+```ts
+export const useAccessStore = defineStore('access', () => {
+  const { state: auth } = db.useAuthX()
+
+  return {
+    auth,
+    userLabel: computed(() => auth.user?.email ?? 'guest'),
+  }
+})
+```
+
+Pinia may hydrate returned setup-store state during SSR. Vux keeps X `state` getter-like so Pinia does not try to write into SDK-owned computed state.
 
 Strict/optional user policy with X ergonomics:
 
