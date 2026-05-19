@@ -1,4 +1,4 @@
-import { typescript } from './config/nuxt/typescript'
+import { typescript, vite } from './config/nuxt'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -14,16 +14,6 @@ export default defineNuxtConfig({
     instantAppAdminToken: '',
   },
 
-  vite: {
-    resolve: {
-      preserveSymlinks: true,
-    },
-    optimizeDeps: {
-      exclude: [
-        '@mszr/idb-vux',
-      ],
-    },
-  },
-
   typescript,
+  vite,
 })
