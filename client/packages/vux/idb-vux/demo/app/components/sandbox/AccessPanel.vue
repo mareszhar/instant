@@ -8,13 +8,13 @@ section.card.demo-access
 
   p.alert(v-if="feedback" :class="feedback.tone") {{ feedback.text }}
   p.muted(v-else)
-    template(v-if="!access.auth.user?.id") Sign in to create or join a workspace.
+    template(v-if="!auth.user?.id") Sign in to create or join a workspace.
     template(v-else-if="workspaces.isLoading") Loading workspaces...
     template(v-else-if="workspaces.error") Error loading workspaces: {{ formatError(workspaces.error) }}
     template(v-else-if="!workspaces.available.length") No workspaces found. Create or join a workspace to continue.
     template(v-else) {{ workspaces.available.length }} workspace{{ workspaces.available.length === 1 ? '' : 's' }} available.
 
-  SignedOut(:db="access.proxySafeDb")
+  SignedOut(:db)
     .stack
       p.inline-pair #[span.label Status] #[span.inline-value Signed out]
       .row
@@ -38,7 +38,7 @@ section.card.demo-access
           :disabled="!access.form.email || access.form.isProcessing"
         ) Send magic code
 
-      form.stack(v-else @submit.prevent="access.confirmMagicCode")
+      form.stack(v-else @submit.prevent="access.signInWithMagicCode")
         p.inline-pair #[span.label Code Sent To] #[span.inline-value {{ access.form.email }}]
         label.field
           span Verification code
@@ -57,16 +57,16 @@ section.card.demo-access
             @click="access.resetMagicCodeFlow"
           ) Use another email
 
-  SignedIn(:db="access.proxySafeDb")
+  SignedIn(:db)
     .stats.demo-auth-stats
       .stat
         span.label Signed In As
         .demo-auth-row
           span.inline-value {{ access.userLabel || 'unknown user' }}
           button.btn.secondary.compact(type="button" @click="access.signOut") Sign out
-      .stat(v-if="access.auth.user?.id")
+      .stat(v-if="auth.user?.id")
         span.label User ID
-        span.inline-value {{ access.auth.user.id }}
+        span.inline-value {{ auth.user.id }}
 
     .demo-two-col
       form.stack(@submit.prevent="workspaces.create")
@@ -129,8 +129,9 @@ section.card.demo-access
 <script setup lang="ts">
 import { SignedIn, SignedOut } from '@mszr/idb-vux'
 
-const access = useAccessStore()
-const workspaces = useWorkspacesStore()
+const { db, auth } = useIdb()
+const access = useAccess()
+const workspaces = useWorkspaces()
 
 const feedback = computed(() => {
   return access.form.feedback ?? workspaces.form.feedback ?? workspaces.copyingFeedback

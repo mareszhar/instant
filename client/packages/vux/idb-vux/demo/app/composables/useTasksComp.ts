@@ -7,7 +7,7 @@ type TaskStatusFilter = 'all' | 'pending' | 'done'
 
 const statusFilters: TaskStatusFilter[] = ['all', 'pending', 'done']
 
-export function useTasks(workspaceId: string) {
+export function useTasksComp(workspaceId: string) {
   const db = useDb()
   const auth = db?.useAuth()
 

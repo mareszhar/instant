@@ -46,7 +46,7 @@ main.app-shell.page
 </template>
 
 <script setup lang="ts">
-const access = useAccess()
+const access = useAccessComp()
 </script>
 
 <style lang="stylus">

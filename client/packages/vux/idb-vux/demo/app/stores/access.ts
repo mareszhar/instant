@@ -1,11 +1,6 @@
-export const useAccessStore = defineStore('access', () => {
-  const db = useDb()
-  const proxySafeDb = markRaw(db)
-  const connectionStatus = db.useConnectionStatus()
-  const localId = db.useLocalId('idb-vux-demo-device')
-  const appId = useRuntimeConfig().public.instantAppId ?? ''
+export const useAccess = defineStore('access', () => {
+  const { db, auth } = useIdb()
 
-  const { state: auth } = db.useAuthX()
   const userLabel = computed(() => {
     return auth.user
       ? (auth.user.email ?? `Guest-${auth.user.id.slice(-6)}`)
@@ -20,51 +15,32 @@ export const useAccessStore = defineStore('access', () => {
     feedback: null as Feedback | null,
   })
 
-  async function authenticate({ shouldNotRun, action }: { shouldNotRun?: () => boolean, action: () => Promise<unknown> }) {
-    if (form.isProcessing || shouldNotRun?.())
-      return
-    form.isProcessing = true
-    form.feedback = null
-    const [error] = await go(action())
-    if (error)
-      form.feedback = { tone: 'danger', text: formatError(error) }
-    form.isProcessing = false
-  }
+  const signInAsGuest = () => executeFormAction(form, !!auth.user, db.auth.signInAsGuest)
 
-  const signInAsGuest = async () => await authenticate({ action: db.auth.signInAsGuest })
-
-  const requestMagicCode = async () => await authenticate({
-    shouldNotRun: () => form.isProcessing || !form.email,
-    action: async () => {
-      form.isMagicCodeRequested = true
-      await db.auth.sendMagicCode({ email: form.email })
-    },
+  const requestMagicCode = () => executeFormAction(form, !form.email, async () => {
+    form.isMagicCodeRequested = true
+    await db.auth.sendMagicCode({ email: form.email })
   })
 
-  const confirmMagicCode = async () => await authenticate({
-    shouldNotRun: () => form.isProcessing || !form.email || !form.magicCode,
-    action: () => db.auth.signInWithMagicCode({ email: form.email, code: form.magicCode }),
-  })
+  const signInWithMagicCode = () => executeFormAction(form, !form.email || !form.magicCode, () =>
+    db.auth.signInWithMagicCode({ email: form.email, code: form.magicCode }))
 
-  function resetMagicCodeFlow() {
+  const resetMagicCodeFlow = () => {
     form.magicCode = ''
     form.isMagicCodeRequested = false
-    form.feedback = { tone: 'info', text: '' }
+    form.feedback = null
   }
 
   const signOut = async () => await db.auth.signOut()
 
   return {
-    proxySafeDb,
-    connectionStatus,
-    localId,
-    appId,
-    auth,
+    connectionStatus: db.useConnectionStatus(),
+    localId: db.useLocalId('idb-vux-demo-device'),
     userLabel,
     form,
     signInAsGuest,
     requestMagicCode,
-    confirmMagicCode,
+    signInWithMagicCode,
     resetMagicCodeFlow,
     signOut,
   }

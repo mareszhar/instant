@@ -1,6 +1,5 @@
-export const useWorkspacesStore = defineStore('workspaces', () => {
-  const access = useAccessStore()
-  const db = useDb()
+export const useWorkspaces = defineStore('workspaces', () => {
+  const { db, auth } = useIdb()
 
   const form = reactive({
     name: '',
@@ -12,7 +11,7 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
   const { isLoading, error, workspaces: available } = db.useQueryX(() => q({
     workspaces: {
       $: {
-        where: { 'memberships.user.id': access.auth.user?.id ?? $skip },
+        where: { 'memberships.user': auth.user?.id ?? $skip },
         order: { createdAt: 'desc' },
       },
       memberships: {},
@@ -27,89 +26,44 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
       : available.value.find(workspace => workspace.inviteCode === requestedInviteCode.value) ?? null
   })
 
-  function startProcessingForm() {
-    form.isProcessing = true
-    form.feedback = null
-  }
+  const wireMembership = (inviteCode: string) => db.transact(
+    db.tx.memberships[id()]!
+      .ruleParams({ inviteCode })
+      .create({ createdAt: Date.now() })
+      .link({ user: auth.user!.id, workspace: lookup('inviteCode', inviteCode) }),
+  )
 
-  async function create() {
-    if (!access.auth.user?.id || !form.name || form.isProcessing)
-      return
+  const create = () => executeFormAction(form, !auth.user?.id || !form.name, async () => {
+    const inviteCode = id().slice(-12)
 
-    startProcessingForm()
-    const newWorkspaceId = id()
-    const newMembershipId = id()
-    const newWorkspaceInviteCode = id().slice(-12)
+    await db.transact(db.tx.workspaces[id()]!.create({
+      name: form.name,
+      inviteCode,
+      createdAt: Date.now(),
+    }))
+    await wireMembership(inviteCode)
 
-    const [errorCreatingWorkspace] = await go(db.transact([
-      db.tx.workspaces[newWorkspaceId]!.create({
-        name: form.name,
-        inviteCode: newWorkspaceInviteCode,
-        createdAt: Date.now(),
-      }),
-      db.tx.memberships[newMembershipId]!
-        .ruleParams({ inviteCode: newWorkspaceInviteCode })
-        .create({ createdAt: Date.now() })
-        .link({ user: access.auth.user.id, workspace: newWorkspaceId }),
-    ]))
+    form.name = ''
+    requestedInviteCode.value = inviteCode
+    return `Workspace created. Invite code: ${inviteCode}`
+  })
 
-    if (errorCreatingWorkspace) {
-      form.feedback = { tone: 'danger', text: formatError(errorCreatingWorkspace) }
-    }
-    else {
-      form.name = ''
-      requestedInviteCode.value = newWorkspaceId
-      form.feedback = { tone: 'success', text: `Workspace created. Invite code: ${newWorkspaceInviteCode}` }
-    }
+  const join = () => executeFormAction(form, !auth.user?.id || !form.inviteCode, async () => {
+    const inviteCode = form.inviteCode
+    const alreadyJoined = available.value.find(workspace => workspace.inviteCode === inviteCode)
 
-    form.isProcessing = false
-  }
+    if (!alreadyJoined)
+      await wireMembership(inviteCode)
 
-  async function join() {
-    if (!access.auth.user?.id || !form.inviteCode || form.isProcessing)
-      return
+    form.inviteCode = ''
+    requestedInviteCode.value = inviteCode
+    return alreadyJoined ? `Switched to ${alreadyJoined.name}` : `Joined with invite code ${inviteCode}`
+  })
 
-    startProcessingForm()
-    const alreadyJoined = available.value.find(workspace => workspace.inviteCode === form.inviteCode)
-    let errorJoiningWorkspace: Error | undefined
-
-    if (!alreadyJoined) {
-      const newMembershipId = id()
-        ;[errorJoiningWorkspace] = await go(db.transact(
-        db.tx.memberships[newMembershipId]!
-          .ruleParams({ inviteCode: form.inviteCode })
-          .create({ createdAt: Date.now() })
-          .link({ user: access.auth.user.id, workspace: lookup('inviteCode', form.inviteCode) }),
-      ))
-    }
-
-    if (errorJoiningWorkspace) {
-      form.feedback = { tone: 'danger', text: formatError(errorJoiningWorkspace) }
-    }
-    else {
-      requestedInviteCode.value = form.inviteCode
-      form.feedback = { tone: 'success', text: alreadyJoined ? `Switched to ${alreadyJoined.name}` : `Joined with invite code ${form.inviteCode}` }
-      form.inviteCode = ''
-    }
-
-    form.isProcessing = false
-  }
-
-  async function remove(workspaceId: string) {
-    if (form.isProcessing)
-      return
-
-    startProcessingForm()
-    const [errorDeletingWorkspace] = await go(db.transact(
-      db.tx.workspaces[workspaceId]!.delete(),
-    ))
-    if (errorDeletingWorkspace)
-      form.feedback = { tone: 'danger', text: formatError(errorDeletingWorkspace) }
-    else
-      form.feedback = { tone: 'success', text: 'Workspace deleted' }
-
-    form.isProcessing = false
-  }
+  const remove = (workspaceId: string) => executeFormAction(form, false, async () => {
+    await db.transact(db.tx.workspaces[workspaceId]!.delete())
+    return 'Workspace deleted'
+  })
 
   const copyingFeedback = ref<Feedback | null>(null)
   const { copy } = useClipboard()

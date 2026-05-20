@@ -95,7 +95,7 @@ const props = defineProps<{
   signedInUserId: string
 }>()
 
-const tasks = useTasks(props.workspaceId)
+const tasks = useTasksComp(props.workspaceId)
 const signedInUserId = toRef(props, 'signedInUserId')
 const {
   openMenuId,

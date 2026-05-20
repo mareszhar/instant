@@ -445,4 +445,4 @@ function useAccessInternal() {
   })
 }
 
-export const useAccess = createSharedComposable(useAccessInternal)
+export const useAccessComp = createSharedComposable(useAccessInternal)

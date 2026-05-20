@@ -133,7 +133,7 @@ section.card.demo-access
 <script setup lang="ts">
 import { SignedIn, SignedOut } from '@mszr/idb-vux'
 
-const access = useAccess()
+const access = useAccessComp()
 const copyMessage = ref('')
 const copyMessageTone = ref<'success' | 'danger'>('success')
 const { copy } = useClipboard()
