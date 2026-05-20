@@ -1,4 +1,4 @@
-export type FeedbackTone = 'success' | 'danger' | 'warning' | 'info'
+export type FeedbackTone = 'success' | 'danger' | 'info'
 
 export interface Feedback {
   text: string

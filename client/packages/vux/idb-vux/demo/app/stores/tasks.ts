@@ -5,7 +5,7 @@ export const useTasks = defineStore('tasks', () => {
   const form = reactive({
     title: '',
     isProcessing: false,
-    feedback: null as Feedback | null,
+    feedback: useEphemeralFeedback(),
   })
 
   const { isLoading, error, tasks: available } = db.useQueryX(() => q({

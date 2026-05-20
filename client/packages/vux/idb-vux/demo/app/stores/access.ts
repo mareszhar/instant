@@ -8,7 +8,7 @@ export const useAccess = defineStore('access', () => {
     magicCode: '',
     isMagicCodeRequested: false,
     isProcessing: false,
-    feedback: null as Feedback | null,
+    feedback: useEphemeralFeedback(),
   })
 
   const signInAsGuest = () => executeFormAction(form, !!auth.user, db.auth.signInAsGuest)

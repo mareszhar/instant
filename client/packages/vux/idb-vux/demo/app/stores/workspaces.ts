@@ -5,7 +5,7 @@ export const useWorkspaces = defineStore('workspaces', () => {
     name: '',
     inviteCode: '',
     isProcessing: false,
-    feedback: null as Feedback | null,
+    feedback: useEphemeralFeedback(),
   })
 
   const { isLoading, error, workspaces: available } = db.useQueryX(() => q({
@@ -66,7 +66,7 @@ export const useWorkspaces = defineStore('workspaces', () => {
     return 'Workspace deleted'
   })
 
-  const copyingFeedback = ref<Feedback | null>(null)
+  const copyingFeedback = useEphemeralFeedback()
   const { copy } = useClipboard()
 
   async function copyInviteCode(inviteCode: string) {

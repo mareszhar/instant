@@ -134,6 +134,6 @@ const access = useAccess()
 const workspaces = useWorkspaces()
 
 const feedback = computed(() => {
-  return access.form.feedback ?? workspaces.form.feedback ?? workspaces.copyingFeedback
+  return workspaces.copyingFeedback ?? workspaces.form.feedback ?? access.form.feedback
 })
 </script>
