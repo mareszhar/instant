@@ -1,3 +1,5 @@
+import { skipHydrate } from 'pinia'
+
 export const useWorkspaces = defineStore('workspaces', () => {
   const { db, auth } = useIdb()
 
@@ -24,6 +26,11 @@ export const useWorkspaces = defineStore('workspaces', () => {
     return !inviteCodeOfOpen.value
       ? null
       : available.value.find(workspace => workspace.inviteCode === inviteCodeOfOpen.value) ?? null
+  })
+
+  watch(available, () => {
+    if (!isLoading.value && !current.value)
+      inviteCodeOfOpen.value = available.value[0]?.inviteCode ?? ''
   })
 
   const wireMembership = (inviteCode: string) => db.transact(
@@ -77,7 +84,7 @@ export const useWorkspaces = defineStore('workspaces', () => {
     isLoading,
     error,
     available,
-    inviteCodeOfOpen,
+    inviteCodeOfOpen: skipHydrate(inviteCodeOfOpen),
     open,
     current,
     create,
