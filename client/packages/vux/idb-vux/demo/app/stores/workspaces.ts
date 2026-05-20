@@ -18,12 +18,12 @@ export const useWorkspaces = defineStore('workspaces', () => {
     },
   }))
 
-  const requestedInviteCode = useSessionStorage('requested-workspace-invite-code', '')
-  const request = (inviteCode: string) => requestedInviteCode.value = inviteCode
+  const inviteCodeOfOpen = useSessionStorage('invite-code-of-open-workspace', '')
+  const open = (inviteCode: string) => inviteCodeOfOpen.value = inviteCode
   const current = computed(() => {
-    return !requestedInviteCode.value
+    return !inviteCodeOfOpen.value
       ? null
-      : available.value.find(workspace => workspace.inviteCode === requestedInviteCode.value) ?? null
+      : available.value.find(workspace => workspace.inviteCode === inviteCodeOfOpen.value) ?? null
   })
 
   const wireMembership = (inviteCode: string) => db.transact(
@@ -36,15 +36,11 @@ export const useWorkspaces = defineStore('workspaces', () => {
   const create = () => executeFormAction(form, !auth.user?.id || !form.name, async () => {
     const inviteCode = id().slice(-12)
 
-    await db.transact(db.tx.workspaces[id()]!.create({
-      name: form.name,
-      inviteCode,
-      createdAt: Date.now(),
-    }))
+    await db.transact(db.tx.workspaces[id()]!.create({ name: form.name, inviteCode, createdAt: Date.now() }))
     await wireMembership(inviteCode)
 
     form.name = ''
-    request(inviteCode)
+    open(inviteCode)
     return `Workspace created. Invite code: ${inviteCode}`
   })
 
@@ -56,7 +52,7 @@ export const useWorkspaces = defineStore('workspaces', () => {
       await wireMembership(inviteCode)
 
     form.inviteCode = ''
-    request(inviteCode)
+    open(inviteCode)
     return alreadyJoined ? `Switched to ${alreadyJoined.name}` : `Joined with invite code ${inviteCode}`
   })
 
@@ -81,8 +77,8 @@ export const useWorkspaces = defineStore('workspaces', () => {
     isLoading,
     error,
     available,
-    requestedInviteCode,
-    request,
+    inviteCodeOfOpen,
+    open,
     current,
     create,
     join,

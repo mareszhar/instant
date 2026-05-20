@@ -117,7 +117,7 @@ section.card.demo-access
               button.btn.secondary.compact(
                 v-if="workspace.id !== workspaces.current?.id"
                 type="button"
-                @click="workspaces.request(workspace.inviteCode)"
+                @click="workspaces.open(workspace.inviteCode)"
               ) Open
               button.btn.danger.compact(
                 type="button"
