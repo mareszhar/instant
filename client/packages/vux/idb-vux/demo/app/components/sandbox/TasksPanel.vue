@@ -43,7 +43,7 @@ article.card
         type="button"
         :class="{ 'is-checked': task.isDone }"
         :aria-label="task.isDone ? 'Mark task pending' : 'Mark task done'"
-        :disabled="tasks.form.isProcessing"
+        :disabled="!auth.user"
         @click="tasks.toggleCheck(task)"
       ) #[span]
 
@@ -69,14 +69,14 @@ article.card
               button(
                 type="button"
                 role="menuitem"
-                :disabled="!auth.user || tasks.form.isProcessing"
+                :disabled="!auth.user"
                 @click="runTaskAction(task.id, () => tasks.toggleClaim(task))"
               ) {{ task.assignee?.id === auth.user?.id ? 'Unassign me' : 'Assign me' }}
             li(role="none")
               button(
                 type="button"
                 role="menuitem"
-                :disabled="!auth.user || tasks.form.isProcessing"
+                :disabled="!auth.user"
                 @click="runTaskAction(task.id, () => tasks.remove(task))"
               ) Delete
 
@@ -86,7 +86,7 @@ article.card
   .row.demo-end
     button.btn.secondary(
       type="button"
-      :disabled="!auth.user || tasks.form.isProcessing"
+      :disabled="!auth.user"
       @click="tasks.removeDone"
     ) Clear done tasks
 </template>
