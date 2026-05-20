@@ -3,7 +3,7 @@ export async function executeFormAction(
   shouldSkip: boolean,
   action: () => Promise<unknown>,
 ) {
-  if (!shouldSkip || formState.isProcessing)
+  if (shouldSkip || formState.isProcessing)
     return
 
   formState.isProcessing = true
