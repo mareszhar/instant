@@ -10,6 +10,7 @@ export const vite = {
       '@mszr/idb-vux',
     ],
     include: [
+      '@floating-ui/vue',
       'go-go-try',
     ],
   },
