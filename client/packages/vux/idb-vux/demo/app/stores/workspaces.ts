@@ -44,7 +44,7 @@ export const useWorkspaces = defineStore('workspaces', () => {
     await wireMembership(inviteCode)
 
     form.name = ''
-    requestedInviteCode.value = inviteCode
+    request(inviteCode)
     return `Workspace created. Invite code: ${inviteCode}`
   })
 
@@ -56,7 +56,7 @@ export const useWorkspaces = defineStore('workspaces', () => {
       await wireMembership(inviteCode)
 
     form.inviteCode = ''
-    requestedInviteCode.value = inviteCode
+    request(inviteCode)
     return alreadyJoined ? `Switched to ${alreadyJoined.name}` : `Joined with invite code ${inviteCode}`
   })
 
