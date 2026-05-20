@@ -18,7 +18,7 @@ export const useTasks = defineStore('tasks', () => {
     },
   }))
 
-  const byStatus = computed(() => ({
+  const byStatus = reactiveComputed(() => ({
     all: available.value,
     pending: available.value.filter(task => !task.isDone),
     done: available.value.filter(task => task.isDone),
@@ -27,7 +27,7 @@ export const useTasks = defineStore('tasks', () => {
   const statusFilters = ['all', 'pending', 'done'] as const
   const activeStatusFilter = useStoreSessionStorage<typeof statusFilters[number]>('tasks-status-filter', 'all')
   const setActiveStatusFilter = (status: typeof activeStatusFilter.value) => activeStatusFilter.value = status
-  const shown = computed(() => byStatus.value[activeStatusFilter.value])
+  const shown = computed(() => byStatus[activeStatusFilter.value])
 
   const create = () => executeFormAction(form, !form.title || !workspaces.current?.id, async () => {
     await db.transact(db.tx.tasks[id()]!.create({
@@ -50,9 +50,9 @@ export const useTasks = defineStore('tasks', () => {
   const remove = (task: Task) => executeFormAction(form, false, () =>
     db.transact(db.tx.tasks[task.id]!.delete()))
 
-  const removeDone = () => executeFormAction(form, !byStatus.value.done.length, async () => {
-    const doneCount = byStatus.value.done.length
-    await db.transact(byStatus.value.done.map(task => db.tx.tasks[task.id]!.delete()))
+  const removeDone = () => executeFormAction(form, !byStatus.done.length, async () => {
+    const doneCount = byStatus.done.length
+    await db.transact(byStatus.done.map(task => db.tx.tasks[task.id]!.delete()))
     return `Deleted ${doneCount} completed task${doneCount !== 1 ? 's' : ''}.`
   })
 
