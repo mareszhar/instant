@@ -1,10 +1,11 @@
 <template lang="pug">
 main.app-shell.page
-  IntroPanel(
-    :app-id="access.appId"
-    :connection-label="access.connectionLabel"
-    :local-id-label="access.localIdLabel"
-  )
+  //- IntroPanel(
+  //-   :app-id="access.appId"
+  //-   :connection-label="access.connectionLabel"
+  //-   :local-id-label="access.localIdLabel"
+  //- )
+  SandboxIntroPanel
 
   MissingConfigPanel(v-if="!access.hasDatabase")
 
