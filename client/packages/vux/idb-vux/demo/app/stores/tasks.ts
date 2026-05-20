@@ -25,7 +25,7 @@ export const useTasks = defineStore('tasks', () => {
   }))
 
   const statusFilters = ['all', 'pending', 'done'] as const
-  const activeStatusFilter = useSessionStorage<typeof statusFilters[number]>('tasks-status-filter', 'all')
+  const activeStatusFilter = useStoreSessionStorage<typeof statusFilters[number]>('tasks-status-filter', 'all')
   const setActiveStatusFilter = (status: typeof activeStatusFilter.value) => activeStatusFilter.value = status
   const shown = computed(() => byStatus.value[activeStatusFilter.value])
 

@@ -1,5 +1,3 @@
-import { skipHydrate } from 'pinia'
-
 export const useWorkspaces = defineStore('workspaces', () => {
   const { db, auth } = useIdb()
 
@@ -20,7 +18,7 @@ export const useWorkspaces = defineStore('workspaces', () => {
     },
   }))
 
-  const inviteCodeOfOpen = useSessionStorage('invite-code-of-open-workspace', '')
+  const inviteCodeOfOpen = useStoreSessionStorage('invite-code-of-open-workspace', '')
   const open = (inviteCode: string) => inviteCodeOfOpen.value = inviteCode
   const current = computed(() => {
     return !inviteCodeOfOpen.value
@@ -84,7 +82,7 @@ export const useWorkspaces = defineStore('workspaces', () => {
     isLoading,
     error,
     available,
-    inviteCodeOfOpen: skipHydrate(inviteCodeOfOpen),
+    inviteCodeOfOpen,
     open,
     current,
     create,
