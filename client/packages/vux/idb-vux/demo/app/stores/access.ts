@@ -1,11 +1,7 @@
 export const useAccess = defineStore('access', () => {
   const { db, auth } = useIdb()
 
-  const userLabel = computed(() => {
-    return auth.user
-      ? (auth.user.email ?? `Guest-${auth.user.id.slice(-6)}`)
-      : ''
-  })
+  const userLabel = computed(() => userToLabel(auth.user))
 
   const form = reactive({
     email: '',

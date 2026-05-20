@@ -19,11 +19,12 @@ main.app-shell.page
 
     template(v-if="access.activeWorkspaceId")
       section.grid
-        TasksPanel(
-          :key="`tasks-${access.activeWorkspaceId}`"
-          :workspace-id="access.activeWorkspaceId"
-          :signed-in-user-id="access.signedInUserId"
-        )
+        //- TasksPanel(
+        //-   :key="`tasks-${access.activeWorkspaceId}`"
+        //-   :workspace-id="access.activeWorkspaceId"
+        //-   :signed-in-user-id="access.signedInUserId"
+        //- )
+        SandboxTasksPanel
         InfiniteTasksPanel(
           :key="`infinite-${access.activeWorkspaceId}`"
           :workspace-id="access.activeWorkspaceId"

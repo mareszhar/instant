@@ -1,3 +1,5 @@
+import type { InstaQLEntity } from '@mszr/idb-vux'
+
 type Task = InstaQLEntity<AppSchema, 'tasks', {
   assignee: {}
   workspace: {}

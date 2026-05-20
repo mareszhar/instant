@@ -62,7 +62,7 @@ section.card.demo-access
       .stat
         span.label Signed In As
         .demo-auth-row
-          span.inline-value {{ access.userLabel || 'unknown user' }}
+          span.inline-value {{ access.userLabel }}
           button.btn.secondary.compact(type="button" @click="access.signOut") Sign out
       .stat(v-if="auth.user?.id")
         span.label User ID

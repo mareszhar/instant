@@ -1,3 +1,5 @@
+import type { ConnectionStatus, InstantVuxDatabase, InstaQLEntity } from '@mszr/idb-vux'
+
 const WORKSPACE_STORAGE_KEY = 'idb-vux-demo:active-workspace-id'
 
 type Workspace = InstaQLEntity<AppSchema, 'workspaces', {
