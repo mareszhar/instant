@@ -1,17 +1,17 @@
 <template lang="pug">
 main.app-shell.page
-  //- IntroPanel(
+  //- PanelIntro(
   //-   :app-id="access.appId"
   //-   :connection-label="access.connectionLabel"
   //-   :local-id-label="access.localIdLabel"
   //- )
-  SandboxIntroPanel
+  SandboxPanelIntro
 
-  MissingConfigPanel(v-if="!access.hasDatabase")
+  PanelMissingConfig(v-if="!access.hasDatabase")
 
   template(v-else)
-    //- AccessPanel
-    SandboxAccessPanel
+    //- PanelAccess
+    SandboxPanelAccess
 
     section.card(v-if="access.isSignedIn && !access.activeWorkspaceId")
       h3 Pick a Workspace
@@ -19,29 +19,29 @@ main.app-shell.page
 
     template(v-if="access.activeWorkspaceId")
       section.grid
-        //- TasksPanel(
+        //- PanelTasks(
         //-   :key="`tasks-${access.activeWorkspaceId}`"
         //-   :workspace-id="access.activeWorkspaceId"
         //-   :signed-in-user-id="access.signedInUserId"
         //- )
-        SandboxTasksPanel
-        InfiniteTasksPanel(
+        SandboxPanelTasks
+        PanelInfiniteTasks(
           :key="`infinite-${access.activeWorkspaceId}`"
           :workspace-id="access.activeWorkspaceId"
         )
 
       section.grid
-        RealtimePanel(
+        PanelRealtime(
           :key="`realtime-${access.activeWorkspaceId}`"
           :workspace-id="access.activeWorkspaceId"
           :user-label="access.signedInLabel"
         )
-        AdminPanel(
+        PanelAdmin(
           :key="`admin-${access.activeWorkspaceId}`"
           :workspace-id="access.activeWorkspaceId"
         )
 
-      CursorsPanel(
+      PanelCursors(
         :key="`cursor-${access.activeWorkspaceId}`"
         :workspace-id="access.activeWorkspaceId"
       )
