@@ -14,11 +14,11 @@ main.app-shell.page
     //- PanelAccess
     SandboxPanelAccess
 
-    section.card(v-if="access.isSignedIn && !access.activeWorkspaceId")
+    section.card(v-if="auth.user && !workspaces.current")
       h3 Pick a Workspace
       p.muted Create a workspace or join one with an invite code to unlock the rest of the demo.
 
-    template(v-if="access.activeWorkspaceId")
+    template(v-if="workspaces.current && access.activeWorkspaceId")
       section.grid
         //- PanelTasks(
         //-   :key="`tasks-${access.activeWorkspaceId}`"
@@ -49,7 +49,8 @@ main.app-shell.page
 </template>
 
 <script setup lang="ts">
-// const { auth } = useIdb()
+const { auth } = useIdb()
+const workspaces = useWorkspaces()
 const access = useAccessComp()
 </script>
 
