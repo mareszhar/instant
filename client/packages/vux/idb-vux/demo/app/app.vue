@@ -7,7 +7,8 @@ main.app-shell.page
   //- )
   SandboxPanelIntro
 
-  PanelMissingConfig(v-if="!access.hasDatabase")
+  //- PanelMissingConfig(v-if="!access.hasDatabase")
+  SandboxPanelMissingConfig(v-if="!useRuntimeConfig().public.instantAppId")
 
   template(v-else)
     //- PanelAccess
@@ -48,6 +49,7 @@ main.app-shell.page
 </template>
 
 <script setup lang="ts">
+// const { auth } = useIdb()
 const access = useAccessComp()
 </script>
 
