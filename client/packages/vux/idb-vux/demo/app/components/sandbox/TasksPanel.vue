@@ -51,17 +51,17 @@ article.card
 
       .menu.task__menu
         button.btn.ghost.icon.menu__trigger(
-          :ref="element => setTriggerRef(task.id, element)"
+          :ref="element => contextMenu.setAnchorElement(task.id, element)"
           type="button"
           aria-label="Task actions"
-          :aria-expanded="openMenuId === task.id"
-          @click.stop="toggleMenu(task.id)"
+          :aria-expanded="contextMenu.activeAnchorId === task.id"
+          @click.stop="contextMenu.toggle(task.id)"
         ) ⋯
         Teleport(to="body")
           ul.context-menu.context-menu--floating(
-            v-if="openMenuId === task.id"
-            ref="floatingMenuElement"
-            :style="floatingMenuStyle"
+            v-if="contextMenu.activeAnchorId === task.id"
+            :ref="contextMenu.setFloatingElement"
+            :style="contextMenu.floatingStyles"
             role="menu"
             @click.stop
           )
@@ -70,14 +70,14 @@ article.card
                 type="button"
                 role="menuitem"
                 :disabled="!auth.user"
-                @click="runTaskAction(task.id, () => tasks.toggleClaim(task))"
+                @click="contextMenu.run(() => tasks.toggleClaim(task))"
               ) {{ task.assignee?.id === auth.user?.id ? 'Unassign me' : 'Assign me' }}
             li(role="none")
               button(
                 type="button"
                 role="menuitem"
                 :disabled="!auth.user"
-                @click="runTaskAction(task.id, () => tasks.remove(task))"
+                @click="contextMenu.run(() => tasks.remove(task))"
               ) Delete
 
       .task__meta
@@ -94,13 +94,5 @@ article.card
 <script setup lang="ts">
 const { auth } = useIdb()
 const tasks = useTasks()
-
-const {
-  openMenuId,
-  floatingMenuElement,
-  floatingMenuStyle,
-  setTriggerRef,
-  toggleMenu,
-  runTaskAction,
-} = useFloatingTaskMenu()
+const contextMenu = useContextMenu()
 </script>
