@@ -31,13 +31,14 @@ export const useInfiniteTasksStore = defineStore('infinite-tasks', () => {
 
   const seedSample = (quantity: number) => executeFormAction(form, !auth.user?.id || !workspaces.current, async () => {
     const now = Date.now()
+    let currentTaskNumber = tasks.available.length + 1
     const transactions = Array.from({ length: quantity }, (_, index) => {
       const taskId = id()
       const isDone = index % 3 === 0
 
       return [
         db.tx.tasks[taskId]!.create({
-          title: `Sample task ${String(index + 1).padStart(2, '0')}`,
+          title: `Sample task ${String(currentTaskNumber++).padStart(2, '0')}`,
           isDone,
           createdAt: now + index,
         }).link({ workspace: workspaces.current!.id }),
