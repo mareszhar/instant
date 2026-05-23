@@ -33,11 +33,12 @@ main.app-shell.page
         SandboxPanelInfiniteTasks
 
       section.grid
-        PanelRealtime(
-          :key="`realtime-${access.activeWorkspaceId}`"
-          :workspace-id="access.activeWorkspaceId"
-          :user-label="access.signedInLabel"
-        )
+        SandboxPanelRoom
+        //- PanelRealtime(
+        //-   :key="`realtime-${access.activeWorkspaceId}`"
+        //-   :workspace-id="access.activeWorkspaceId"
+        //-   :user-label="access.signedInLabel"
+        //- )
         PanelAdmin(
           :key="`admin-${access.activeWorkspaceId}`"
           :workspace-id="access.activeWorkspaceId"
