@@ -2,7 +2,7 @@
 
 Audience: maintainers keeping `vux` aligned with `upstream/main`.
 
-Last updated: `2026-05-15`
+Last updated: `2026-05-23`
 
 ## Stable fork policies
 
@@ -47,5 +47,20 @@ During each rebase window, inspect upstream changes in:
 - `client/packages/svelte`
 - `client/packages/admin`
 - `client/packages/vue` (official Vue SDK)
+
+Use the explicit upstream range from before and after the fetch/rebase, not a
+plain working-tree `git diff` after the rebase. Once the rebase is clean, plain
+`git diff` should be empty and will not show what changed upstream.
+
+Example:
+
+1. Before fetching, note the current upstream base:
+   `OLD_UPSTREAM_MAIN=$(git rev-parse upstream/main)`
+2. After `git fetch upstream`, note the new base:
+   `NEW_UPSTREAM_MAIN=$(git rev-parse upstream/main)`
+3. Inspect watched surfaces with:
+   `git diff --name-status "$OLD_UPSTREAM_MAIN..$NEW_UPSTREAM_MAIN" -- client/packages/core client/packages/webhooks client/packages/react client/packages/react-common client/packages/react-native client/packages/svelte client/packages/admin client/packages/vue`
+4. Summarize the upstream commits with:
+   `git log --oneline "$OLD_UPSTREAM_MAIN..$NEW_UPSTREAM_MAIN"`
 
 If none changed in parity-relevant surfaces, skip parity porting for that cycle.
