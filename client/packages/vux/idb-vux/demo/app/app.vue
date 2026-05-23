@@ -26,10 +26,11 @@ main.app-shell.page
         //-   :signed-in-user-id="access.signedInUserId"
         //- )
         SandboxPanelTasks
-        PanelInfiniteTasks(
-          :key="`infinite-${access.activeWorkspaceId}`"
-          :workspace-id="access.activeWorkspaceId"
-        )
+        //- PanelInfiniteTasks(
+        //-   :key="`infinite-${access.activeWorkspaceId}`"
+        //-   :workspace-id="access.activeWorkspaceId"
+        //- )
+        SandboxPanelInfiniteTasks
 
       section.grid
         PanelRealtime(

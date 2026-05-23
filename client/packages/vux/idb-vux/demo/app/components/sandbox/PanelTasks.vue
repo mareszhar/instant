@@ -42,8 +42,6 @@ article.card
       v-for="task in tasks.shown"
       :key="task.id"
       :context-menu="contextMenu"
-      :disabled="!auth.user"
-      :user="auth.user"
       :task
       @toggle-check="tasks.toggleCheck(task)"
       @toggle-claim="tasks.toggleClaim(task)"

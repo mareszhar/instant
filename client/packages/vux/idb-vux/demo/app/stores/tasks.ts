@@ -8,15 +8,18 @@ export const useTasks = defineStore('tasks', () => {
     feedback: useEphemeralFeedback(),
   })
 
-  const { isLoading, error, tasks: available } = db.useQueryX(() => q({
+  const query = (createdAtOrder: 'desc' | 'asc' = 'desc', limit?: number) => q({
     tasks: {
       $: {
-        where: { workspace: workspaces.current?.id },
-        order: { createdAt: 'desc' },
+        where: { workspace: workspaces.current?.id || $skip },
+        order: { createdAt: createdAtOrder },
+        limit: limit || $skip,
       },
       assignee: {},
     },
-  }))
+  })
+
+  const { isLoading, error, tasks: available } = db.useQueryX(() => query())
 
   const statusFilters = ['all', 'pending', 'done'] as const
   const activeStatusFilter = useStoreSessionStorage<typeof statusFilters[number]>('regular-tasks-status-filter', 'all')
@@ -29,18 +32,7 @@ export const useTasks = defineStore('tasks', () => {
   const byStatus = reactiveComputed(() => groupByStatus(available.value))
   const shown = computed(() => byStatus[activeStatusFilter.value])
 
-  const updateCheck = (task: Task) =>
-    db.transact(db.tx.tasks[task.id]!.update({ isDone: !task.isDone }))
-
-  const updateClaim = (task: TaskWithAssignee) =>
-    db.transact(db.tx.tasks[task.id]![task.assignee?.id === auth.user!.id ? 'unlink' : 'link']({
-      assignee: auth.user!.id,
-    }))
-
-  const removeOne = (task: Task) =>
-    db.transact(db.tx.tasks[task.id]!.delete())
-
-  const create = () => executeFormAction(form, !auth.user?.id || !form.title || !workspaces.current?.id, async () => {
+  const create = () => executeFormAction(form, !auth.user?.id || !workspaces.current?.id || !form.title, async () => {
     await db.transact(db.tx.tasks[id()]!.create({
       title: form.title,
       isDone: false,
@@ -50,14 +42,22 @@ export const useTasks = defineStore('tasks', () => {
     form.title = ''
   })
 
-  const toggleCheck = (task: Task) =>
-    executeFormAction(form, !auth.user?.id, () => updateCheck(task))
+  const toggleCheck = (task: Task, formState: FormState = form) =>
+    executeFormAction(formState, !auth.user?.id, () => db.transact(
+      db.tx.tasks[task.id]!.update({ isDone: !task.isDone }),
+    ))
 
-  const toggleClaim = (task: TaskWithAssignee) =>
-    executeFormAction(form, !auth.user?.id, () => updateClaim(task))
+  const toggleClaim = (task: TaskWithAssignee, formState: FormState = form) =>
+    executeFormAction(formState, !auth.user?.id, () => db.transact(
+      db.tx.tasks[task.id]![task.assignee?.id === auth.user!.id ? 'unlink' : 'link']({
+        assignee: auth.user!.id,
+      }),
+    ))
 
-  const remove = (task: Task) =>
-    executeFormAction(form, !auth.user?.id, () => removeOne(task))
+  const remove = (task: Task, formState: FormState = form) =>
+    executeFormAction(formState, !auth.user?.id, () => db.transact(
+      db.tx.tasks[task.id]!.delete(),
+    ))
 
   const removeDone = () => executeFormAction(form, !byStatus.done.length, async () => {
     const doneCount = byStatus.done.length
@@ -67,6 +67,7 @@ export const useTasks = defineStore('tasks', () => {
 
   return {
     form,
+    query,
     isLoading,
     error,
     available,
@@ -76,9 +77,6 @@ export const useTasks = defineStore('tasks', () => {
     groupByStatus,
     byStatus,
     shown,
-    updateCheck,
-    updateClaim,
-    removeOne,
     create,
     toggleCheck,
     toggleClaim,

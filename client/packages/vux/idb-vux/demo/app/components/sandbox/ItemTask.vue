@@ -4,7 +4,7 @@ li.task
     type="button"
     :class="{ 'is-checked': task.isDone }"
     :aria-label="task.isDone ? 'Mark task pending' : 'Mark task done'"
-    :disabled
+    :disabled="!auth.user"
     @click="$emit('toggleCheck')"
   ) #[span]
 
@@ -30,27 +30,25 @@ li.task
           button(
             type="button"
             role="menuitem"
-            :disabled
+            :disabled="!auth.user"
             @click="contextMenu.run(() => $emit('toggleClaim'))"
-          ) {{ task.assignee?.id === user?.id ? 'Unassign me' : 'Assign me' }}
+          ) {{ task.assignee?.id === auth.user?.id ? 'Unassign me' : 'Assign me' }}
         li(role="none")
           button(
             type="button"
             role="menuitem"
-            :disabled
+            :disabled="!auth.user"
             @click="contextMenu.run(() => $emit('remove'))"
           ) Delete
 
   .task__meta
-    span.badge.warning(v-if="task.assignee") assignee: {{ userToLabel(task.assignee, user) }}
+    span.badge.warning(v-if="task.assignee") assignee: {{ userToLabel(task.assignee, auth.user) }}
 </template>
 
 <script setup lang="ts">
 defineProps<{
   contextMenu: ReturnType<typeof useContextMenu<string>>
-  disabled?: boolean
   task: TaskWithAssignee
-  user?: AuthUser | null
 }>()
 
 defineEmits<{
@@ -58,4 +56,6 @@ defineEmits<{
   toggleCheck: []
   toggleClaim: []
 }>()
+
+const { auth } = useIdb()
 </script>

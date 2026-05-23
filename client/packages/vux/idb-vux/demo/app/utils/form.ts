@@ -1,5 +1,5 @@
 export async function executeFormAction(
-  formState: { isProcessing: boolean, feedback: Feedback | null },
+  formState: FormState,
   shouldSkip: boolean,
   action: () => Promise<unknown>,
 ) {
