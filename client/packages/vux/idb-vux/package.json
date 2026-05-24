@@ -24,6 +24,16 @@
         "default": "./dist/commonjs/index.js"
       }
     },
+    "./nuxt": {
+      "import": {
+        "types": "./dist/esm/nuxt.d.ts",
+        "default": "./dist/esm/nuxt.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/nuxt.d.ts",
+        "default": "./dist/commonjs/nuxt.js"
+      }
+    },
     "./dist/cli": {
       "import": {
         "types": "./dist/esm/cli.d.ts",
@@ -46,6 +56,7 @@
     "exports": {
       "./package.json": "./package.json",
       ".": "./src/index.ts",
+      "./nuxt": "./src/nuxt.ts",
       "./dist/cli": "./src/cli.ts"
     }
   },
@@ -58,7 +69,7 @@
     "upi": "pnpm up -i",
     "dev": "tsc --watch --preserveWatchOutput -p tsconfig.dev.json",
     "typecheck": "tsc --noEmit",
-    "check-exports": "npm_config_cache=.npm-cache attw --pack .",
+    "check-exports": "npm_config_cache=.npm-cache attw --profile node16 --pack .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ci": "vitest run",
@@ -67,7 +78,13 @@
     "build": "rm -rf dist && pnpm run build:tshy && pnpm run build:cli-compat && pnpm run check-exports"
   },
   "peerDependencies": {
+    "h3": "^1.15.0",
     "vue": "^3.5.0"
+  },
+  "peerDependenciesMeta": {
+    "h3": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@instantdb/core": "workspace:*",
@@ -76,6 +93,7 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
     "@vue/test-utils": "^2.4.10",
+    "h3": "^1.15.3",
     "jsdom": "^29.1.1",
     "tshy": "^4.1.2",
     "typescript": "^6.0.3",

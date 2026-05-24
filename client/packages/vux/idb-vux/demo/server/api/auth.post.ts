@@ -1,5 +1,11 @@
+import { getDefaultServerIdbCookieName } from '@mszr/idb-vux/nuxt'
+
 export default defineEventHandler(async (event) => {
-  const { type, appId, user } = await readBody<SyncUserPayload>(event)
+  const { type, appId, user } = await readBody<{
+    type: 'sync-user'
+    appId: string
+    user: AuthUser | null
+  }>(event)
   const runtimeConfig = useRuntimeConfig(event)
 
   if (appId !== runtimeConfig.public.instantAppId)
@@ -8,7 +14,7 @@ export default defineEventHandler(async (event) => {
   if (type !== 'sync-user')
     throw createError({ statusCode: 400, statusMessage: `Unknown type: ${type}` })
 
-  const cookieName = getAuthCookieName(event)
+  const cookieName = getDefaultServerIdbCookieName(appId)
 
   if (user?.refresh_token) {
     setCookie(event, cookieName, user.refresh_token, {
