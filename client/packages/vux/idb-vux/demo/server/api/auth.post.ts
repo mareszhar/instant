@@ -1,5 +1,9 @@
 export default defineEventHandler(async (event) => {
-  const { type, user } = await readBody<SyncUserPayload>(event)
+  const { type, appId, user } = await readBody<SyncUserPayload>(event)
+  const runtimeConfig = useRuntimeConfig(event)
+
+  if (appId !== runtimeConfig.public.instantAppId)
+    throw createError({ statusCode: 403, statusMessage: 'App ID mismatch' })
 
   if (type !== 'sync-user')
     throw createError({ statusCode: 400, statusMessage: `Unknown type: ${type}` })
