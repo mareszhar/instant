@@ -7,6 +7,7 @@ import type {
 } from '@instantdb/admin'
 import type { H3Event } from 'h3'
 import { createError, getCookie } from 'h3'
+import { getDefaultServerIdbCookieName } from './defineInstantAuthSyncHandler.js'
 
 type MaybeString = string | null | undefined
 declare const instantServerDbKind: unique symbol
@@ -215,10 +216,6 @@ export interface UseServerIdb<
       AuthUserFor<Db>
     >
   >
-}
-
-export function getDefaultServerIdbCookieName(appId: string) {
-  return `instant_token_${appId}`
 }
 
 function normalizeRequiredConfig(value: MaybeString, name: string) {

@@ -8,11 +8,14 @@ import {
   readBody,
   setCookie,
 } from 'h3'
-import { getDefaultServerIdbCookieName } from './defineServerIdb.js'
 
 const DEFAULT_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7
 
 type MaybeString = string | null | undefined
+
+export function getDefaultServerIdbCookieName(appId: string) {
+  return `instant_token_${appId}`
+}
 
 export interface InstantAuthSyncUser {
   refresh_token: string | null | undefined

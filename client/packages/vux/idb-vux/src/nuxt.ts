@@ -1,6 +1,7 @@
 export {
   defineInstantAuthSyncHandler,
   type DefineInstantAuthSyncHandlerOptions,
+  getDefaultServerIdbCookieName,
   type InstantAuthSyncBody,
   type InstantAuthSyncCookieOptions,
   type InstantAuthSyncCookieOptionsInput,
@@ -10,7 +11,6 @@ export {
 export {
   defineServerIdb,
   type DefineServerIdbOptions,
-  getDefaultServerIdbCookieName,
   type InstantServerDb,
   type InstantServerDbKind,
   type InstantServerDbMode,
