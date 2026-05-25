@@ -105,22 +105,22 @@ db.useQueryX({
   unknownNamespace: {},
 })
 
-// @ts-expect-error - unknown where key should fail directly in useQueryX plain object authoring
 db.useQueryX({
   quests: {
     $: {
       where: {
+        // @ts-expect-error - unknown where key should fail directly in useQueryX plain object authoring
         notAField: 'x',
       },
     },
   },
 })
 
-// @ts-expect-error - unknown where operator should fail in useQueryX plain object authoring
 db.useQueryX({
   quests: {
     $: {
       where: {
+        // @ts-expect-error - unknown where operator should fail in useQueryX plain object authoring
         title: {
           $doesNotExist: 'x',
         },
@@ -142,12 +142,12 @@ db.useQueryX(() => ({
   },
 }))
 
-// @ts-expect-error - linked namespace attrs should be validated in useQueryX
 db.useQueryX({
   quests: {
     assignee: {},
     $: {
       where: {
+        // @ts-expect-error - linked namespace attrs should be validated in useQueryX
         'assignee.notAnAttributeInLinkedNamespace': 'x',
       },
     },

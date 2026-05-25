@@ -91,11 +91,11 @@ const spreadRefs = { ...infiniteQuery.refs }
 const spreadTitle: string | undefined = spreadRefs.posts.value[0]?.title
 const spreadCanLoad: boolean = spreadRefs.canLoadNextPage.value
 
-// @ts-expect-error - linked namespace attrs should be validated in useInfiniteQueryX
 db.useInfiniteQueryX({
   posts: {
     $: {
       where: {
+        // @ts-expect-error - linked namespace attrs should be validated in useInfiniteQueryX
         'requestor.notAnAttributeInLinkedNamespace': 'x',
       },
     },

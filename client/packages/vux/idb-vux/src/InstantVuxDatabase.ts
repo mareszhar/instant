@@ -22,10 +22,8 @@ import type {
 import type { ComputedRef, MaybeRefOrGetter, Ref } from 'vue'
 import type {
   DefinedQuery,
-  QueryAuthoringFactoryForSchema,
-  QueryAuthoringInputForSchema,
-  QueryAuthoringSourceForSchema,
   TypedQueryForSchema,
+  ValidateTypedQueryForSchema,
 } from './defineQuery.js'
 import type { StateFromRefs, XResult } from './xResult.js'
 import {
@@ -257,25 +255,55 @@ interface UseInfiniteQueryState<
   loadNextPage: () => void
 }
 
+type IsAny<T> = 0 extends (1 & T) ? true : false
+
+type UseQueryXTypedQuery<
+  Schema extends InstantSchemaDef<any, any, any>,
+  Q,
+> = IsAny<Schema> extends true
+  ? Q extends Record<string, any>
+    ? Q
+    : never
+  : Q extends TypedQueryForSchema<Schema>
+    ? Q
+    : never
+
 type UseQueryXAuthoringInput<
   Schema extends InstantSchemaDef<any, any, any>,
-  Q extends TypedQueryForSchema<Schema>,
-> = QueryAuthoringInputForSchema<Schema, Q>
+  Q,
+> = IsAny<Schema> extends true
+  ? Q
+  : ValidateTypedQueryForSchema<Schema, Q> & Q
 
 type UseQueryXAuthoringFactory<
   Schema extends InstantSchemaDef<any, any, any>,
-  Q extends TypedQueryForSchema<Schema>,
-> = QueryAuthoringFactoryForSchema<Schema, Q>
+  Q,
+> = () => null | UseQueryXAuthoringInput<Schema, Q>
 
 type UseQueryXAuthoringSource<
   Schema extends InstantSchemaDef<any, any, any>,
-  Q extends TypedQueryForSchema<Schema>,
-> = QueryAuthoringSourceForSchema<Schema, Q>
+  Q,
+>
+  = | null
+    | UseQueryXAuthoringInput<Schema, Q>
+    | UseQueryXAuthoringFactory<Schema, Q>
+
+type UseQueryXInlineAuthoringQuery<Source>
+  = Source extends () => null | infer Q
+    ? NonNullable<Q>
+    : Source
+
+type UseQueryXInlineAuthoringSource<
+  Schema extends InstantSchemaDef<any, any, any>,
+  Source,
+> = Source extends () => null | infer Q
+  ? Source & (() => null | UseQueryXAuthoringInput<Schema, NonNullable<Q>>)
+  : UseQueryXAuthoringInput<Schema, Source>
 
 type UseQueryXRuntimeQuery<
   Schema extends InstantSchemaDef<any, any, any>,
-  Q extends TypedQueryForSchema<Schema>,
-> = DefinedQuery<Q>
+  Q,
+> = DefinedQuery<UseQueryXTypedQuery<Schema, Q>>
 
 export type UseQueryXRefs<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -576,16 +604,16 @@ export class InstantVuxDatabase<
     return this.core.queryOnce(query, opts)
   }
 
-  queryOnceX<const Q extends TypedQueryForSchema<Schema>>(
+  queryOnceX<const Q>(
     query: UseQueryXAuthoringInput<Schema, Q>,
     opts?: InstaQLOptions,
-  ): Promise<QueryOnceXResult<Schema, DefinedQuery<Q>, UseDates, UseQueryXRuntimeQuery<Schema, Q>>>
-  async queryOnceX<const Q extends TypedQueryForSchema<Schema>>(
+  ): Promise<QueryOnceXResult<Schema, UseQueryXRuntimeQuery<Schema, Q>, UseDates, UseQueryXRuntimeQuery<Schema, Q>>>
+  async queryOnceX<const Q>(
     query: UseQueryXAuthoringInput<Schema, Q>,
     opts?: InstaQLOptions,
   ): Promise<QueryOnceXResult<Schema, any, UseDates, any>> {
     const { namespaceKeys } = namespaceKeyTrackerFromQuerySource(
-      query as Q,
+      query as any,
       () => false,
     )
 
@@ -741,31 +769,28 @@ export class InstantVuxDatabase<
     return refs
   }
 
-  useQueryX<const Q extends TypedQueryForSchema<Schema>>(
-    query: UseQueryXAuthoringInput<Schema, Q>,
+  useQueryX<const Source>(
+    query: UseQueryXInlineAuthoringSource<Schema, Source>,
     opts?: UseQueryOptions,
-  ): UseQueryXResult<Schema, DefinedQuery<Q>, UseDates, UseQueryXRuntimeQuery<Schema, Q>>
-  useQueryX<const Q extends TypedQueryForSchema<Schema>>(
-    query: UseQueryXAuthoringFactory<Schema, Q>,
-    opts?: UseQueryOptions,
-  ): UseQueryXResult<Schema, DefinedQuery<Q>, UseDates, UseQueryXRuntimeQuery<Schema, Q>>
-  useQueryX<const Q extends TypedQueryForSchema<Schema>>(
+  ): UseQueryXResult<
+    Schema,
+    UseQueryXRuntimeQuery<Schema, UseQueryXInlineAuthoringQuery<Source>>,
+    UseDates,
+    UseQueryXRuntimeQuery<Schema, UseQueryXInlineAuthoringQuery<Source>>
+  >
+  useQueryX<const Q>(
     query: UseQueryXAuthoringSource<Schema, Q>,
     opts?: UseQueryOptions,
   ): UseQueryXResult<Schema, any, UseDates, any> {
     const { namespaceKeys, trackedQuery } = namespaceKeyTrackerFromQuerySource(
-      query as (() => null | Q) | null | Q,
+      query as any,
       key => key === 'isLoading' || key === 'data' || key === 'pageInfo' || key === 'error',
     )
 
     const lifecycleState = this.useQuery(
       trackedQuery as any,
       opts,
-    ) as UseQueryResult<
-      Schema,
-      UseQueryXRuntimeQuery<Schema, Q>,
-      UseDates
-    >
+    ) as UseQueryResult<Schema, any, UseDates>
 
     const refsBase = {
       isLoading: lifecycleState.isLoading,
@@ -777,30 +802,26 @@ export class InstantVuxDatabase<
     const result = createNamespaceXProjection(
       refsBase,
       namespaceKeys,
-    ) as UseQueryXResult<
-      Schema,
-      DefinedQuery<Q>,
-      UseDates,
-      UseQueryXRuntimeQuery<Schema, Q>
-    >
+    ) as UseQueryXResult<Schema, any, UseDates, any>
 
     return result as any
   }
 
-  useInfiniteQueryX<const Q extends TypedQueryForSchema<Schema>>(
-    query: UseQueryXAuthoringInput<Schema, Q>,
+  useInfiniteQueryX<const Source>(
+    query: UseQueryXInlineAuthoringSource<Schema, Source>,
     opts?: InstaQLOptions,
-  ): UseInfiniteQueryXResult<Schema, DefinedQuery<Q>, UseDates, UseQueryXRuntimeQuery<Schema, Q>>
-  useInfiniteQueryX<const Q extends TypedQueryForSchema<Schema>>(
-    query: UseQueryXAuthoringFactory<Schema, Q>,
-    opts?: InstaQLOptions,
-  ): UseInfiniteQueryXResult<Schema, DefinedQuery<Q>, UseDates, UseQueryXRuntimeQuery<Schema, Q>>
-  useInfiniteQueryX<const Q extends TypedQueryForSchema<Schema>>(
+  ): UseInfiniteQueryXResult<
+    Schema,
+    UseQueryXRuntimeQuery<Schema, UseQueryXInlineAuthoringQuery<Source>>,
+    UseDates,
+    UseQueryXRuntimeQuery<Schema, UseQueryXInlineAuthoringQuery<Source>>
+  >
+  useInfiniteQueryX<const Q>(
     query: UseQueryXAuthoringSource<Schema, Q>,
     opts?: InstaQLOptions,
   ): UseInfiniteQueryXResult<Schema, any, UseDates, any> {
     const { namespaceKeys, trackedQuery } = namespaceKeyTrackerFromQuerySource(
-      query as (() => null | Q) | null | Q,
+      query as any,
       key => key === 'isLoading'
         || key === 'data'
         || key === 'error'
@@ -811,11 +832,7 @@ export class InstantVuxDatabase<
     const lifecycleState = this.useInfiniteQuery(
       trackedQuery as any,
       opts,
-    ) as UseInfiniteQueryResult<
-      Schema,
-      UseQueryXRuntimeQuery<Schema, Q>,
-      UseDates
-    >
+    ) as UseInfiniteQueryResult<Schema, any, UseDates>
 
     const refsBase = {
       isLoading: lifecycleState.isLoading,
@@ -828,12 +845,7 @@ export class InstantVuxDatabase<
     const result = createNamespaceXProjection(
       refsBase,
       namespaceKeys,
-    ) as UseInfiniteQueryXResult<
-      Schema,
-      DefinedQuery<Q>,
-      UseDates,
-      UseQueryXRuntimeQuery<Schema, Q>
-    >
+    ) as UseInfiniteQueryXResult<Schema, any, UseDates, any>
 
     return result as any
   }
