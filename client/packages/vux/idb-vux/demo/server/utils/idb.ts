@@ -3,7 +3,7 @@ import { init } from '@instantdb/admin'
 import { defineServerIdb } from '@mszr/idb-vux/nuxt'
 import schema from '~~/config/instant.schema'
 
-export const useIdb = defineServerIdb({
+export const useIsdb = defineServerIdb({
   init,
   schema,
   getAppId: event => useRuntimeConfig(event).public.instantAppId,
