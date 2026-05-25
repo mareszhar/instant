@@ -1,4 +1,13 @@
 export {
+  defineInstantAuthSyncHandler,
+  type DefineInstantAuthSyncHandlerOptions,
+  type InstantAuthSyncBody,
+  type InstantAuthSyncCookieOptions,
+  type InstantAuthSyncCookieOptionsInput,
+  type InstantAuthSyncUser,
+} from './defineInstantAuthSyncHandler.js'
+
+export {
   defineServerIdb,
   type DefineServerIdbOptions,
   getDefaultServerIdbCookieName,

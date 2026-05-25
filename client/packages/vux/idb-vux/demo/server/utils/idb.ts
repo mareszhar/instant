@@ -1,14 +1,13 @@
 import type { InstantServerDb } from '@mszr/idb-vux/nuxt'
+import type { H3Event } from 'h3'
 import { init } from '@instantdb/admin'
 import { defineServerIdb } from '@mszr/idb-vux/nuxt'
 import schema from '~~/config/instant.schema'
 
-export const useIdbn = defineServerIdb({
-  init,
-  schema,
-  getAppId: event => useRuntimeConfig(event).public.instantAppId,
-  getAdminToken: event => useRuntimeConfig(event).instantAppAdminToken,
-})
+export const getAppId = (event: H3Event) => useRuntimeConfig(event).public.instantAppId
+const getAdminToken = (event: H3Event) => useRuntimeConfig(event).instantAppAdminToken
+
+export const useIdbn = defineServerIdb({ init, schema, getAppId, getAdminToken })
 
 export type ServerDb = InstantServerDb<AppSchema, 'all'>
 export type BaseDb = InstantServerDb<AppSchema, 'baseDb'>

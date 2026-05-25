@@ -28,6 +28,10 @@ Vux keeps official-compatible baseline APIs and adds ergonomic layers focused on
   - creates a Nuxt/H3-friendly server DB helper from the official admin SDK `init`
   - supports admin, base, guest, token-scoped, and verified-user modes
   - caches request-scoped auth work internally so route helpers can stay composable
+- `defineInstantAuthSyncHandler`
+  - creates the Nuxt/H3 endpoint used by Instant's `firstPartyPath` auth sync
+  - stores only the refresh token cookie read by `defineServerIdb`
+  - shares the same default cookie naming convention as `defineServerIdb`
 
 ### X API family (`refs + state`)
 
@@ -184,7 +188,7 @@ const db = init({
 
 ```ts
 import { init } from '@instantdb/admin'
-import { defineServerIdb } from '@mszr/idb-vux/nuxt'
+import { defineInstantAuthSyncHandler, defineServerIdb } from '@mszr/idb-vux/nuxt'
 import schema from '~~/config/instant.schema'
 
 export const useIdbn = defineServerIdb({
@@ -192,6 +196,52 @@ export const useIdbn = defineServerIdb({
   schema,
   getAppId: event => useRuntimeConfig(event).public.instantAppId,
   getAdminToken: event => useRuntimeConfig(event).instantAppAdminToken,
+})
+```
+
+Point the client SDK's `firstPartyPath` at a server endpoint, then let `defineInstantAuthSyncHandler` handle the cookie sync:
+
+```ts
+const db = init({
+  appId: useRuntimeConfig().public.instantAppId,
+  schema,
+  firstPartyPath: '/api/auth',
+})
+```
+
+```ts
+// server/api/auth.post.ts
+export default defineInstantAuthSyncHandler({
+  getAppId: event => useRuntimeConfig(event).public.instantAppId,
+})
+```
+
+The auth sync handler validates the incoming app ID, accepts only Instant's `sync-user` message, writes the `user.refresh_token` cookie when present, and clears the cookie when the synced user is null. It returns no JSON payload because Instant's client only awaits the request.
+
+If you customize the cookie name or want to avoid drift, pass the same resolvers to both helpers:
+
+```ts
+// server/utils/idb.ts
+
+const getCookieName = (appId: string) => `my_token_${appId}`
+const getAppId = (event: H3Event) => useRuntimeConfig(event).public.instantAppId
+
+export const useIdbn = defineServerIdb({
+  init,
+  schema,
+  getAppId,
+  getAdminToken: event => useRuntimeConfig(event).instantAppAdminToken,
+  getCookieName,
+})
+
+// server/api/auth.post.ts
+
+export default defineInstantAuthSyncHandler({
+  getAppId,
+  getCookieName,
+  cookieOptions: event => ({
+    secure: getRequestProtocol(event) === 'https',
+  }),
 })
 ```
 
