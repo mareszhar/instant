@@ -1,8 +1,8 @@
 export default defineEventHandler(async (event) => {
-  const { adminDb } = useIsdb(event)
-  const { userDb } = useIsdb(event, 'userDb?')
-  const { user } = await useIsdb(event, 'user?')
-  const idb = await useIsdb(event, 'all?')
+  const { adminDb } = useIdbn(event)
+  const { userDb } = useIdbn(event, 'userDb?')
+  const { user } = await useIdbn(event, 'user?')
+  const idb = await useIdbn(event, 'all?')
 
   console.warn('idb stuff available!', adminDb, userDb, user, idb)
 })
