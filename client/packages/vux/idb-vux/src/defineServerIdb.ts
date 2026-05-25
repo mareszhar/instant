@@ -269,23 +269,78 @@ export function defineServerIdb<
   type UserDb = ScopedDbFor<Db>
   type AuthUser = AuthUserFor<Db>
 
+  const requestCacheKey = Symbol('idb-vux:server-idb-cache')
+
+  interface RequestCache {
+    appId?: string
+    adminToken?: string
+    token: string | null
+    tokenResolved: boolean
+    adminDb?: BrandedServerDb<Db, 'adminDb'>
+    baseDb?: BrandedServerDb<Db, 'baseDb'>
+    guestDb?: BrandedServerDb<UserDb, 'guestDb'>
+    userDbByToken: Map<string, BrandedServerDb<UserDb, 'userDb'>>
+    verifiedUserByToken: Map<string, Promise<AuthUser>>
+  }
+
   const baseDbCache = new Map<string, BrandedServerDb<Db, 'baseDb'>>()
   const adminDbCache = new Map<string, BrandedServerDb<Db, 'adminDb'>>()
 
+  function createRequestCache(): RequestCache {
+    return {
+      token: null,
+      tokenResolved: false,
+      userDbByToken: new Map(),
+      verifiedUserByToken: new Map(),
+    }
+  }
+
+  function getRequestCache(event: Event) {
+    const context = event.context as Event['context'] & {
+      [requestCacheKey]?: RequestCache
+    }
+
+    context[requestCacheKey] ??= createRequestCache()
+    return context[requestCacheKey]
+  }
+
   function resolveAppId(event: Event) {
-    return normalizeRequiredConfig(getAppId(event), 'appId')
+    const requestCache = getRequestCache(event)
+
+    if (requestCache.appId)
+      return requestCache.appId
+
+    const appId = normalizeRequiredConfig(getAppId(event), 'appId')
+    requestCache.appId = appId
+
+    return appId
   }
 
   function resolveAdminToken(event: Event) {
-    return normalizeRequiredConfig(getAdminToken?.(event), 'adminToken')
+    const requestCache = getRequestCache(event)
+
+    if (requestCache.adminToken)
+      return requestCache.adminToken
+
+    const adminToken = normalizeRequiredConfig(getAdminToken?.(event), 'adminToken')
+    requestCache.adminToken = adminToken
+
+    return adminToken
   }
 
   function getBaseDb(event: Event) {
+    const requestCache = getRequestCache(event)
+
+    if (requestCache.baseDb)
+      return requestCache.baseDb
+
     const appId = resolveAppId(event)
     const cached = baseDbCache.get(appId)
 
-    if (cached)
+    if (cached) {
+      requestCache.baseDb = cached
       return cached
+    }
 
     const db = init({
       ...staticConfig,
@@ -293,17 +348,26 @@ export function defineServerIdb<
     } as ServerIdbInitConfig<Schema, UseDates>) as BrandedServerDb<Db, 'baseDb'>
 
     baseDbCache.set(appId, db)
+    requestCache.baseDb = db
+
     return db
   }
 
   function getAdminDb(event: Event) {
+    const requestCache = getRequestCache(event)
+
+    if (requestCache.adminDb)
+      return requestCache.adminDb
+
     const appId = resolveAppId(event)
     const adminToken = resolveAdminToken(event)
     const cacheKey = `${appId}:${adminToken}`
     const cached = adminDbCache.get(cacheKey)
 
-    if (cached)
+    if (cached) {
+      requestCache.adminDb = cached
       return cached
+    }
 
     const db = init({
       ...staticConfig,
@@ -312,12 +376,50 @@ export function defineServerIdb<
     } as ServerIdbInitConfig<Schema, UseDates>) as BrandedServerDb<Db, 'adminDb'>
 
     adminDbCache.set(cacheKey, db)
+    requestCache.adminDb = db
+
     return db
   }
 
   function getToken(event: Event) {
+    const requestCache = getRequestCache(event)
+
+    if (requestCache.tokenResolved)
+      return requestCache.token
+
     const appId = resolveAppId(event)
-    return getCookie(event, getCookieName(appId, event)) ?? null
+    const token = getCookie(event, getCookieName(appId, event)) ?? null
+
+    requestCache.token = token
+    requestCache.tokenResolved = true
+
+    return token
+  }
+
+  function getUserDbForToken(event: Event, token: string) {
+    const requestCache = getRequestCache(event)
+    const cached = requestCache.userDbByToken.get(token)
+
+    if (cached)
+      return cached
+
+    const userDb = getBaseDb(event).asUser({ token }) as BrandedServerDb<UserDb, 'userDb'>
+
+    requestCache.userDbByToken.set(token, userDb)
+    return userDb
+  }
+
+  function verifyToken(event: Event, token: string) {
+    const requestCache = getRequestCache(event)
+    const cached = requestCache.verifiedUserByToken.get(token)
+
+    if (cached)
+      return cached
+
+    const verifiedUser = getBaseDb(event).auth.verifyToken(token) as Promise<AuthUser>
+
+    requestCache.verifiedUserByToken.set(token, verifiedUser)
+    return verifiedUser
   }
 
   function getUserDb(event: Event, required: boolean) {
@@ -335,7 +437,7 @@ export function defineServerIdb<
 
     return {
       token,
-      userDb: getBaseDb(event).asUser({ token }) as BrandedServerDb<UserDb, 'userDb'>,
+      userDb: getUserDbForToken(event, token),
     }
   }
 
@@ -353,14 +455,12 @@ export function defineServerIdb<
       }
     }
 
-    const baseDb = getBaseDb(event)
-
     try {
-      const user = await baseDb.auth.verifyToken(token) as AuthUser
+      const user = await verifyToken(event, token)
 
       return {
         token,
-        userDb: baseDb.asUser({ token }) as BrandedServerDb<UserDb, 'userDb'>,
+        userDb: getUserDbForToken(event, token),
         user,
       }
     }
@@ -377,7 +477,15 @@ export function defineServerIdb<
   }
 
   function getGuestDb(event: Event) {
-    return getBaseDb(event).asUser({ guest: true }) as BrandedServerDb<UserDb, 'guestDb'>
+    const requestCache = getRequestCache(event)
+
+    if (requestCache.guestDb)
+      return requestCache.guestDb
+
+    const guestDb = getBaseDb(event).asUser({ guest: true }) as BrandedServerDb<UserDb, 'guestDb'>
+
+    requestCache.guestDb = guestDb
+    return guestDb
   }
 
   function useServerIdb(event: Event, mode: ServerIdbMode = 'adminDb') {

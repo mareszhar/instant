@@ -22,6 +22,13 @@ Vux keeps official-compatible baseline APIs and adds ergonomic layers focused on
   - typed authoring path aligned with query X APIs
   - normalizes requested top-level namespaces to `[]` when absent
 
+### Nuxt server utilities
+
+- `defineServerIdb`
+  - creates a Nuxt/H3-friendly server DB helper from the official admin SDK `init`
+  - supports admin, base, guest, token-scoped, and verified-user modes
+  - caches request-scoped auth work internally so route helpers can stay composable
+
 ### X API family (`refs + state`)
 
 - `useQueryX`
@@ -170,6 +177,66 @@ const db = init({
 ```
 
 `useUserX` mirrors that same policy by design.
+
+## Nuxt Server IDB Composition
+
+`defineServerIdb` lives in the `@mszr/idb-vux/nuxt` subpath. It gives Nuxt server routes a small mode-based helper around the official `@instantdb/admin` SDK without making Vux own the admin SDK runtime import.
+
+```ts
+import { init } from '@instantdb/admin'
+import { defineServerIdb } from '@mszr/idb-vux/nuxt'
+import schema from '~~/config/instant.schema'
+
+export const useIdbn = defineServerIdb({
+  init,
+  schema,
+  getAppId: event => useRuntimeConfig(event).public.instantAppId,
+  getAdminToken: event => useRuntimeConfig(event).instantAppAdminToken,
+})
+```
+
+Modes let each endpoint ask for exactly what it needs:
+
+```ts
+const { adminDb } = useIdbn(event)
+const { userDb } = useIdbn(event, 'userDb!')
+const { user } = await useIdbn(event, 'user!')
+```
+
+The `?` auth modes return nullable auth state when the cookie is missing or invalid. The `!` auth modes throw a 401 when required auth is missing or invalid.
+
+The helper also keeps an internal request-scoped cache on `event.context`. Users do not need to write to `event.context`, create middleware, or augment `H3EventContext`.
+
+This is useful when endpoint logic is split across route-local helpers:
+
+```ts
+import type { H3Event } from 'h3'
+
+export default defineEventHandler(async (event) => {
+  const payload = await readBody<{ a: boolean, b: boolean, c: boolean }>(event)
+
+  if (payload.a)
+    await doAsUserTaskA(event)
+
+  if (payload.b)
+    await doAsUserTaskB(event)
+
+  if (payload.c)
+    await doForUserTaskC(event)
+})
+
+async function doAsUserTaskA(event: H3Event) {
+  const { userDb } = useIdbn(event, 'userDb!')
+  // ...
+}
+
+async function doForUserTaskC(event: H3Event) {
+  const { user } = await useIdbn(event, 'user!')
+  // ...
+}
+```
+
+Within the same request, repeated helper calls reuse the resolved app ID, auth cookie token, token-scoped `userDb`, guest DB, and `verifyToken` promise. The cache is tied to the H3 event, so the same token is verified again on the next HTTP request and cannot leak across users or requests.
 
 ## Where to see baseline + additive APIs together
 

@@ -1,4 +1,5 @@
 import type { H3Event } from 'h3'
+import type { ServerIdbAsUserOptions } from '../nuxt.js'
 import { i } from '@instantdb/core'
 import { describe, expect, it, vi } from 'vitest'
 import { defineServerIdb, getDefaultServerIdbCookieName } from '../nuxt.js'
@@ -34,6 +35,7 @@ interface TestInitConfig {
 
 function createEvent(cookie = '') {
   return {
+    context: {},
     node: {
       req: {
         headers: {
@@ -49,6 +51,19 @@ function createHarness(options: {
   adminToken?: string | null
 } = {}) {
   const initCalls: TestInitConfig[] = []
+  const asUserCalls: ServerIdbAsUserOptions[] = []
+  const getAppId = vi.fn(() => options.appId ?? 'app-1')
+  const getAdminToken = vi.fn(() => options.adminToken ?? 'admin-token')
+  const getCookieName = vi.fn(getDefaultServerIdbCookieName)
+  const verifyToken = vi.fn(async (token: string) => {
+    if (token === 'bad-token')
+      throw new Error('Bad token')
+
+    return {
+      id: 'user-1',
+      email: 'user@example.com',
+    }
+  })
 
   const init = vi.fn((config: TestInitConfig): TestDb => {
     initCalls.push(config)
@@ -57,20 +72,16 @@ function createHarness(options: {
       appId: config.appId,
       scope: null,
       auth: {
-        verifyToken: vi.fn(async (token: string) => {
-          if (token === 'bad-token')
-            throw new Error('Bad token')
-
-          return {
-            id: 'user-1',
-            email: 'user@example.com',
-          }
-        }),
+        verifyToken,
       },
-      asUser: vi.fn((scope: { token: string } | { guest: boolean } | { email: string }) => ({
-        ...db,
-        scope,
-      })),
+      asUser: vi.fn((scope: { token: string } | { guest: boolean } | { email: string }) => {
+        asUserCalls.push(scope)
+
+        return {
+          ...db,
+          scope,
+        }
+      }),
     }
 
     if (config.adminToken)
@@ -82,14 +93,20 @@ function createHarness(options: {
   const useIdb = defineServerIdb({
     init,
     schema,
-    getAppId: () => options.appId ?? 'app-1',
-    getAdminToken: () => options.adminToken ?? 'admin-token',
+    getAppId,
+    getAdminToken,
+    getCookieName,
   })
 
   return {
+    asUserCalls,
+    getAdminToken,
+    getAppId,
+    getCookieName,
     init,
     initCalls,
     useIdb,
+    verifyToken,
   }
 }
 
@@ -172,5 +189,68 @@ describe('defineServerIdb', () => {
       },
     })
     expect(all.baseDb.adminToken).toBeUndefined()
+  })
+
+  it('reuses request-scoped auth work across composable calls', async () => {
+    const {
+      asUserCalls,
+      getAdminToken,
+      getAppId,
+      getCookieName,
+      useIdb,
+      verifyToken,
+    } = createHarness()
+    const event = createEvent(`${getDefaultServerIdbCookieName('app-1')}=token-1`)
+
+    const firstUserDb = useIdb(event, 'userDb!').userDb
+    const secondUserDb = useIdb(event, 'userDb?').userDb
+    const [requiredUser, allOptional] = await Promise.all([
+      useIdb(event, 'user!'),
+      useIdb(event, 'all?'),
+    ])
+    const laterGuestDb = useIdb(event, 'guestDb').guestDb
+
+    expect(secondUserDb).toBe(firstUserDb)
+    expect(requiredUser.userDb).toBe(firstUserDb)
+    expect(allOptional.userDb).toBe(firstUserDb)
+    expect(laterGuestDb).toBe(allOptional.guestDb)
+    expect(verifyToken).toHaveBeenCalledTimes(1)
+    expect(getAppId).toHaveBeenCalledTimes(1)
+    expect(getAdminToken).toHaveBeenCalledTimes(1)
+    expect(getCookieName).toHaveBeenCalledTimes(1)
+    expect(asUserCalls.filter(scope => 'token' in scope)).toEqual([
+      { token: 'token-1' },
+    ])
+    expect(asUserCalls.filter(scope => 'guest' in scope)).toEqual([
+      { guest: true },
+    ])
+  })
+
+  it('keeps verified auth scoped to a single request event', async () => {
+    const { useIdb, verifyToken } = createHarness()
+    const cookie = `${getDefaultServerIdbCookieName('app-1')}=token-1`
+    const firstEvent = createEvent(cookie)
+    const secondEvent = createEvent(cookie)
+
+    await useIdb(firstEvent, 'user!')
+    await useIdb(firstEvent, 'user?')
+    await useIdb(secondEvent, 'user!')
+
+    expect(verifyToken).toHaveBeenCalledTimes(2)
+  })
+
+  it('reuses failed verification while preserving optional and required auth semantics', async () => {
+    const { useIdb, verifyToken } = createHarness()
+    const event = createEvent(`${getDefaultServerIdbCookieName('app-1')}=bad-token`)
+
+    await expect(useIdb(event, 'user?')).resolves.toEqual({
+      token: null,
+      userDb: null,
+      user: null,
+    })
+    await expect(useIdb(event, 'user!')).rejects.toMatchObject({
+      statusCode: 401,
+    })
+    expect(verifyToken).toHaveBeenCalledTimes(1)
   })
 })
