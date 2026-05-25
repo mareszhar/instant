@@ -19,11 +19,11 @@ const schema = i.schema({
 interface TestDb {
   appId: string
   adminToken?: string
-  scope: null | { token: string } | { guest: true } | { email: string }
+  scope: null | { token: string } | { guest: boolean } | { email: string }
   auth: {
     verifyToken: (token: string) => Promise<TestUser>
   }
-  asUser: (options: { token: string } | { guest: true } | { email: string }) => TestDb
+  asUser: (options: { token: string } | { guest: boolean } | { email: string }) => TestDb
 }
 
 interface TestInitConfig {
@@ -67,7 +67,7 @@ function createHarness(options: {
           }
         }),
       },
-      asUser: vi.fn((scope: { token: string } | { guest: true } | { email: string }) => ({
+      asUser: vi.fn((scope: { token: string } | { guest: boolean } | { email: string }) => ({
         ...db,
         scope,
       })),

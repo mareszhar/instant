@@ -11,8 +11,8 @@
  *
  * What this script does:
  * 1) reads the monorepo's shared JS version source (`packages/version/src/version.ts`)
- * 2) temporarily pins `@instantdb/core` and `@instantdb/version` in
- *    `idb-vux/package.json` to that exact version
+ * 2) temporarily pins local Instant dependencies in `idb-vux/package.json`
+ *    to that exact version
  * 3) verifies those versions exist on npm registry
  * 4) builds, packs, and publishes `@mszr/idb-vux`
  * 5) restores the original `package.json` even on failure
@@ -35,7 +35,8 @@ const IDB_VUE_PACKAGE_JSON_PATH = path.resolve(IDB_VUE_ROOT, 'package.json')
 const SHARED_VERSION_SOURCE_PATH = path.resolve(VUE_ROOT, '../version/src/version.ts')
 const NPM_CACHE_PATH = path.resolve(VUE_ROOT, '.npm-cache')
 
-const TARGET_DEPS = ['@instantdb/core', '@instantdb/version']
+const TARGET_DEPS = ['@instantdb/admin', '@instantdb/core', '@instantdb/version']
+const PINNED_DEP_SECTIONS = ['dependencies', 'peerDependencies', 'devDependencies']
 
 function runOrThrow(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -96,15 +97,23 @@ function writePackageJson(packageJsonPath, value) {
 
 function pinInstantDeps(packageJson, pinnedVersion) {
   const next = { ...packageJson }
-  const dependencies = {
-    ...(next.dependencies ?? {}),
+
+  for (const section of PINNED_DEP_SECTIONS) {
+    const deps = next[section]
+
+    if (!deps)
+      continue
+
+    next[section] = {
+      ...deps,
+    }
+
+    for (const depName of TARGET_DEPS) {
+      if (depName in next[section])
+        next[section][depName] = pinnedVersion
+    }
   }
 
-  for (const depName of TARGET_DEPS) {
-    dependencies[depName] = pinnedVersion
-  }
-
-  next.dependencies = dependencies
   return next
 }
 

@@ -1,8 +1,15 @@
-import type { InstantSchemaDef } from '@instantdb/core'
+import type {
+  ImpersonationOpts,
+  init as initAdmin,
+  InstantAdminDatabase,
+  InstantConfig,
+  InstantSchemaDef,
+} from '@instantdb/admin'
 import type { H3Event } from 'h3'
 import { createError, getCookie } from 'h3'
 
 type MaybeString = string | null | undefined
+declare const instantServerDbKind: unique symbol
 
 export type ServerIdbMode
   = | 'adminDb'
@@ -15,10 +22,31 @@ export type ServerIdbMode
     | 'all?'
     | 'all!'
 
-export type ServerIdbAsUserOptions
-  = | { token: string }
-    | { guest: true }
-    | { email: string }
+export type InstantServerDbKind
+  = | 'adminDb'
+    | 'baseDb'
+    | 'guestDb'
+    | 'userDb'
+
+export type InstantServerDbMode = InstantServerDbKind | 'all'
+
+interface ServerDbKindBrand<Mode extends InstantServerDbMode> {
+  readonly [instantServerDbKind]: Mode extends 'all' ? InstantServerDbKind : Mode
+}
+
+export type InstantServerDb<
+  Schema extends InstantSchemaDef<any, any, any>,
+  Mode extends InstantServerDbMode = 'all',
+  UseDates extends boolean = false,
+> = InstantAdminDatabase<Schema, UseDates, InstantConfig<Schema, UseDates>>
+  & ServerDbKindBrand<Mode>
+
+type BrandedServerDb<
+  Db,
+  Mode extends InstantServerDbKind,
+> = Db & ServerDbKindBrand<Mode>
+
+export type ServerIdbAsUserOptions = ImpersonationOpts
 
 export interface ServerIdbClient<AuthUser = unknown> {
   auth: {
@@ -27,20 +55,10 @@ export interface ServerIdbClient<AuthUser = unknown> {
   asUser: (options: ServerIdbAsUserOptions) => any
 }
 
-export interface ServerIdbInitConfig<
+export type ServerIdbInitConfig<
   Schema extends InstantSchemaDef<any, any, any> = InstantSchemaDef<any, any, any>,
   UseDates extends boolean = false,
-> {
-  appId: string
-  adminToken?: string
-  apiURI?: string
-  schema?: Schema
-  useDateObjects?: UseDates
-  disableValidation?: boolean
-  verbose?: boolean
-  WritableStream?: any
-  ReadableStream?: any
-}
+> = Parameters<typeof initAdmin<Schema, UseDates>>[0]
 
 type StaticConfigFor<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -130,43 +148,43 @@ export interface UseServerIdb<
   /**
    * Return a privileged admin DB. Requires `getAdminToken`.
    */
-  (event: Event): UseServerIdbAdminResult<Db>
+  (event: Event): UseServerIdbAdminResult<BrandedServerDb<Db, 'adminDb'>>
   /**
    * Return a privileged admin DB. Requires `getAdminToken`.
    */
-  (event: Event, mode: 'adminDb'): UseServerIdbAdminResult<Db>
+  (event: Event, mode: 'adminDb'): UseServerIdbAdminResult<BrandedServerDb<Db, 'adminDb'>>
   /**
    * Return an Admin SDK DB initialized without an admin token.
    */
-  (event: Event, mode: 'baseDb'): UseServerIdbBaseResult<Db>
+  (event: Event, mode: 'baseDb'): UseServerIdbBaseResult<BrandedServerDb<Db, 'baseDb'>>
   /**
    * Return a guest-scoped DB.
    */
-  (event: Event, mode: 'guestDb'): UseServerIdbGuestResult<ScopedDbFor<Db>>
+  (event: Event, mode: 'guestDb'): UseServerIdbGuestResult<BrandedServerDb<ScopedDbFor<Db>, 'guestDb'>>
   /**
    * Return a token-scoped DB when the auth cookie exists; otherwise return nulls.
    * This does not verify the token.
    */
-  (event: Event, mode: 'userDb?'): UseServerIdbOptionalUserDbResult<ScopedDbFor<Db>>
+  (event: Event, mode: 'userDb?'): UseServerIdbOptionalUserDbResult<BrandedServerDb<ScopedDbFor<Db>, 'userDb'>>
   /**
    * Return a token-scoped DB when the auth cookie exists; otherwise throw 401.
    * This does not verify the token.
    */
-  (event: Event, mode: 'userDb!'): UseServerIdbRequiredUserDbResult<ScopedDbFor<Db>>
+  (event: Event, mode: 'userDb!'): UseServerIdbRequiredUserDbResult<BrandedServerDb<ScopedDbFor<Db>, 'userDb'>>
   /**
    * Verify the auth cookie and return user auth state when valid; otherwise return nulls.
    */
   (
     event: Event,
     mode: 'user?',
-  ): Promise<UseServerIdbOptionalUserResult<ScopedDbFor<Db>, AuthUserFor<Db>>>
+  ): Promise<UseServerIdbOptionalUserResult<BrandedServerDb<ScopedDbFor<Db>, 'userDb'>, AuthUserFor<Db>>>
   /**
    * Verify the auth cookie and return user auth state when valid; otherwise throw 401.
    */
   (
     event: Event,
     mode: 'user!',
-  ): Promise<UseServerIdbRequiredUserResult<ScopedDbFor<Db>, AuthUserFor<Db>>>
+  ): Promise<UseServerIdbRequiredUserResult<BrandedServerDb<ScopedDbFor<Db>, 'userDb'>, AuthUserFor<Db>>>
   /**
    * Return admin, base, guest, and optional verified user auth state.
    */
@@ -175,10 +193,10 @@ export interface UseServerIdb<
     mode: 'all?',
   ): Promise<
     UseServerIdbOptionalAllResult<
-      Db,
-      Db,
-      ScopedDbFor<Db>,
-      ScopedDbFor<Db>,
+      BrandedServerDb<Db, 'adminDb'>,
+      BrandedServerDb<Db, 'baseDb'>,
+      BrandedServerDb<ScopedDbFor<Db>, 'guestDb'>,
+      BrandedServerDb<ScopedDbFor<Db>, 'userDb'>,
       AuthUserFor<Db>
     >
   >
@@ -190,10 +208,10 @@ export interface UseServerIdb<
     mode: 'all!',
   ): Promise<
     UseServerIdbRequiredAllResult<
-      Db,
-      Db,
-      ScopedDbFor<Db>,
-      ScopedDbFor<Db>,
+      BrandedServerDb<Db, 'adminDb'>,
+      BrandedServerDb<Db, 'baseDb'>,
+      BrandedServerDb<ScopedDbFor<Db>, 'guestDb'>,
+      BrandedServerDb<ScopedDbFor<Db>, 'userDb'>,
       AuthUserFor<Db>
     >
   >
@@ -251,8 +269,8 @@ export function defineServerIdb<
   type UserDb = ScopedDbFor<Db>
   type AuthUser = AuthUserFor<Db>
 
-  const baseDbCache = new Map<string, Db>()
-  const adminDbCache = new Map<string, Db>()
+  const baseDbCache = new Map<string, BrandedServerDb<Db, 'baseDb'>>()
+  const adminDbCache = new Map<string, BrandedServerDb<Db, 'adminDb'>>()
 
   function resolveAppId(event: Event) {
     return normalizeRequiredConfig(getAppId(event), 'appId')
@@ -272,7 +290,7 @@ export function defineServerIdb<
     const db = init({
       ...staticConfig,
       appId,
-    } as ServerIdbInitConfig<Schema, UseDates>)
+    } as ServerIdbInitConfig<Schema, UseDates>) as BrandedServerDb<Db, 'baseDb'>
 
     baseDbCache.set(appId, db)
     return db
@@ -291,7 +309,7 @@ export function defineServerIdb<
       ...staticConfig,
       appId,
       adminToken,
-    } as ServerIdbInitConfig<Schema, UseDates>)
+    } as ServerIdbInitConfig<Schema, UseDates>) as BrandedServerDb<Db, 'adminDb'>
 
     adminDbCache.set(cacheKey, db)
     return db
@@ -317,7 +335,7 @@ export function defineServerIdb<
 
     return {
       token,
-      userDb: getBaseDb(event).asUser({ token }) as UserDb,
+      userDb: getBaseDb(event).asUser({ token }) as BrandedServerDb<UserDb, 'userDb'>,
     }
   }
 
@@ -342,7 +360,7 @@ export function defineServerIdb<
 
       return {
         token,
-        userDb: baseDb.asUser({ token }) as UserDb,
+        userDb: baseDb.asUser({ token }) as BrandedServerDb<UserDb, 'userDb'>,
         user,
       }
     }
@@ -359,7 +377,7 @@ export function defineServerIdb<
   }
 
   function getGuestDb(event: Event) {
-    return getBaseDb(event).asUser({ guest: true }) as UserDb
+    return getBaseDb(event).asUser({ guest: true }) as BrandedServerDb<UserDb, 'guestDb'>
   }
 
   function useServerIdb(event: Event, mode: ServerIdbMode = 'adminDb') {

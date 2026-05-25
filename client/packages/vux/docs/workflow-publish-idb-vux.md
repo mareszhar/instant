@@ -23,7 +23,7 @@ Audience: maintainers releasing from this fork to `mareszhar/idb-vux` and npm.
 ### What `sdk:publish-package` does
 
 - reads the shared local repo version from `client/packages/version/src/version.ts`
-- temporarily pins `@instantdb/core` and `@instantdb/version` in `idb-vux/package.json` to that exact version
+- temporarily pins local Instant dependencies in `idb-vux/package.json` to that exact version
 - verifies those exact versions exist on npm registry
 - rebuilds SDK (`build` clears `dist`), packs, and publishes
 - restores `idb-vux/package.json` after publish (or publish failure)

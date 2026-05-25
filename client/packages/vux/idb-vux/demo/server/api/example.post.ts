@@ -1,3 +1,5 @@
+import { useIdb } from '../utils/idb'
+
 export default defineEventHandler(async (event) => {
   const { adminDb } = useIdb(event)
   const { userDb } = useIdb(event, 'userDb?')

@@ -78,10 +78,14 @@
     "build": "rm -rf dist && pnpm run build:tshy && pnpm run build:cli-compat && pnpm run check-exports"
   },
   "peerDependencies": {
+    "@instantdb/admin": "workspace:*",
     "h3": "^1.15.0",
     "vue": "^3.5.0"
   },
   "peerDependenciesMeta": {
+    "@instantdb/admin": {
+      "optional": true
+    },
     "h3": {
       "optional": true
     }
@@ -92,6 +96,7 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
+    "@instantdb/admin": "workspace:*",
     "@vue/test-utils": "^2.4.10",
     "h3": "^1.15.3",
     "jsdom": "^29.1.1",
