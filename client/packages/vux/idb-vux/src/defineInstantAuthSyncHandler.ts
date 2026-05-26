@@ -13,14 +13,33 @@ const DEFAULT_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7
 
 type MaybeString = string | null | undefined
 
+/**
+ * Default cookie name shared by Vux's Nuxt auth-sync and server DB helpers.
+ *
+ * The auth sync endpoint writes this cookie, and `defineServerIdb` reads it for
+ * token-scoped and verified-user modes.
+ */
 export function getDefaultServerIdbCookieName(appId: string) {
   return `instant_token_${appId}`
 }
 
+/**
+ * Minimum user shape needed by Vux's auth-sync handler.
+ *
+ * Instant sends the full current user to `firstPartyPath`, but Vux only stores
+ * `refresh_token` in the server cookie by default.
+ */
 export interface InstantAuthSyncUser {
   refresh_token: string | null | undefined
 }
 
+/**
+ * Request body Instant sends to the configured `firstPartyPath` endpoint when
+ * client auth state changes.
+ *
+ * Use `InstantAuthSyncBody<MyUser>` when authoring a custom endpoint that wants
+ * to inspect more user fields than Vux's default handler needs.
+ */
 export interface InstantAuthSyncBody<
   UserLike extends InstantAuthSyncUser = User,
 > {
@@ -33,12 +52,21 @@ export type InstantAuthSyncCookieOptions = NonNullable<
   Parameters<typeof setCookie>[3]
 >
 
+/**
+ * Cookie options for the auth-sync cookie.
+ *
+ * Pass an object for static options, or a function when options depend on the
+ * current request or app ID.
+ */
 export type InstantAuthSyncCookieOptionsInput<
   Event extends H3Event = H3Event,
 >
   = | InstantAuthSyncCookieOptions
     | ((event: Event, appId: string) => InstantAuthSyncCookieOptions)
 
+/**
+ * Options for `defineInstantAuthSyncHandler`.
+ */
 export interface DefineInstantAuthSyncHandlerOptions<
   Event extends H3Event = H3Event,
 > {
@@ -53,6 +81,9 @@ export interface DefineInstantAuthSyncHandlerOptions<
   getCookieName?: (appId: string, event: Event) => string
   /**
    * Override or extend the cookie options used when syncing auth.
+   *
+   * Defaults are `path: '/'`, `httpOnly: true`, `sameSite: 'strict'`,
+   * `maxAge: 7 days`, and `secure` when the request protocol is HTTPS.
    */
   cookieOptions?: InstantAuthSyncCookieOptionsInput<Event>
 }
@@ -97,6 +128,24 @@ function createDeleteCookieOptions(options: InstantAuthSyncCookieOptions) {
   return deleteOptions
 }
 
+/**
+ * Create a Nuxt/H3 event handler for Instant's `firstPartyPath` auth sync.
+ *
+ * The handler accepts Instant's `sync-user` payload, verifies that the payload
+ * app ID matches `getAppId(event)`, stores `user.refresh_token` in an
+ * HTTP-only cookie, and clears the cookie when the synced user is missing.
+ *
+ * The cookie is token-only by design. It is read by `defineServerIdb` for
+ * `userDb?`, `userDb!`, `user?`, `user!`, `all?`, and `all!` modes.
+ *
+ * @example
+ * ```ts
+ * // server/api/auth.post.ts
+ * export default defineInstantAuthSyncHandler({
+ *   getAppId: event => useRuntimeConfig(event).public.instantAppId,
+ * })
+ * ```
+ */
 export function defineInstantAuthSyncHandler<
   Event extends H3Event = H3Event,
   UserLike extends InstantAuthSyncUser = User,

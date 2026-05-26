@@ -12,6 +12,13 @@ import { getDefaultServerIdbCookieName } from './defineInstantAuthSyncHandler.js
 type MaybeString = string | null | undefined
 declare const instantServerDbKind: unique symbol
 
+/**
+ * Mode strings accepted by a `defineServerIdb` helper.
+ *
+ * Suffixes mean:
+ * - `?`: optional auth; missing or invalid auth returns nulls.
+ * - `!`: required auth; missing or invalid auth throws a 401.
+ */
 export type ServerIdbMode
   = | 'adminDb'
     | 'baseDb'
@@ -35,6 +42,13 @@ interface ServerDbKindBrand<Mode extends InstantServerDbMode> {
   readonly [instantServerDbKind]: Mode extends 'all' ? InstantServerDbKind : Mode
 }
 
+/**
+ * Branded Instant Admin SDK database returned by `defineServerIdb`.
+ *
+ * The brand distinguishes privileged `adminDb`, unprivileged `baseDb`,
+ * `guestDb`, and token-scoped `userDb` values at type level while preserving
+ * the normal Admin SDK query/transact surface.
+ */
 export type InstantServerDb<
   Schema extends InstantSchemaDef<any, any, any>,
   Mode extends InstantServerDbMode = 'all',
@@ -49,6 +63,12 @@ type BrandedServerDb<
 
 export type ServerIdbAsUserOptions = ImpersonationOpts
 
+/**
+ * Minimal Admin SDK-like client shape required by `defineServerIdb`.
+ *
+ * Users normally do not write this by hand; it is inferred from the `init`
+ * function passed from `@instantdb/admin`.
+ */
 export interface ServerIdbClient<AuthUser = unknown> {
   auth: {
     verifyToken: (token: string) => Promise<AuthUser>
@@ -56,6 +76,9 @@ export interface ServerIdbClient<AuthUser = unknown> {
   asUser: (options: ServerIdbAsUserOptions) => any
 }
 
+/**
+ * Config accepted by the official `@instantdb/admin` `init` function.
+ */
 export type ServerIdbInitConfig<
   Schema extends InstantSchemaDef<any, any, any> = InstantSchemaDef<any, any, any>,
   UseDates extends boolean = false,
@@ -74,6 +97,13 @@ type AuthUserFor<Db extends ServerIdbClient> = Awaited<
   ReturnType<Db['auth']['verifyToken']>
 >
 
+/**
+ * Options for creating a Nuxt/H3 server DB helper.
+ *
+ * `getAppId`, `getAdminToken`, and `getCookieName` are request-aware so apps
+ * can read from Nuxt runtime config, tenant context, or other server-only
+ * sources.
+ */
 export type DefineServerIdbOptions<
   Schema extends InstantSchemaDef<any, any, any>,
   Db extends ServerIdbClient,
@@ -82,6 +112,10 @@ export type DefineServerIdbOptions<
 > = StaticConfigFor<Schema, UseDates> & {
   /**
    * The `init` function from `@instantdb/admin`.
+   *
+   * Vux accepts this as bring-your-own-init so importing
+   * `@mszr/idb-vux/nuxt` does not force the admin SDK into apps that do not use
+   * server helpers.
    */
   init: (config: ServerIdbInitConfig<Schema, UseDates>) => Db
   /**
@@ -94,6 +128,9 @@ export type DefineServerIdbOptions<
   getAdminToken?: (event: Event) => MaybeString
   /**
    * Override the cookie name used for token-backed auth modes.
+   *
+   * Use the same resolver in `defineInstantAuthSyncHandler` to keep cookie
+   * writes and reads aligned.
    */
   getCookieName?: (appId: string, event: Event) => string
 }
@@ -148,39 +185,54 @@ export interface UseServerIdb<
 > {
   /**
    * Return a privileged admin DB. Requires `getAdminToken`.
+   *
+   * This is the default mode and is synchronous.
    */
   (event: Event): UseServerIdbAdminResult<BrandedServerDb<Db, 'adminDb'>>
   /**
    * Return a privileged admin DB. Requires `getAdminToken`.
+   *
+   * This is equivalent to calling the helper without a mode.
    */
   (event: Event, mode: 'adminDb'): UseServerIdbAdminResult<BrandedServerDb<Db, 'adminDb'>>
   /**
    * Return an Admin SDK DB initialized without an admin token.
+   *
+   * Use this as a base for guest or token-scoped access. Direct admin
+   * operations require `adminDb`.
    */
   (event: Event, mode: 'baseDb'): UseServerIdbBaseResult<BrandedServerDb<Db, 'baseDb'>>
   /**
-   * Return a guest-scoped DB.
+   * Return a guest-scoped DB. This is synchronous and does not require a token.
    */
   (event: Event, mode: 'guestDb'): UseServerIdbGuestResult<BrandedServerDb<ScopedDbFor<Db>, 'guestDb'>>
   /**
    * Return a token-scoped DB when the auth cookie exists; otherwise return nulls.
+   *
    * This does not verify the token.
    */
   (event: Event, mode: 'userDb?'): UseServerIdbOptionalUserDbResult<BrandedServerDb<ScopedDbFor<Db>, 'userDb'>>
   /**
    * Return a token-scoped DB when the auth cookie exists; otherwise throw 401.
+   *
    * This does not verify the token.
    */
   (event: Event, mode: 'userDb!'): UseServerIdbRequiredUserDbResult<BrandedServerDb<ScopedDbFor<Db>, 'userDb'>>
   /**
-   * Verify the auth cookie and return user auth state when valid; otherwise return nulls.
+   * Verify the auth cookie and return user auth state when valid; otherwise
+   * return nulls.
+   *
+   * This mode is async because it calls `auth.verifyToken`.
    */
   (
     event: Event,
     mode: 'user?',
   ): Promise<UseServerIdbOptionalUserResult<BrandedServerDb<ScopedDbFor<Db>, 'userDb'>, AuthUserFor<Db>>>
   /**
-   * Verify the auth cookie and return user auth state when valid; otherwise throw 401.
+   * Verify the auth cookie and return user auth state when valid; otherwise
+   * throw 401.
+   *
+   * This mode is async because it calls `auth.verifyToken`.
    */
   (
     event: Event,
@@ -188,6 +240,9 @@ export interface UseServerIdb<
   ): Promise<UseServerIdbRequiredUserResult<BrandedServerDb<ScopedDbFor<Db>, 'userDb'>, AuthUserFor<Db>>>
   /**
    * Return admin, base, guest, and optional verified user auth state.
+   *
+   * Missing or invalid auth returns `token: null`, `userDb: null`, and
+   * `user: null`.
    */
   (
     event: Event,
@@ -203,6 +258,8 @@ export interface UseServerIdb<
   >
   /**
    * Return admin, base, guest, and required verified user auth state.
+   *
+   * Missing or invalid auth throws a 401.
    */
   (
     event: Event,
@@ -247,6 +304,33 @@ function createUnauthorizedError(cause?: unknown) {
   return createError(input)
 }
 
+/**
+ * Create a Nuxt/H3 server DB helper around the official `@instantdb/admin`
+ * `init` function.
+ *
+ * The returned helper supports mode strings for privileged admin access,
+ * unprivileged base access, guest access, token-scoped user DB access, and
+ * verified user auth state. It also caches request-scoped work on
+ * `event.context`, so separate route-local helpers can call it independently
+ * without repeating cookie reads, scoped DB creation, or token verification
+ * within the same request.
+ *
+ * Pair this with `defineInstantAuthSyncHandler` so the client SDK's
+ * `firstPartyPath` endpoint writes the token cookie this helper reads.
+ *
+ * @example
+ * ```ts
+ * export const useIdbn = defineServerIdb({
+ *   init,
+ *   schema,
+ *   getAppId: event => useRuntimeConfig(event).public.instantAppId,
+ *   getAdminToken: event => useRuntimeConfig(event).instantAppAdminToken,
+ * })
+ *
+ * const { userDb } = useIdbn(event, 'userDb!')
+ * const { user } = await useIdbn(event, 'user!')
+ * ```
+ */
 export function defineServerIdb<
   Schema extends InstantSchemaDef<any, any, any>,
   Db extends ServerIdbClient,
