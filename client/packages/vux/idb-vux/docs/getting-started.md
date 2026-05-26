@@ -31,6 +31,8 @@ export const useDb = defineDb({
 })
 ```
 
+For Nuxt/H3 `firstPartyPath` endpoint setup, see [DX/UX enhancements](./dx-ux-enhancements.md#nuxt-server-idb-composition).
+
 `missingAppId` defaults to `'throw'`. To allow `null` instead:
 
 ```ts

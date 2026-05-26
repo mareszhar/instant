@@ -1,4 +1,4 @@
-updated: 2026-05-15
+updated: 2026-05-25
 
 # Vux SDK Feature Parity Audit
 
@@ -27,12 +27,18 @@ P0/P1 parity items are complete:
 3. Presence error propagation alignment.
 4. Room hook baseline return-shape alignment with official Vue (ref-first fields).
 
-Largest remaining cross-family gap is unchanged: no dedicated SSR hydration package equivalent to `@instantdb/react/nextjs`.
+The latest Nuxt server initiative adds auth-sync and server-db groundwork:
+
+1. `@mszr/idb-vux/nuxt` now exports `defineInstantAuthSyncHandler` for H3/Nitro `firstPartyPath` endpoints.
+2. `@mszr/idb-vux/nuxt` now exports `defineServerIdb` for composable server-side admin/base/guest/user DB access.
+3. `defineServerIdb` includes request-scoped caching for auth token reads, scoped DBs, and `verifyToken` promises.
+
+Largest remaining cross-family gap is narrower but unchanged in kind: Vux still has no dedicated SSR query hydration package equivalent to `@instantdb/react/nextjs`.
 
 Remaining Vue-vs-Vux differences are now primarily intentional:
 
 1. Vux intentionally omits deprecated helper type aliases still exported by official wrappers.
-2. Vux adds additive `X` APIs (including rooms) on top of the parity baseline.
+2. Vux adds additive `X` APIs on top of the parity baseline.
 
 ## Feature Matrix
 
@@ -49,9 +55,11 @@ Legend: `yes` = implemented, `partial` = implemented with reduced scope, `no` = 
 | Typing indicator `v-bind` listener key compatibility (`onKeydown`) | yes | yes | n/a | n/a | n/a | n/a | Vux now uses lowercase listener keys for Vue event binding compatibility. |
 | Room hook return shape matches official ref-first style | yes | yes | n/a | n/a | n/a | n/a | Vux baseline room hooks now mirror official Vue shape. |
 | Room `X` ergonomics (`usePresenceX`, `useTypingIndicatorX`) | yes | no | no | no | no | no | Additive Vux-only room ergonomics with shared `refs + state` pattern. |
-| Full framework SSR package (server query + hydration handoff) | partial | no | no | no | yes (`./nextjs`) | no | Vux is SSR-resilient, not SSR-hydrated today. |
+| Full framework SSR package (server query + hydration handoff) | partial | no | no | no | yes (`./nextjs`) | no | Vux is SSR-resilient and now has Nuxt auth/server-db helpers, but not query hydration. |
 | Suspense query hook (`useSuspenseQuery`) | no | no | no | no | yes (`./nextjs`) | no | React Next SSR entrypoint only. |
-| SSR cookie helper (`getUnverifiedUserFromInstantCookie`) | no | no | no | no | yes (`./nextjs`) | no | React Next SSR entrypoint only. |
+| Full-user SSR cookie helper (`getUnverifiedUserFromInstantCookie`) | no (intentional) | no | no | no | yes (`./nextjs`) | no | Vux uses a token-only Nuxt auth-sync cookie instead. |
+| First-party auth sync route helper | yes | no | no | no | yes | no | Vux ships an H3/Nitro helper; React/core ship Request/Response-oriented `createInstantRouteHandler`. |
+| Nuxt/H3 server DB helper | yes | no | no | no | no | no | `defineServerIdb` is Vux-only DX for server routes. |
 | `SignedIn` / `SignedOut` auth-gate components | yes | yes | yes | no | yes | yes | Solid has no equivalent shipped component. |
 | `Cursors` component | yes | yes | yes | no | yes | no | RN and Solid do not ship cursor component. |
 | First-class `db.streams` property | yes | yes | no | no | yes | yes | Vux matches official Vue + React-family convenience surface. |
@@ -68,13 +76,37 @@ Evidence:
 
 - React ships dedicated Next SSR entrypoint `./nextjs` (`client/packages/react/package.json`).
 - React Next SSR surface includes `InstantSuspenseProvider`, `useSuspenseQuery`, and cookie helpers (`client/packages/react/src/next-ssr/*`).
-- Vux package has no SSR hydration subpath export and remains resilience-focused (`client/packages/vux/idb-vux/package.json`, `client/packages/vux/idb-vux/docs/nuxt-ssr-resilience.md`).
+- Vux package has no SSR query hydration provider/composable and remains resilience-focused (`client/packages/vux/idb-vux/package.json`, `client/packages/vux/idb-vux/docs/nuxt-ssr-resilience.md`).
+- Vux's Nuxt subpath now covers first-party auth sync and server DB access, but not SSR query result collection/hydration.
 
 Impact:
 
 - Vue/Nuxt apps can avoid SSR crashes, but cannot yet do first-class server data hydration handoff comparable to React Next package flow.
 
-### 2) Intentional difference: omitted deprecated helper type aliases
+### 2) Intentional difference: token-only Nuxt auth sync cookie
+
+Official `createInstantRouteHandler` stores the full user JSON in an `instant_user_<appId>` cookie. Official React Next helpers and admin `getUserFromRequest` understand that cookie shape.
+
+Vux's `defineInstantAuthSyncHandler` intentionally stores only the `refresh_token` in `instant_token_<appId>` by default, and `defineServerIdb` consumes that token for `asUser({ token })` and `verifyToken` modes.
+
+Why:
+
+- smaller cookie payload
+- less user profile data stored in cookies
+- no JSON encode/decode path for the normal server DB workflow
+- clearer semantics: unverified scoped DB access is sync, verified user access is explicitly async
+
+Compatibility:
+
+- `createInstantRouteHandler` remains available through the core SDK surface re-exported by Vux, so the canonical full-user cookie workflow is still reachable for apps that want it.
+- If Instant adds more first-party endpoint payload types beyond `sync-user`, Vux should add a broader handler (`defineInstantFirstPartyPathHandler` or similar) rather than pretending the current auth-sync helper handles unknown future messages.
+
+Impact:
+
+- This is a deliberate DX/safety divergence, not a missing parity item for the Nuxt auth-sync path.
+- Apps that need official `getUserFromRequest` / `getUnverifiedUserFromInstantCookie` compatibility should use or adapt the canonical full-user cookie route handler.
+
+### 3) Intentional difference: omitted deprecated helper type aliases
 
 Vux intentionally does not re-export:
 
@@ -93,6 +125,7 @@ Impact:
 ## Non-Gaps / Vux Advantages
 
 - Additive typed query ergonomics (`defineQuery`, `useQueryX`, `useInfiniteQueryX`, `queryOnceX`, `useAuthX`, `defineDb`) with contract tests.
+- Nuxt/H3 auth-sync and server DB ergonomics (`defineInstantAuthSyncHandler`, `defineServerIdb`) with request-scoped server auth caching.
 - Additive room ergonomics (`usePresenceX`, `useTypingIndicatorX`) with the same `refs + state` contract as other X APIs.
 - `keepPreviousData` continuity path for query transitions.
 - SSR resilience contract with inert no-op guards and broad server-runtime tests.

@@ -256,6 +256,15 @@ Use `<ClientOnly>` for isolated widgets inside otherwise server-rendered pages:
 
 Wait for full Vux/Nuxt SSR support when the route needs Instant data in the server HTML for SEO, first paint, or no-flicker authenticated rendering.
 
+## Current Nuxt Server Helpers
+
+`@mszr/idb-vux/nuxt` now includes the auth and server-db groundwork for Nuxt server routes:
+
+- `defineInstantAuthSyncHandler` for H3/Nitro `firstPartyPath` auth sync endpoints.
+- `defineServerIdb` for request-composable admin, base, guest, token-scoped, and verified-user DB access.
+
+These helpers improve auth coherence and server-route ergonomics. They do not provide full SSR query hydration. See [DX/UX enhancements](./dx-ux-enhancements.md) for usage details.
+
 ## Planned direction
 
 Full SSR query hydration support should live behind an explicit Nuxt-focused entrypoint rather than changing the client-first API in place.

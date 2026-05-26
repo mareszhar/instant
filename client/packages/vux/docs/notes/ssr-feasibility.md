@@ -1,4 +1,4 @@
-updated: 2026-04-29
+updated: 2026-05-25
 
 # Nuxt SSR Feasibility for `@mszr/idb-vux`
 
@@ -15,6 +15,13 @@ This behavior is intentional and currently implemented in:
 - `src/InstantVuxDatabase.ts`
 - `src/InstantVuxRoom.ts`
 - `src/Cursors.ts`
+
+Status addendum:
+
+- `@mszr/idb-vux/nuxt` now exists for Nuxt/H3 server helpers.
+- `defineInstantAuthSyncHandler` covers first-party auth sync endpoints.
+- `defineServerIdb` covers composable server DB access.
+- Full SSR query hydration remains future work.
 
 ## What “full SSR parity” means
 
@@ -83,10 +90,13 @@ Why:
 
 Potential `@mszr/idb-vux/nuxt` exports:
 
+- `defineInstantAuthSyncHandler` (implemented)
+- `defineServerIdb` (implemented)
 - `createInstantNuxtPlugin(...)` or `InstantNuxtProvider` equivalent
 - `useSuspenseQuery`-like composable (name TBD; could remain `useSuspenseQuery` for parity)
 - `getUnverifiedUserFromInstantCookie` (Nuxt server variant)
-- re-export `createInstantRouteHandler`
+
+Maintainer note: the implemented Nuxt auth path intentionally uses a token-only cookie. The canonical full-user `createInstantRouteHandler` remains available from the main Vux/core export for apps that choose that workflow. See [Feature parity audit](./feature-parity-audit.md) for the compatibility/divergence rationale.
 
 Design goals:
 

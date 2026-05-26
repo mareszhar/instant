@@ -18,6 +18,7 @@ This page is intentionally concise. Use conceptual guides for workflow details:
   - memoized `useDb`-style factory for runtime-resolved `appId` sources (for example Nuxt `useRuntimeConfig`), optional missing-app-id policy, and optional `requireUserInUseUser` default.
 - `id`, `tx`, `lookup`, `i`
 - `createInstantRouteHandler`
+  - canonical Request/Response route helper from the core SDK; stores the full user cookie used by official SSR helpers.
 
 ## Database class
 
@@ -38,6 +39,19 @@ This page is intentionally concise. Use conceptual guides for workflow details:
 - `defineQuery`
   - schema-aware typed authoring helper
   - compatible with both regular and X query hooks
+
+## Nuxt subpath
+
+Import from `@mszr/idb-vux/nuxt`:
+
+- `defineInstantAuthSyncHandler`
+  - H3/Nitro handler for Instant `firstPartyPath` auth sync.
+- `defineServerIdb`
+  - Nuxt/H3 server DB helper for admin, base, guest, token-scoped, and verified-user modes.
+- `getDefaultServerIdbCookieName`
+  - shared default cookie naming convention used by both Nuxt helpers.
+
+See [DX/UX enhancements](./dx-ux-enhancements.md) for the workflow details and examples.
 
 ## Rooms and realtime
 
