@@ -5,7 +5,7 @@ export const useIdb = defineStore('idb', () => {
   const db = markRaw(init({
     appId: useRuntimeConfig().public.instantAppId,
     schema,
-    firstPartyPath: '/api/auth',
+    firstPartyPath: '/api/syncAuth',
   }))
 
   const { state: auth } = db.useAuthX()
