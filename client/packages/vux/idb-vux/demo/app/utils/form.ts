@@ -1,3 +1,15 @@
+export type FeedbackTone = 'success' | 'danger' | 'info'
+
+export interface Feedback {
+  text: string
+  tone: FeedbackTone
+}
+
+export interface FormState {
+  isProcessing: boolean
+  feedback: Feedback | null
+}
+
 export async function executeFormAction(
   formState: FormState,
   shouldSkip: boolean,

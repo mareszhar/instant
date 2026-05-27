@@ -1,15 +1,3 @@
-export type FeedbackTone = 'success' | 'danger' | 'info'
-
-export interface Feedback {
-  text: string
-  tone: FeedbackTone
-}
-
-export interface FormState {
-  isProcessing: boolean
-  feedback: Feedback | null
-}
-
 export function formatError(error: unknown): string {
   if (!error || typeof error !== 'object') {
     return 'Unexpected error'
