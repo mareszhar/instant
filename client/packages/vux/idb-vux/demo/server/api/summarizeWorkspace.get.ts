@@ -1,5 +1,5 @@
 export default defineEventHandler(async (event) => {
-  const { workspaceId } = getQuery<EndpointSummarizeWorkspacePayload>(event)
+  const { workspaceId } = getQuery<EndpointSummarizeWorkspaceQuery>(event)
 
   if (!workspaceId || typeof workspaceId !== 'string') {
     throw createError({
@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
 
   const { adminDb } = useIdbn(event)
 
-  const [errorGettingWorkspaceData, workspaceQuery] = await go(adminDb.query(q({
+  const workspacePromise = go(adminDb.query(q({
     workspaces: {
       $: {
         where: { id: workspaceId },
@@ -20,9 +20,10 @@ export default defineEventHandler(async (event) => {
       tasks: { $: { fields: ['isDone'] } },
     },
   })))
+  const userPromise = useIdbn(event, 'user?')
+  const [[errorGettingWorkspaceData, workspaceQuery], { user }] = await Promise.all([workspacePromise, userPromise])
 
   const workspace = workspaceQuery?.workspaces[0] ?? null
-  const mode = errorGettingWorkspaceData ? 'degraded' : 'live'
   let countOfTasksDone = 0
   let countOfTasksPending = 0
 
@@ -33,19 +34,16 @@ export default defineEventHandler(async (event) => {
       countOfTasksPending++
   }
 
-  const { user } = await useIdbn(event, 'user?')
-  const generatedAt = new Date().toISOString()
-
   return {
-    generatedAt,
-    mode,
+    generatedAt: new Date().toISOString(),
+    mode: errorGettingWorkspaceData ? 'degraded' : 'live',
     counts: {
       totalTasks: workspace?.tasks.length ?? 0,
       doneTasks: countOfTasksDone,
       pendingTasks: countOfTasksPending,
       memberCount: workspace?.memberships.length ?? 0,
     },
-    syncedUser: user,
+    syncedUser: user ? userToLabel(user) : null,
     warning: errorGettingWorkspaceData ? `[Server error /api/summarizeWorkspace]: ${formatError(errorGettingWorkspaceData)}` : '',
   }
 })
