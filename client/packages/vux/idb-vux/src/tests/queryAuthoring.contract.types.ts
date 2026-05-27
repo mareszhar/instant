@@ -66,8 +66,24 @@ const authoredInfiniteQueryObject = {
   },
 } as const
 
+const authoredReadonlyArrayQueryObject = {
+  quests: {
+    $: {
+      fields: ['id'],
+      where: {
+        status: { $in: ['pending', 'done'] },
+        and: [
+          { priority: { $gte: 1 } },
+          { 'requestor.id': maybeRequestorId },
+        ],
+      },
+    },
+  },
+} as const
+
 const authoredQ = q(authoredQueryObject)
 const authoredInfiniteQ = q(authoredInfiniteQueryObject)
+const authoredReadonlyArrayQ = q(authoredReadonlyArrayQueryObject)
 
 const regularQueryFromQ = db.useQuery(authoredQ)
 const regularQueryFromFactory = db.useQuery(() => authoredQ)
@@ -90,6 +106,8 @@ const queryFromFactory = db.useQueryX(() => authoredQueryObject)
 const queryFromQ = db.useQueryX(authoredQ)
 const queryOnceXFromObject = db.queryOnceX(authoredQueryObject)
 const queryOnceXFromQ = db.queryOnceX(authoredQ)
+const queryOnceXFromReadonlyArrayObject = db.queryOnceX(authoredReadonlyArrayQueryObject)
+const queryOnceXFromReadonlyArrayQ = db.queryOnceX(authoredReadonlyArrayQ)
 
 const infiniteXFromObject = db.useInfiniteQueryX(authoredInfiniteQueryObject)
 const infiniteXFromFactory = db.useInfiniteQueryX(() => authoredInfiniteQueryObject)
@@ -114,12 +132,22 @@ const infiniteXFromQTitle: string | undefined = infiniteXFromQ.quests.value[0]?.
 
 type QueryOnceXFromObjectPayload = Awaited<typeof queryOnceXFromObject>
 type QueryOnceXFromQPayload = Awaited<typeof queryOnceXFromQ>
+type QueryOnceXFromReadonlyArrayObjectPayload = Awaited<typeof queryOnceXFromReadonlyArrayObject>
+type QueryOnceXFromReadonlyArrayQPayload = Awaited<typeof queryOnceXFromReadonlyArrayQ>
 
 declare const queryOnceXFromObjectPayload: QueryOnceXFromObjectPayload
 declare const queryOnceXFromQPayload: QueryOnceXFromQPayload
+declare const queryOnceXFromReadonlyArrayObjectPayload: QueryOnceXFromReadonlyArrayObjectPayload
+declare const queryOnceXFromReadonlyArrayQPayload: QueryOnceXFromReadonlyArrayQPayload
 
 const queryOnceXRequestorEmail: string | undefined = queryOnceXFromObjectPayload.quests[0]?.requestor?.email
 const queryOnceXFromQTitle: string | undefined = queryOnceXFromQPayload.quests[0]?.title
+const queryOnceXReadonlyObjectId: string | undefined = queryOnceXFromReadonlyArrayObjectPayload.quests[0]?.id
+const queryOnceXReadonlyQId: string | undefined = queryOnceXFromReadonlyArrayQPayload.quests[0]?.id
+// @ts-expect-error - readonly fields should still narrow selected attrs in X object authoring
+const queryOnceXReadonlyObjectTitle: string | undefined = queryOnceXFromReadonlyArrayObjectPayload.quests[0]?.title
+// @ts-expect-error - readonly fields should still narrow selected attrs in X q() authoring
+const queryOnceXReadonlyQTitle: string | undefined = queryOnceXFromReadonlyArrayQPayload.quests[0]?.title
 
 infiniteXFromObject.loadNextPage()
 

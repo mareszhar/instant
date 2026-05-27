@@ -17,12 +17,10 @@ import type {
   Streams,
   TransactionChunk,
   User,
-  ValidQuery,
 } from '@instantdb/core'
 import type { ComputedRef, MaybeRefOrGetter, Ref } from 'vue'
 import type {
   DefinedQuery,
-  TypedQueryForSchema,
   ValidateTypedQueryForSchema,
 } from './defineQuery.js'
 import type { StateFromRefs, XResult } from './xResult.js'
@@ -257,53 +255,64 @@ interface UseInfiniteQueryState<
 
 type IsAny<T> = 0 extends (1 & T) ? true : false
 
-type UseQueryXTypedQuery<
-  Schema extends InstantSchemaDef<any, any, any>,
-  Q,
-> = IsAny<Schema> extends true
-  ? Q extends Record<string, any>
-    ? Q
-    : never
-  : Q extends TypedQueryForSchema<Schema>
-    ? Q
-    : never
-
-type UseQueryXAuthoringInput<
+type QueryAuthoringInput<
   Schema extends InstantSchemaDef<any, any, any>,
   Q,
 > = IsAny<Schema> extends true
   ? Q
   : ValidateTypedQueryForSchema<Schema, Q> & Q
 
-type UseQueryXAuthoringFactory<
+type QueryAuthoringFactory<
   Schema extends InstantSchemaDef<any, any, any>,
   Q,
-> = () => null | UseQueryXAuthoringInput<Schema, Q>
+> = () => null | QueryAuthoringInput<Schema, Q>
 
-type UseQueryXAuthoringSource<
+type QueryAuthoringSource<
   Schema extends InstantSchemaDef<any, any, any>,
   Q,
 >
   = | null
-    | UseQueryXAuthoringInput<Schema, Q>
-    | UseQueryXAuthoringFactory<Schema, Q>
+    | QueryAuthoringInput<Schema, Q>
+    | QueryAuthoringFactory<Schema, Q>
 
-type UseQueryXInlineAuthoringQuery<Source>
+type QueryInlineAuthoringQuery<Source>
   = Source extends () => null | infer Q
     ? NonNullable<Q>
     : Source
 
-type UseQueryXInlineAuthoringSource<
+type QueryInlineAuthoringSource<
   Schema extends InstantSchemaDef<any, any, any>,
   Source,
 > = Source extends () => null | infer Q
-  ? Source & (() => null | UseQueryXAuthoringInput<Schema, NonNullable<Q>>)
-  : UseQueryXAuthoringInput<Schema, Source>
+  ? Source & (() => null | QueryAuthoringInput<Schema, NonNullable<Q>>)
+  : QueryAuthoringInput<Schema, Source>
 
-type UseQueryXRuntimeQuery<
+type QueryMaybeRefOrGetterValue<Source>
+  = Source extends () => null | infer Q
+    ? NonNullable<Q>
+    : Source extends ComputedRef<null | infer Q>
+      ? NonNullable<Q>
+      : Source extends Ref<null | infer Q>
+        ? NonNullable<Q>
+        : NonNullable<Source>
+
+type QueryMaybeRefOrGetterSource<
   Schema extends InstantSchemaDef<any, any, any>,
-  Q,
-> = DefinedQuery<UseQueryXTypedQuery<Schema, Q>>
+  Source,
+> = Source extends () => null | infer Q
+  ? Source & (() => null | QueryAuthoringInput<Schema, NonNullable<Q>>)
+  : Source extends ComputedRef<null | infer Q>
+    ? Source & ComputedRef<null | QueryAuthoringInput<Schema, NonNullable<Q>>>
+    : Source extends Ref<null | infer Q>
+      ? Source & Ref<null | QueryAuthoringInput<Schema, NonNullable<Q>>>
+      : Source extends null
+        ? null
+        : QueryAuthoringInput<Schema, NonNullable<Source>>
+
+type QueryRuntimeQuery<Q> = DefinedQuery<Q extends Record<string, any> ? Q : never>
+
+type QueryMaybeRefOrGetterRuntimeQuery<Source>
+  = QueryRuntimeQuery<QueryMaybeRefOrGetterValue<Source>>
 
 export type UseQueryXRefs<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -594,22 +603,22 @@ export class InstantVuxDatabase<
     return this.core.getAuth()
   }
 
-  queryOnce = <Q extends ValidQuery<Q, Schema>>(
-    query: Q,
+  queryOnce = <const Q>(
+    query: QueryAuthoringInput<Schema, Q>,
     opts?: InstaQLOptions,
   ): Promise<{
-    data: InstaQLResponse<Schema, Q, UseDates>
-    pageInfo: PageInfoResponse<Q>
+    data: InstaQLResponse<Schema, QueryRuntimeQuery<Q>, UseDates>
+    pageInfo: PageInfoResponse<QueryRuntimeQuery<Q>>
   }> => {
-    return this.core.queryOnce(query, opts)
+    return this.core.queryOnce(query as any, opts) as any
   }
 
   queryOnceX<const Q>(
-    query: UseQueryXAuthoringInput<Schema, Q>,
+    query: QueryAuthoringInput<Schema, Q>,
     opts?: InstaQLOptions,
-  ): Promise<QueryOnceXResult<Schema, UseQueryXRuntimeQuery<Schema, Q>, UseDates, UseQueryXRuntimeQuery<Schema, Q>>>
+  ): Promise<QueryOnceXResult<Schema, QueryRuntimeQuery<Q>, UseDates, QueryRuntimeQuery<Q>>>
   async queryOnceX<const Q>(
-    query: UseQueryXAuthoringInput<Schema, Q>,
+    query: QueryAuthoringInput<Schema, Q>,
     opts?: InstaQLOptions,
   ): Promise<QueryOnceXResult<Schema, any, UseDates, any>> {
     const { namespaceKeys } = namespaceKeyTrackerFromQuerySource(
@@ -637,10 +646,10 @@ export class InstantVuxDatabase<
     return result as any
   }
 
-  useInfiniteQuery = <Q extends ValidQuery<Q, Schema>>(
-    query: MaybeRefOrGetter<Q | null>,
+  useInfiniteQuery = <const Source>(
+    query: QueryMaybeRefOrGetterSource<Schema, Source>,
     opts?: MaybeRefOrGetter<InstaQLOptions | null | undefined>,
-  ): UseInfiniteQueryResult<Schema, Q, UseDates> => {
+  ): UseInfiniteQueryResult<Schema, QueryMaybeRefOrGetterRuntimeQuery<Source>, UseDates> => {
     let activeSub: InfiniteQuerySubscription | null = null
 
     const state = reactive({
@@ -648,7 +657,7 @@ export class InstantVuxDatabase<
       loadNextPage: () => {
         activeSub?.loadNextPage()
       },
-    }) as UseInfiniteQueryState<Schema, Q, UseDates>
+    }) as UseInfiniteQueryState<Schema, QueryMaybeRefOrGetterRuntimeQuery<Source>, UseDates>
 
     const refs = createUseInfiniteQueryResultRefs(state)
 
@@ -657,7 +666,7 @@ export class InstantVuxDatabase<
     }
 
     const stop = watchEffect((onCleanup) => {
-      const resolvedQuery = toValue(query)
+      const resolvedQuery = toValue(query as MaybeRefOrGetter<any>)
       const resolvedOpts = toValue(opts)
 
       activeSub = null
@@ -670,12 +679,12 @@ export class InstantVuxDatabase<
         return
       }
 
-      const snapshot = getInfiniteQueryInitialSnapshot<Schema, Q, UseDates>(
+      const snapshot = getInfiniteQueryInitialSnapshot(
         this.core,
-        resolvedQuery,
+        resolvedQuery as any,
         resolvedOpts ?? undefined,
       ) as
-      | InfiniteQueryCallbackResponse<Schema, Q, UseDates>
+      | InfiniteQueryCallbackResponse<Schema, QueryMaybeRefOrGetterRuntimeQuery<Source>, UseDates>
       | {
         canLoadNextPage: false
         data: undefined
@@ -687,8 +696,8 @@ export class InstantVuxDatabase<
       state.canLoadNextPage = snapshot.canLoadNextPage
       state.isLoading = !snapshot.data && !snapshot.error
 
-      const sub = this.core.subscribeInfiniteQuery<Q>(
-        resolvedQuery,
+      const sub = this.core.subscribeInfiniteQuery(
+        resolvedQuery as any,
         (result) => {
           state.error = result.error
           state.data = result.data
@@ -713,11 +722,11 @@ export class InstantVuxDatabase<
     return refs
   }
 
-  useQuery = <Q extends ValidQuery<Q, Schema>>(
-    query: MaybeRefOrGetter<Q | null>,
+  useQuery = <const Source>(
+    query: QueryMaybeRefOrGetterSource<Schema, Source>,
     opts?: MaybeRefOrGetter<UseQueryOptions | null | undefined>,
-  ): UseQueryResult<Schema, Q, UseDates> => {
-    const state = reactive({ ...defaultState }) as UseQueryState<Schema, Q, UseDates>
+  ): UseQueryResult<Schema, QueryMaybeRefOrGetterRuntimeQuery<Source>, UseDates> => {
+    const state = reactive({ ...defaultState }) as UseQueryState<Schema, QueryMaybeRefOrGetterRuntimeQuery<Source>, UseDates>
     const refs = createUseQueryResultRefs(state)
 
     if (isServerRuntime() || !isReactorReadyForSubscriptions(this.core)) {
@@ -725,7 +734,7 @@ export class InstantVuxDatabase<
     }
 
     const stop = watchEffect((onCleanup) => {
-      const resolvedQuery = toValue(query)
+      const resolvedQuery = toValue(query as MaybeRefOrGetter<any>)
       const resolvedOpts = toValue(opts)
 
       if (!resolvedQuery) {
@@ -754,7 +763,7 @@ export class InstantVuxDatabase<
       }
       state.error = prevState.error
 
-      const unsub = this.core.subscribeQuery<Q, UseDates>(coerced, (result: any) => {
+      const unsub = this.core.subscribeQuery(coerced as any, (result: any) => {
         state.isLoading = false
         state.data = result.data
         state.pageInfo = result.pageInfo
@@ -770,16 +779,16 @@ export class InstantVuxDatabase<
   }
 
   useQueryX<const Source>(
-    query: UseQueryXInlineAuthoringSource<Schema, Source>,
+    query: QueryInlineAuthoringSource<Schema, Source>,
     opts?: UseQueryOptions,
   ): UseQueryXResult<
     Schema,
-    UseQueryXRuntimeQuery<Schema, UseQueryXInlineAuthoringQuery<Source>>,
+    QueryRuntimeQuery<QueryInlineAuthoringQuery<Source>>,
     UseDates,
-    UseQueryXRuntimeQuery<Schema, UseQueryXInlineAuthoringQuery<Source>>
+    QueryRuntimeQuery<QueryInlineAuthoringQuery<Source>>
   >
   useQueryX<const Q>(
-    query: UseQueryXAuthoringSource<Schema, Q>,
+    query: QueryAuthoringSource<Schema, Q>,
     opts?: UseQueryOptions,
   ): UseQueryXResult<Schema, any, UseDates, any> {
     const { namespaceKeys, trackedQuery } = namespaceKeyTrackerFromQuerySource(
@@ -808,16 +817,16 @@ export class InstantVuxDatabase<
   }
 
   useInfiniteQueryX<const Source>(
-    query: UseQueryXInlineAuthoringSource<Schema, Source>,
+    query: QueryInlineAuthoringSource<Schema, Source>,
     opts?: InstaQLOptions,
   ): UseInfiniteQueryXResult<
     Schema,
-    UseQueryXRuntimeQuery<Schema, UseQueryXInlineAuthoringQuery<Source>>,
+    QueryRuntimeQuery<QueryInlineAuthoringQuery<Source>>,
     UseDates,
-    UseQueryXRuntimeQuery<Schema, UseQueryXInlineAuthoringQuery<Source>>
+    QueryRuntimeQuery<QueryInlineAuthoringQuery<Source>>
   >
   useInfiniteQueryX<const Q>(
-    query: UseQueryXAuthoringSource<Schema, Q>,
+    query: QueryAuthoringSource<Schema, Q>,
     opts?: InstaQLOptions,
   ): UseInfiniteQueryXResult<Schema, any, UseDates, any> {
     const { namespaceKeys, trackedQuery } = namespaceKeyTrackerFromQuerySource(

@@ -6,10 +6,22 @@ import type {
 } from '@instantdb/core'
 
 type PrevDepth = [never, 0, 1, 2, 3, 4, 5]
+type BuiltIn = Date | ((...args: any[]) => unknown) | Error | RegExp
 
 type NonEmpty<T extends object> = {
   [K in keyof T]-?: Required<Pick<T, K>> & Partial<Omit<T, K>>
 }[keyof T]
+
+type DeepMutableQueryInput<T>
+  = T extends BuiltIn
+    ? T
+    : T extends readonly [...infer Items]
+      ? { [K in keyof Items]: DeepMutableQueryInput<Items[K]> }
+      : T extends ReadonlyArray<infer Item>
+        ? DeepMutableQueryInput<Item>[]
+        : T extends object
+          ? { -readonly [K in keyof T]: DeepMutableQueryInput<T[K]> }
+          : T
 
 type StrictStringKeyOf<T> = Extract<{
   [K in keyof T]-?:
@@ -70,8 +82,8 @@ type ScalarForAttr<A extends DataAttrDef<any, any, any, boolean>>
       : AttrValue<A>
 
 interface EqualityOperators<A extends DataAttrDef<any, any, any, boolean>> {
-  in?: ScalarForAttr<A>[]
-  $in?: ScalarForAttr<A>[]
+  in?: readonly ScalarForAttr<A>[]
+  $in?: readonly ScalarForAttr<A>[]
   $not?: ScalarForAttr<A>
   $ne?: ScalarForAttr<A>
 }
@@ -227,10 +239,10 @@ type WhereObject<
    * Soft-cap authoring fallback: any extra key can still be typed, but strict
    * IntelliSense remains focused on practical 2-hop suggestions.
    */
-  [key: string]: WhereAuthoringValue | WhereObject<S, E>[] | undefined
+  [key: string]: WhereAuthoringValue | readonly WhereObject<S, E>[] | undefined
 } & {
-  and?: WhereObject<S, E>[] | undefined
-  or?: WhereObject<S, E>[] | undefined
+  and?: readonly WhereObject<S, E>[] | undefined
+  or?: readonly WhereObject<S, E>[] | undefined
 }
 
 type FieldName<
@@ -238,13 +250,15 @@ type FieldName<
   E extends EntityName<S>,
 > = AttrName<S, E> | 'id'
 
+type CursorAuthoring = Cursor | readonly [string, string, any, number]
+
 type DollarQuery<
   S extends InstantSchemaDef<any, any, any>,
   E extends EntityName<S>,
   TopLevel extends boolean,
 > = {
   where?: WhereObject<S, E> | undefined
-  fields?: FieldName<S, E>[] | undefined
+  fields?: readonly FieldName<S, E>[] | undefined
   order?: Order<S, E> | undefined
   limit?: number | undefined
 } & (TopLevel extends true
@@ -252,9 +266,9 @@ type DollarQuery<
       last?: number | undefined
       first?: number | undefined
       offset?: number | undefined
-      after?: Cursor | undefined
+      after?: CursorAuthoring | undefined
       afterInclusive?: boolean | undefined
-      before?: Cursor | undefined
+      before?: CursorAuthoring | undefined
       beforeInclusive?: boolean | undefined
     }
   : {})
@@ -291,19 +305,37 @@ type UndefinedValueKeys<T extends object> = {
 
 type DefinedValueKeys<T extends object> = Exclude<keyof T, UndefinedValueKeys<T>>
 
-type NormalizeUndefinedValues<T extends object> = Merge<
-  { [K in DefinedValueKeys<T>]: T[K] }
-  & { [K in UndefinedValueKeys<T>]?: Exclude<T[K], undefined> }
->
+type NormalizeWhereProperty<K, T> = K extends 'and' | 'or'
+  ? Exclude<T, undefined> extends ReadonlyArray<infer Item>
+    ? NormalizeWhereNode<Item>[]
+    : Exclude<T, undefined>
+  : DeepMutableQueryInput<T>
 
 type NormalizeWhereNode<T> = T extends object
-  ? NormalizeUndefinedValues<T>
+  ? Merge<
+    {
+      [K in keyof T as K extends 'and' | 'or'
+        ? K
+        : K extends DefinedValueKeys<T>
+          ? K
+          : never]: NormalizeWhereProperty<K, T[K]>
+    }
+    & {
+      [K in Exclude<UndefinedValueKeys<T>, 'and' | 'or'>]?: Exclude<
+        NormalizeWhereProperty<K, T[K]>,
+        undefined
+      >
+    }
+  >
   : T
 
-type NormalizeDollarNode<T> = T extends { where?: infer W }
-  ? Merge<Omit<T, 'where'> & {
-    where?: W extends object ? NormalizeWhereNode<W> : W
-  }>
+type NormalizeDollarNode<T> = T extends object
+  ? Merge<
+    DeepMutableQueryInput<Omit<T, 'where'>>
+    & (T extends { where?: infer W }
+      ? { where?: W extends object ? NormalizeWhereNode<W> : W }
+      : {})
+  >
   : T
 
 type NormalizeDefinedQuery<Q> = Q extends object
@@ -448,7 +480,7 @@ type ValidateWhereKeyValue<
   V,
 > = K extends 'and' | 'or'
   ? V extends ReadonlyArray<infer Item>
-    ? ValidateWhereObject<S, E, Item>[] | undefined
+    ? readonly ValidateWhereObject<S, E, Item>[] | undefined
     : ValidationError<`QERR_WHERE_GROUP_INVALID: ${K} must be an array of where clauses.`>
   : K extends WhereHintLeafKey<S, E>
     ? ValidateStrictWhereValue<S, E, K, V>
@@ -481,7 +513,7 @@ type ValidateDollarKeyValue<
     ? V
     : ValidateWhereObject<S, E, V>
   : K extends 'fields'
-    ? V extends FieldName<S, E>[] | undefined
+    ? V extends readonly FieldName<S, E>[] | undefined
       ? V
       : ValidationError<`Invalid "$.fields" on "${Extract<E, string>}".`>
     : K extends 'order'
@@ -498,7 +530,7 @@ type ValidateDollarKeyValue<
               ? V
               : ValidationError<`Invalid "$.${K}" on "${Extract<E, string>}".`>
             : K extends 'after' | 'before'
-              ? V extends Cursor | undefined
+              ? V extends CursorAuthoring | undefined
                 ? V
                 : ValidationError<`Invalid "$.${K}" on "${Extract<E, string>}".`>
               : K extends 'afterInclusive' | 'beforeInclusive'

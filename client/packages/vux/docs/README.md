@@ -2,7 +2,7 @@
 
 Canonical maintainer docs index for the Vux workspace.
 
-Last refreshed: `2026-05-25`
+Last refreshed: `2026-05-27`
 
 ## Docs vs notes
 
@@ -30,6 +30,7 @@ Last refreshed: `2026-05-25`
 
 | Note | Updated | Scope |
 | --- | --- | --- |
+| [Upstream follow-ups](./notes/upstream-follow-ups.md) | 2026-05-27 | Tracked upstream PRs and candidate fixes that could remove Vux compatibility layers. |
 | [Feature parity audit](./notes/feature-parity-audit.md) | 2026-05-25 | Cross-SDK parity matrix including intentional divergence choices. |
 | [SSR feasibility](./notes/ssr-feasibility.md) | 2026-05-25 | SSR architecture feasibility with current Nuxt auth/server-db helper status. |
 | [Raw getter state projection pattern](./notes/raw-getter-state-projection.md) | 2026-05-19 | Maintainer rationale for X `state` as a Pinia-friendly `markRaw` getter projection over refs. |

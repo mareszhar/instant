@@ -199,6 +199,36 @@ const queryFromConst = db.useQuery(transparentQuery)
 const firstAssigneeIdFromConst: string | undefined = queryFromConst.data.value?.quests[0]?.assignee?.id
 const firstQuestTitleFromConst: string | undefined = queryFromConst.data.value?.quests[0]?.title
 
+const readonlyQuestFields = ['id'] as const
+const readonlyStatuses = ['pending', 'done'] as const
+const readonlyWhereGroups = [
+  { status: { $in: readonlyStatuses } },
+  { priority: { $gte: 2 } },
+] as const
+
+const readonlyArraysQuery = q({
+  quests: {
+    $: {
+      fields: readonlyQuestFields,
+      where: {
+        and: readonlyWhereGroups,
+      },
+    },
+  },
+})
+
+const queryFromReadonlyArrays = db.useQuery(readonlyArraysQuery)
+const firstQuestIdFromReadonlyArrays: string | undefined = queryFromReadonlyArrays.data.value?.quests[0]?.id
+// @ts-expect-error - readonly fields should still narrow selected attrs
+const firstQuestTitleFromReadonlyArrays: string | undefined = queryFromReadonlyArrays.data.value?.quests[0]?.title
+
+const queryOnceFromReadonlyArrays = db.queryOnce(readonlyArraysQuery)
+type QueryOnceFromReadonlyArraysPayload = Awaited<typeof queryOnceFromReadonlyArrays>
+declare const queryOnceFromReadonlyArraysPayload: QueryOnceFromReadonlyArraysPayload
+const firstQueryOnceIdFromReadonlyArrays: string | undefined = queryOnceFromReadonlyArraysPayload.data.quests[0]?.id
+// @ts-expect-error - readonly fields should still narrow queryOnce selected attrs
+const firstQueryOnceTitleFromReadonlyArrays: string | undefined = queryOnceFromReadonlyArraysPayload.data.quests[0]?.title
+
 const factoryQuery = q({
   quests: {
     assignee: {},
@@ -248,6 +278,8 @@ const firstQuestTitleFromOptionalWhereValue: string | undefined = queryFromOptio
 
 void firstAssigneeIdFromConst
 void firstQuestTitleFromConst
+void firstQuestIdFromReadonlyArrays
+void firstQueryOnceIdFromReadonlyArrays
 void firstAssigneeIdFromFactory
 void firstQuestTitleFromFactory
 void firstAssigneeIdFromInlineQ

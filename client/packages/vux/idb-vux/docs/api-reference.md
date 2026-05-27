@@ -39,6 +39,7 @@ This page is intentionally concise. Use conceptual guides for workflow details:
 - `defineQuery`
   - schema-aware typed authoring helper
   - compatible with both regular and X query hooks
+  - accepts readonly query authoring arrays and normalizes them for Vux query APIs
 
 ## Nuxt subpath
 
