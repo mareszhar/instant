@@ -1,5 +1,5 @@
 export default defineEventHandler(async (event) => {
-  const { workspaceId } = getQuery<EndpointSummarizeWorkspaceQuery>(event)
+  const { workspaceId } = getQuery<WorkspaceActionEndpointQuery>(event)
 
   if (!workspaceId || typeof workspaceId !== 'string') {
     throw createError({

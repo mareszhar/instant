@@ -11,7 +11,7 @@ export const admin = defineStore('admin', async () => {
 
   const refreshWorkspaceSummary = () => executeFormAction(form, !workspaces.current?.id, async () => {
     const newSummary = await $fetch('/api/summarizeWorkspace', {
-      query: { workspaceId: workspaces.current!.id } satisfies EndpointSummarizeWorkspaceQuery,
+      query: { workspaceId: workspaces.current!.id } satisfies WorkspaceActionEndpointQuery,
     })
 
     workspaceSummary.value = newSummary

@@ -1,3 +1,3 @@
-export interface EndpointSummarizeWorkspaceQuery {
+export interface WorkspaceActionEndpointQuery {
   workspaceId: string
 }
