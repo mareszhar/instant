@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     generatedAt: new Date().toISOString(),
-    mode: errorGettingWorkspaceData ? 'degraded' : 'live',
+    mode: errorGettingWorkspaceData ? 'degraded' as const : 'live' as const,
     counts: {
       totalTasks: workspace?.tasks.length ?? 0,
       doneTasks: countOfTasksDone,
