@@ -1,7 +1,7 @@
 export default defineEventHandler(async (event) => {
-  const { workspaceId } = getQuery<WorkspaceActionEndpointQuery>(event)
+  const workspaceId = event.context.params?.id
 
-  if (!workspaceId || typeof workspaceId !== 'string') {
+  if (!workspaceId) {
     throw createError({
       statusCode: 400,
       statusMessage: 'Missing required query param: workspaceId',
@@ -44,6 +44,6 @@ export default defineEventHandler(async (event) => {
       memberCount: workspace?.memberships.length ?? 0,
     },
     syncedUser: user ? userToLabel(user) : null,
-    warning: errorGettingWorkspaceData ? `[Server error /api/summarizeWorkspace]: ${formatError(errorGettingWorkspaceData)}` : '',
+    warning: errorGettingWorkspaceData ? formatError(errorGettingWorkspaceData) : null,
   }
 })

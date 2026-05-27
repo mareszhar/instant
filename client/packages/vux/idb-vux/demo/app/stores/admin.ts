@@ -7,15 +7,11 @@ export const admin = defineStore('admin', async () => {
     feedback: useEphemeralFeedback(),
   })
 
-  const workspaceSummary = ref<InternalApi['/api/summarizeWorkspace']['get'] | null>(null)
+  const workspaceSummary = ref<InternalApi['/api/workspaces/:id/summary']['get'] | null>(null)
 
   const refreshWorkspaceSummary = () => executeFormAction(form, !workspaces.current?.id, async () => {
-    const newSummary = await $fetch('/api/summarizeWorkspace', {
-      query: { workspaceId: workspaces.current!.id } satisfies WorkspaceActionEndpointQuery,
-    })
-
+    const newSummary = await $fetch(`/api/workspaces/${workspaces.current!.id}/summary`)
     workspaceSummary.value = newSummary
-
     if (newSummary.warning)
       throw new Error(newSummary.warning)
   })
