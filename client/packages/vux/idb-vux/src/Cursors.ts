@@ -1,5 +1,14 @@
-import type { InstantSchemaDef, RoomSchemaShape } from '@instantdb/core'
-import type { PropType, ShallowRef, StyleValue, VNodeChild } from 'vue'
+import type { RoomSchemaShape } from '@instantdb/core'
+import type {
+  AllowedComponentProps,
+  ComponentCustomProps,
+  PropType,
+  ShallowRef,
+  SlotsType,
+  StyleValue,
+  VNodeChild,
+  VNodeProps,
+} from 'vue'
 import type { InstantVuxRoom } from './InstantVuxRoom.js'
 import {
   defineComponent,
@@ -8,11 +17,44 @@ import {
 } from 'vue'
 import { usePresence } from './InstantVuxRoom.js'
 
-type GenericRoom = InstantVuxRoom<
-  InstantSchemaDef<any, any, any>,
-  RoomSchemaShape,
-  string
->
+type GenericRoom = InstantVuxRoom<any, any, any>
+
+export interface CursorPresence {
+  x: number
+  y: number
+  xPercent: number
+  yPercent: number
+  color: string | undefined
+}
+
+export interface CursorSlotProps<PresenceShape = unknown> {
+  color: string | undefined
+  presence: PresenceShape | undefined
+}
+
+export interface CursorsSlots<PresenceShape = unknown> {
+  default?: () => VNodeChild
+  cursor?: (props: CursorSlotProps<PresenceShape>) => VNodeChild
+}
+
+export interface CursorsProps<
+  RoomSchema extends RoomSchemaShape = RoomSchemaShape,
+  RoomType extends string & keyof RoomSchema = string & keyof RoomSchema,
+> {
+  room: InstantVuxRoom<any, RoomSchema, RoomType>
+  spaceId?: string
+  as?: any
+  className?: any
+  style?: StyleValue
+  userCursorColor?: string
+  renderCursor?: (
+    props: CursorSlotProps<RoomSchema[RoomType]['presence']>
+  ) => VNodeChild
+  propagate?: boolean
+  zIndex?: number
+}
+
+type CursorPresenceBySpace = Record<string, CursorPresence | undefined>
 
 function hasRoomPresenceReactor(room: GenericRoom) {
   const reactor = (room as any)?.core?._reactor
@@ -136,7 +178,7 @@ function clampPercent(value: number) {
   return value
 }
 
-export default defineComponent({
+const Cursors = defineComponent({
   name: 'InstantCursors',
   props: {
     room: {
@@ -166,7 +208,7 @@ export default defineComponent({
     },
     renderCursor: {
       type: Function as PropType<
-        (props: { color: string, presence: unknown }) => VNodeChild
+        (props: CursorSlotProps<unknown>) => VNodeChild
       >,
       required: false,
     },
@@ -179,6 +221,7 @@ export default defineComponent({
       required: false,
     },
   },
+  slots: Object as SlotsType<CursorsSlots<unknown>>,
   setup(props, { slots }) {
     const isServerRuntime = typeof window === 'undefined'
     const canPublish = !isServerRuntime && hasRoomPresenceReactor(props.room)
@@ -189,8 +232,8 @@ export default defineComponent({
     const cursorsPresence = usePresence(props.room as any, {
       keys: [spaceId] as any,
     }) as unknown as {
-      peers: ShallowRef<Record<string, any>>
-      publishPresence: (data: Record<string, any>) => void
+      peers: ShallowRef<Record<string, CursorPresenceBySpace>>
+      publishPresence: (data: CursorPresenceBySpace) => void
     }
 
     function publishCursor(
@@ -290,7 +333,7 @@ export default defineComponent({
       const peers = cursorsPresence?.peers.value ?? {}
 
       const overlayChildren = Object.entries(peers).map(([peerId, presence]) => {
-        const cursor = (presence as any)?.[spaceId]
+        const cursor = presence?.[spaceId]
         if (!cursor) {
           return null
         }
@@ -311,7 +354,7 @@ export default defineComponent({
           })
         }
         else {
-          cursorNode = h(DefaultCursor, { color: cursor.color })
+          cursorNode = h(DefaultCursor, { color: cursor.color ?? '' })
         }
 
         return h(
@@ -359,3 +402,28 @@ export default defineComponent({
     }
   },
 })
+
+type CursorsPublicProps<
+  RoomSchema extends RoomSchemaShape,
+  RoomType extends string & keyof RoomSchema,
+> =
+  & CursorsProps<RoomSchema, RoomType>
+  & VNodeProps
+  & AllowedComponentProps
+  & ComponentCustomProps
+
+type CursorsRuntime = Omit<typeof Cursors, never>
+
+export type CursorsComponent = CursorsRuntime & {
+  new <
+    RoomSchema extends RoomSchemaShape,
+    RoomType extends string & keyof RoomSchema,
+  >(
+    props: CursorsPublicProps<RoomSchema, RoomType>,
+  ): {
+    $props: CursorsPublicProps<RoomSchema, RoomType>
+    $slots: CursorsSlots<RoomSchema[RoomType]['presence']>
+  }
+}
+
+export default Cursors as CursorsComponent
