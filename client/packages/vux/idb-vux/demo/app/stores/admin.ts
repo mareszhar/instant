@@ -8,12 +8,14 @@ export const useAdmin = defineStore('admin', () => {
 
   const workspaceSummary = ref<InternalApi['/api/workspaces/:workspaceId/summary']['get'] | null>(null)
 
-  const refreshWorkspaceSummary = () => executeFormAction(form, !workspaces.current?.id, async () => {
+  const _refreshWorkspaceSummary = async () => {
     const newSummary = await $fetch(`/api/workspaces/${workspaces.current!.id}/summary`)
     workspaceSummary.value = newSummary
     if (newSummary.warning)
       throw new Error(newSummary.warning)
-  })
+  }
+
+  const refreshWorkspaceSummary = () => executeFormAction(form, !workspaces.current?.id, _refreshWorkspaceSummary)
 
   const removeDoneTasks = () => executeFormAction(form, !workspaces.current?.id, async () => {
     const response = await $fetch(`/api/workspaces/${workspaces.current!.id}/tasks/done`, { method: 'DELETE' })
@@ -21,7 +23,7 @@ export const useAdmin = defineStore('admin', () => {
     if (response.warning)
       throw new Error(response.warning)
 
-    refreshWorkspaceSummary()
+    await _refreshWorkspaceSummary()
     return `Server deleted ${response.countOfTasksDoneDeleted} completed task${response.countOfTasksDoneDeleted === 1 ? '' : 's'}.`
   })
 
