@@ -1,6 +1,5 @@
 export const admin = defineStore('admin', async () => {
   const workspaces = useWorkspaces()
-  const tasks = useTasks()
 
   const form = reactive({
     isProcessing: false,
@@ -16,7 +15,16 @@ export const admin = defineStore('admin', async () => {
       throw new Error(newSummary.warning)
   })
 
-  const removeDoneTasks = () => executeFormAction(form, !tasks.byStatus.done.length, async () => {
+  const removeDoneTasks = () => executeFormAction(form, !workspaces.current?.id, async () => {
+    const response = await $fetch(`/api/workspaces/${workspaces.current!.id}/tasks/done`, { method: 'DELETE' })
+
+    // workspaceSummary.value?.generatedAt = response.generatedAt
+    // workspaceSummary.value?.warning = response.generatedAt
+
+    if (response.warning)
+      throw new Error(response.warning)
+
+    return `Server deleted ${response.countOfTasksDoneDeleted} completed task${response.countOfTasksDoneDeleted === 1 ? '' : 's'}.`
   })
 
   return {
