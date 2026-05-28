@@ -1,6 +1,13 @@
 import type { AttrsDefs, AuthState, BackwardsCompatibleSchema, CardinalityKind, CheckMagicCodeParams, CheckMagicCodeResponse, Config, ConnectionStatus, CreateParams, CreateReadStreamOpts, CreateWriteStreamOpts, DataAttrDef, DeleteFileResponse, EntitiesDef, EntitiesWithLinks, EntityDef, ExchangeCodeForTokenParams, FileOpts, IInstantDatabase, InstantConfig, InstantObject, InstantReadableStream, InstantRules, InstantSchemaDef, InstantUnknownSchema, InstantUnknownSchemaDef, InstantWritableStream, InstaQLEntity, InstaQLEntitySubquery, InstaQLFields, InstaQLParams, InstaQLResult, LinkAttrDef, LinkDef, LinkParams, LinksDef, PresenceOf, PresencePeer, Query, QueryResponse, ResolveAttrs, RoomHandle, RoomsDef, RoomsOf, SendMagicCodeParams, SendMagicCodeResponse, SignInWithIdTokenParams, StoreInterfaceStoreName, SyncTableCallback, SyncTableCallbackEvent, SyncTableInitialSyncBatch, SyncTableInitialSyncComplete, SyncTableLoadFromStorage, SyncTableSetupError, SyncTableSyncTransaction, TopicOf, TopicsOf, TransactionChunk, UpdateParams, UploadFileResponse, User, ValidQuery, ValueTypes, VerifyMagicCodeParams, VerifyResponse } from '@instantdb/core'
 import type { DefineDbOptions } from './defineDb.js'
 import type {
+  CursorPresence,
+  CursorSlotProps,
+  CursorsComponent,
+  CursorsProps,
+  CursorsSlots,
+} from './Cursors.js'
+import type {
   TypedQueryForSchema,
   ValidateTypedQueryForSchema,
 } from './defineQuery.js'
@@ -82,6 +89,11 @@ export {
   type CreateReadStreamOpts,
   type CreateWriteStreamOpts,
   Cursors,
+  type CursorPresence,
+  type CursorSlotProps,
+  type CursorsComponent,
+  type CursorsProps,
+  type CursorsSlots,
   type DataAttrDef,
   defineDb,
   type DefineDbOptions,
