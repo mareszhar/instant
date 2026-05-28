@@ -45,10 +45,11 @@ main.app-shell.page
         //-   :workspace-id="access.activeWorkspaceId"
         //- )
 
-      PanelCursors(
-        :key="`cursor-${access.activeWorkspaceId}`"
-        :workspace-id="access.activeWorkspaceId"
-      )
+      SandboxPanelCursors
+      //- PanelCursors(
+      //-   :key="`cursor-${access.activeWorkspaceId}`"
+      //-   :workspace-id="access.activeWorkspaceId"
+      //- )
 </template>
 
 <script setup lang="ts">
