@@ -12,7 +12,7 @@ Use this note to track additive DX/UX proposals that reduce common Vux SDK boile
 - `useAuth` now returns destructurable reactive refs (`isLoading`, `user`, `error`) for parity-style ergonomics.
 - `useAuthX` has now been implemented with `refs` + `state` aliases sharing the same underlying auth data source.
 - `useUser` now supports explicit requirement policy options (`clientOnly` | `yes` | `no`) with SSR-resilient defaults and init-level override.
-- Room handles now use a store-friendly raw factory return with watchable computed `id`/`type` refs. The remaining open question is whether an additive `db.roomX(...)` should expose the full X pattern.
+- Room handles now use a store-friendly raw factory return with watchable computed `id`/`type` refs. `db.roomX(...)` is not currently planned because regular `db.room(...)` now covers the important room-handle ergonomics without adding a second shape.
 
 ## Implemented X API proposals
 
@@ -196,17 +196,21 @@ The second shape preserves more compatibility for direct `new InstantVuxRoom(...
 5. Outcome
 Implemented via a factory-return room-handle type. `InstantVuxRoom` can still model the official-compatible constructor shape, while `db.room(...)` returns a raw handle whose `id` and `type` are computed refs.
 
-## P4: `db.roomX(...)` (draft)
+## P4: `db.roomX(...)` (not planned for now)
 
 1. Value
-Expose a Vux-native room handle that follows the X mental model while remaining directly usable anywhere a regular room is accepted. The goal is not a wrapper that forces `.room`; the returned object should itself be the room handle.
+This was considered as a Vux-native room handle that follows the X mental model while remaining directly usable anywhere a regular room is accepted.
 
-2. Target behavior
-`roomX` should return a stable raw object with:
-- top-level refs/computed refs for Vue watch/source ergonomics
-- a `refs` alias for explicit ref forwarding
-- a `state` projection for no-`.value` script reads
-- the same schema-branded room identity accepted by `db.rooms.*` APIs and `<Cursors>`
+2. Current decision
+Do not implement this yet. Regular `db.room(...)` now covers the important ergonomics:
+- stable raw handle, safe to return from Pinia setup stores
+- computed `id` and `type`, so direct `watch(room.id, ...)` and `watch(room.type, ...)` work
+- assignable to `db.rooms.*` APIs and `<Cursors>`
+- no `shallowRef`, `toValue`, or `skipHydrate` required in userland
+
+That makes `roomX` comparatively low-value. Unlike query/auth X APIs, a room is already a handle, not a nested result object with multiple state fields. Since the thing users most often need to pass around is the room handle itself, destructuring an X result does not map cleanly to the normal pattern.
+
+3. Shape considered
 
 ```ts
 const room = db.roomX('workspace', () => workspaces.current?.id)
@@ -221,34 +225,30 @@ db.rooms.usePresenceX(room, { keys: ['name'] })
 db.rooms.useTopicEffect(room, 'reaction', onReaction)
 ```
 
-Pinia setup-store usage should not need `shallowRef`, `skipHydrate`, `.room`, or `toValue`:
+This augmented-handle shape would work, but `room.state.id` is only a marginal improvement over `room.id.value` when `state` cannot naturally be renamed to the room itself.
+
+4. Rejected shape
 
 ```ts
-export const useRoomStore = defineStore('room', () => {
-  const room = db.roomX('workspace', () => workspaces.current?.id)
-  const presence = db.rooms.usePresenceX(room, { keys: ['name'] })
+const { state: room } = db.roomX('workspace', workspaceId)
 
-  return { room, presence }
-})
+db.rooms.usePresenceX(room, { keys: ['name'] }) // misleading: this would not be a room handle
 ```
 
-Component usage should be identical to regular room usage:
+This would look more like other X APIs, but it is misleading for rooms. `state` would be a projection of room identity, not the actual room handle accepted by `db.rooms.*` APIs or `<Cursors>`.
 
-```vue
-<Cursors :room="room" />
-```
+5. Consistency with existing X pattern
+An augmented-handle `roomX` could be consistent with the raw getter state projection pattern:
+- `room.id` and `room.type` would be the source refs/computed refs.
+- `room.refs` would point at the same refs for explicit forwarding.
+- `room.state` would be a raw getter projection over those refs.
+- the room shell would be marked raw so Pinia does not hydrate SDK-owned room internals.
 
-3. Consistency with existing X pattern
-This is consistent with the raw getter state projection pattern:
-- `room.id` and `room.type` are the source refs/computed refs.
-- `room.refs` points at the same refs for explicit forwarding.
-- `room.state` is a raw getter projection over those refs.
-- the room shell is marked raw so Pinia does not hydrate SDK-owned room internals.
+The inconsistency is ergonomic rather than technical: query/auth X APIs return result objects, while room APIs need the returned value to remain the primary handle.
 
-Unlike query/auth X APIs, the room handle also needs to remain assignable to the regular room parameter type. That means `roomX` should augment a room handle rather than return `{ room, refs, state }`.
-
-4. What it enables beyond regular `db.room(...)`
-- No-`.value` room identity reads in script:
+6. What it would enable beyond regular `db.room(...)`
+Only small conveniences:
+- no-`.value` room identity reads in script:
 
 ```ts
 const room = db.roomX('workspace', () => workspaces.current?.id)
@@ -258,7 +258,7 @@ if (room.state.id) {
 }
 ```
 
-- Ref forwarding from composables without inventing a local shape:
+- ref forwarding from composables without inventing a local shape:
 
 ```ts
 function useCurrentRoom() {
@@ -267,15 +267,10 @@ function useCurrentRoom() {
 }
 ```
 
-- One object that is simultaneously a room handle, a watchable source holder, and a Pinia-safe projection.
+These are not enough to justify a new API while regular `db.room(...)` is already store-friendly and watchable.
 
-5. Risks/tradeoffs
-- Adds another API surface. This is acceptable only if regular `db.room(...)` remains official-compatible and `roomX` is clearly framed as the Vux convenience layer.
-- The `state` object follows the same X reactivity rules as other raw getter projections: `watch(room.id, ...)` is the primary direct watch form; `watch(() => room.state.id, ...)` works for no-`.value` state reads; `watch(() => room.state, ...)` is not useful because the state shell is stable.
-- If regular `db.room(...)` is tightened enough, `roomX` becomes mostly about X consistency and no-`.value` reads rather than fixing a missing capability.
-
-6. Priority
-Medium-high after regular `db.room(...)` watchability is resolved. The X API should be strictly additive and should not be necessary for baseline official-compatible room usage.
+7. Revisit criteria
+Reconsider only if room handles gain more SDK-owned reactive state than `id`/`type`, or if users repeatedly need a first-party room identity projection in stores/composables. Until then, keeping one excellent regular room API is clearer.
 
 ## Not recommended as X APIs (for now)
 

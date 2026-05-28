@@ -13,6 +13,7 @@ import type {
 } from './defineQuery.js'
 
 import type {
+  InstantVuxDatabaseHandle,
   InstantVuxInitConfig,
   QueryOnceXResult,
   UseAuthResult,
@@ -118,6 +119,7 @@ export {
   type InstantUnknownSchema,
   type InstantUnknownSchemaDef,
   InstantVuxDatabase,
+  type InstantVuxDatabaseHandle,
   type InstantVuxInitConfig,
   InstantVuxRoom,
   type InstantVuxRoomHandle,

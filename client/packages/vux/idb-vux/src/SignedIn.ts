@@ -2,7 +2,7 @@ import type { PropType } from 'vue'
 import type { InstantVuxDatabase } from './InstantVuxDatabase.js'
 import { defineComponent } from 'vue'
 
-type AnyInstantVuxDatabase = InstantVuxDatabase<any, any, any>
+type AnyInstantVuxDatabase = InstantVuxDatabase<any, any, any, any>
 
 export default defineComponent({
   name: 'InstantSignedIn',

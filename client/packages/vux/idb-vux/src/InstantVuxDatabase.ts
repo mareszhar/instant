@@ -18,7 +18,7 @@ import type {
   TransactionChunk,
   User,
 } from '@instantdb/core'
-import type { ComputedRef, MaybeRefOrGetter, Ref } from 'vue'
+import type { ComputedRef, MaybeRefOrGetter, Raw, Ref } from 'vue'
 import type {
   DefinedQuery,
   ValidateTypedQueryForSchema,
@@ -1042,13 +1042,20 @@ export class InstantVuxDatabase<
   rooms = rooms
 }
 
+export type InstantVuxDatabaseHandle<
+  Schema extends InstantSchemaDef<any, any, any>,
+  UseDates extends boolean = false,
+  Rooms extends RoomSchemaShape = RoomsOf<Schema>,
+  UseUserDefault extends UseUserRequirement = 'clientOnly',
+> = Raw<InstantVuxDatabase<Schema, UseDates, Rooms, UseUserDefault>>
+
 export function init<
   Schema extends InstantSchemaDef<any, any, any>,
   UseDates extends boolean = false,
   UseUserDefault extends UseUserRequirement = 'clientOnly',
 >(
   config: InstantVuxInitConfig<Schema, UseDates, UseUserDefault>,
-): InstantVuxDatabase<Schema, UseDates, RoomsOf<Schema>, UseUserDefault> {
+): InstantVuxDatabaseHandle<Schema, UseDates, RoomsOf<Schema>, UseUserDefault> {
   const {
     requireUserInUseUser,
     ...coreConfig
@@ -1063,8 +1070,8 @@ export function init<
       ? undefined
       : { requireUserInUseUser }
 
-  return new InstantVuxDatabase<Schema, UseDates, RoomsOf<Schema>, UseUserDefault>(
+  return markRaw(new InstantVuxDatabase<Schema, UseDates, RoomsOf<Schema>, UseUserDefault>(
     coreDb,
     dbOptions,
-  )
+  ))
 }

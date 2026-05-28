@@ -1,6 +1,8 @@
+import type { UnwrapRef } from 'vue'
+import type { SignedIn, SignedOut } from '../index.js'
 import type { InstantVuxDatabase } from '../InstantVuxDatabase.js'
 import { i } from '@instantdb/core'
-import { defineDb } from '../index.js'
+import { defineDb, init } from '../index.js'
 
 const schema = i.schema({
   entities: {
@@ -23,6 +25,23 @@ const useDb = defineDb({
 
 const strictDb = useDb()
 const strictTypedDb: InstantVuxDatabase<Schema, false> = strictDb
+declare const piniaLikeStrictDb: UnwrapRef<typeof strictDb>
+const piniaLikeStrictTypedDb: InstantVuxDatabase<Schema, false> = piniaLikeStrictDb
+
+const signedInProps: InstanceType<typeof SignedIn>['$props'] = {
+  db: piniaLikeStrictDb,
+}
+const signedOutProps: InstanceType<typeof SignedOut>['$props'] = {
+  db: piniaLikeStrictDb,
+}
+
+const initDb = init({
+  appId: 'app-id',
+  schema,
+})
+declare const piniaLikeInitDb: UnwrapRef<typeof initDb>
+const piniaLikeInitTypedDb: InstantVuxDatabase<Schema, false> = piniaLikeInitDb
+piniaLikeInitDb.useAuth()
 
 const useDateObjectsDb = defineDb({
   schema,
@@ -46,6 +65,10 @@ const nullableTypedDb: InstantVuxDatabase<Schema, false> | null = nullableDb
 const shouldFailNonNullAssign: InstantVuxDatabase<Schema, false> = nullableDb
 
 void strictTypedDb
+void piniaLikeStrictTypedDb
+void signedInProps
+void signedOutProps
+void piniaLikeInitTypedDb
 void strictDateObjectsTypedDb
 void nullableTypedDb
 void shouldFailNonNullAssign

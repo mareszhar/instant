@@ -2,7 +2,7 @@ import type {
   InstantSchemaDef,
   RoomsOf,
 } from '@instantdb/core'
-import type { InstantVuxDatabase, InstantVuxInitConfig, UseUserRequirement } from './InstantVuxDatabase.js'
+import type { InstantVuxDatabaseHandle, InstantVuxInitConfig, UseUserRequirement } from './InstantVuxDatabase.js'
 import { init } from './InstantVuxDatabase.js'
 
 type MissingAppIdBehavior = 'throw' | null
@@ -26,7 +26,7 @@ export function defineDb<
   config: DefineDbOptions<Schema, UseDates, null, UseUserDefault> & {
     missingAppId: null
   },
-): () => InstantVuxDatabase<Schema, UseDates, RoomsOf<Schema>, UseUserDefault> | null
+): () => InstantVuxDatabaseHandle<Schema, UseDates, RoomsOf<Schema>, UseUserDefault> | null
 export function defineDb<
   Schema extends InstantSchemaDef<any, any, any>,
   UseDates extends boolean = false,
@@ -35,21 +35,21 @@ export function defineDb<
   config: DefineDbOptions<Schema, UseDates, 'throw', UseUserDefault> & {
     missingAppId?: 'throw'
   },
-): () => InstantVuxDatabase<Schema, UseDates, RoomsOf<Schema>, UseUserDefault>
+): () => InstantVuxDatabaseHandle<Schema, UseDates, RoomsOf<Schema>, UseUserDefault>
 export function defineDb<
   Schema extends InstantSchemaDef<any, any, any>,
   UseDates extends boolean = false,
   UseUserDefault extends UseUserRequirement = 'clientOnly',
 >(
   config: DefineDbOptions<Schema, UseDates, MissingAppIdBehavior, UseUserDefault>,
-): () => InstantVuxDatabase<Schema, UseDates, RoomsOf<Schema>, UseUserDefault> | null {
+): () => InstantVuxDatabaseHandle<Schema, UseDates, RoomsOf<Schema>, UseUserDefault> | null {
   const {
     getAppId,
     missingAppId = 'throw',
     ...staticConfig
   } = config
 
-  let cachedDb: InstantVuxDatabase<Schema, UseDates, RoomsOf<Schema>, UseUserDefault> | null = null
+  let cachedDb: InstantVuxDatabaseHandle<Schema, UseDates, RoomsOf<Schema>, UseUserDefault> | null = null
   let cachedAppId: string | null = null
 
   return () => {
