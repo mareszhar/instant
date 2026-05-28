@@ -2,7 +2,7 @@ export default defineEventHandler(async (event) => {
   const workspaceId = expectWorkspaceId(event)
   const { userDb } = useIdbn(event, 'userDb!')
 
-  const [errorQueryingTasksDone, tasksDoneQuery] = await go(userDb.query(q({
+  const [errorQueryingTasksDoneData, tasksDoneData] = await go(userDb.query(q({
     tasks: {
       $: {
         where: { workspace: workspaceId, isDone: true },
@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
     },
   })))
 
-  const tasksDone = tasksDoneQuery?.tasks ?? []
+  const tasksDone = tasksDoneData?.tasks ?? []
   const [errorDeletingTasksDone] = tasksDone.length > 0
     ? await go(userDb.transact(tasksDone.map(task => userDb.tx.tasks[task.id]!.delete())))
     : [undefined]
@@ -20,8 +20,8 @@ export default defineEventHandler(async (event) => {
   return {
     generatedAt: new Date().toISOString(),
     countOfTasksDoneDeleted: errorDeletingTasksDone ? 0 : tasksDone.length,
-    warning: (errorQueryingTasksDone || errorDeletingTasksDone)
-      ? formatError(errorQueryingTasksDone ?? errorDeletingTasksDone)
+    warning: (errorQueryingTasksDoneData || errorDeletingTasksDone)
+      ? formatError(errorQueryingTasksDoneData ?? errorDeletingTasksDone)
       : null,
   }
 })

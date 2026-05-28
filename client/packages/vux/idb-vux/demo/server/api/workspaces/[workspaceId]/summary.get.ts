@@ -2,24 +2,21 @@ export default defineEventHandler(async (event) => {
   const workspaceId = expectWorkspaceId(event)
   const { adminDb } = useIdbn(event)
 
-  const workspacePromise = go(adminDb.query(q({
-    workspaces: {
-      $: {
-        where: { id: workspaceId },
-        fields: ['id'],
-      },
-      memberships: { $: { fields: ['id'] } },
-      tasks: { $: { fields: ['isDone'] } },
+  const workspaceDataPromise = go(adminDb.query(q({
+    memberships: {
+      $: { where: { workspace: workspaceId }, fields: ['id'] },
+    },
+    tasks: {
+      $: { where: { workspace: workspaceId }, fields: ['isDone'] },
     },
   })))
   const userPromise = useIdbn(event, 'user?')
-  const [[errorGettingWorkspaceData, workspaceQuery], { user }] = await Promise.all([workspacePromise, userPromise])
+  const [[errorQueryingWorkspaceData, workspaceData], { user }] = await Promise.all([workspaceDataPromise, userPromise])
 
-  const workspace = workspaceQuery?.workspaces[0] ?? null
   let countOfTasksDone = 0
   let countOfTasksPending = 0
 
-  for (const task of workspace?.tasks ?? []) {
+  for (const task of workspaceData?.tasks ?? []) {
     if (task.isDone)
       countOfTasksDone++
     else
@@ -29,12 +26,12 @@ export default defineEventHandler(async (event) => {
   return {
     generatedAt: new Date().toISOString(),
     counts: {
-      totalTasks: workspace?.tasks.length ?? 0,
+      totalTasks: workspaceData?.tasks.length ?? 0,
       doneTasks: countOfTasksDone,
       pendingTasks: countOfTasksPending,
-      memberCount: workspace?.memberships.length ?? 0,
+      memberCount: workspaceData?.memberships.length ?? 0,
     },
     syncedUser: user ? userToLabel(user) : null,
-    warning: errorGettingWorkspaceData ? formatError(errorGettingWorkspaceData) : null,
+    warning: errorQueryingWorkspaceData ? formatError(errorQueryingWorkspaceData) : null,
   }
 })
