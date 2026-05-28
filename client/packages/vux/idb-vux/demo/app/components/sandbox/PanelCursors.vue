@@ -5,8 +5,7 @@ article.card
     p.muted Open the same workspace in two tabs to see cursors moving below.
 
   Cursors(
-    v-if="room"
-    :room="room"
+    :room="room.current"
     className="demo-cursor-space"
     userCursorColor="#ef6200"
   )
@@ -20,12 +19,5 @@ article.card
 <script setup lang="ts">
 import { Cursors } from '@mszr/idb-vux'
 
-const props = defineProps<{
-  workspaceId: string
-}>()
-
-const db = useDb()
-const room = db
-  ? db.room('workspace', props.workspaceId)
-  : null
+const room = useRoom()
 </script>
