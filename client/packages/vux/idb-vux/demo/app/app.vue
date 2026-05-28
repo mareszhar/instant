@@ -39,10 +39,11 @@ main.app-shell.page
         //-   :workspace-id="access.activeWorkspaceId"
         //-   :user-label="access.signedInLabel"
         //- )
-        PanelAdmin(
-          :key="`admin-${access.activeWorkspaceId}`"
-          :workspace-id="access.activeWorkspaceId"
-        )
+        SandboxPanelAdmin
+        //- PanelAdmin(
+        //-   :key="`admin-${access.activeWorkspaceId}`"
+        //-   :workspace-id="access.activeWorkspaceId"
+        //- )
 
       PanelCursors(
         :key="`cursor-${access.activeWorkspaceId}`"

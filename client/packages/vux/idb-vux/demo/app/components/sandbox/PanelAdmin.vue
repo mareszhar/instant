@@ -7,48 +7,43 @@ article.card
   .row
     button.btn.secondary(
       type="button"
-      :disabled="admin.isLoadingSummary"
-      @click="admin.refreshSummary"
+      :disabled="admin.form.isProcessing"
+      @click="admin.refreshWorkspaceSummary"
     ) Refresh summary
     button.btn.danger(
       type="button"
-      :disabled="admin.isClearingDone"
-      @click="admin.clearDoneWithAdmin"
+      :disabled="admin.form.isProcessing"
+      @click="admin.removeDoneTasks"
     ) Clear done tasks (server)
 
-  p.alert.danger(v-if="admin.errorMessage") {{ admin.errorMessage }}
-  p.alert.info(v-else-if="admin.actionMessage") {{ admin.actionMessage }}
+  p.alert(v-if="admin.form.feedback" :class="admin.form.feedback.tone") {{ admin.form.feedback.text }}
 
-  .stats(v-if="admin.summary")
+  .stats(v-if="admin.workspaceSummary")
     .stat
       span.label Total Tasks
-      strong {{ admin.summary.counts.totalTasks }}
+      strong {{ admin.workspaceSummary.counts.totalTasks }}
     .stat
       span.label Done Tasks
-      strong {{ admin.summary.counts.doneTasks }}
+      strong {{ admin.workspaceSummary.counts.doneTasks }}
     .stat
       span.label Pending Tasks
-      strong {{ admin.summary.counts.pendingTasks }}
+      strong {{ admin.workspaceSummary.counts.pendingTasks }}
     .stat
       span.label Members
-      strong {{ admin.summary.counts.memberCount }}
+      strong {{ admin.workspaceSummary.counts.memberCount }}
 
-  p.inline-pair(v-if="admin.summary")
+  p.inline-pair(v-if="admin.workspaceSummary")
     span.label Synced Cookie User
-    span.inline-value {{ admin.summary.syncedUser?.email || admin.summary.syncedUser?.id || 'none' }}
-  p.inline-pair(v-if="admin.summary")
+    span.inline-value {{ admin.workspaceSummary.syncedUser || 'none' }}
+  p.inline-pair(v-if="admin.workspaceSummary")
     span.label Snapshot
-    code.inline-value {{ admin.summary.generatedAt }}
+    code.inline-value {{ admin.workspaceSummary.generatedAt }}
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
-  workspaceId: string
-}>()
-
-const admin = useAdminTools(props.workspaceId)
+const admin = useAdmin()
 
 onMounted(() => {
-  admin.refreshSummary()
+  admin.refreshWorkspaceSummary()
 })
 </script>
