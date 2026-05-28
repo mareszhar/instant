@@ -2,16 +2,16 @@ export const useRoom = defineStore('room', () => {
   const { db } = useIdb()
   const access = useAccess()
   const workspaces = useWorkspaces()
-  const current = shallowRef(db.room('workspace', () => workspaces.current?.id))
+  const current = db.room('workspace', () => workspaces.current?.id)
   const reactions = ref<{ id: string, emoji: string, sender: string }[]>([])
-  const { state: presence } = db.rooms.usePresenceX(current.value, {
+  const { state: presence } = db.rooms.usePresenceX(current, {
     initialPresence: { name: access.userLabel },
     keys: ['name'],
   })
   const peers = computed(() => Object.entries(presence.peers))
-  const publishReaction = db.rooms.usePublishTopic(current.value, 'reaction')
+  const publishReaction = db.rooms.usePublishTopic(current, 'reaction')
 
-  db.rooms.useTopicEffect(current.value, 'reaction', (event, peer) => {
+  db.rooms.useTopicEffect(current, 'reaction', (event, peer) => {
     reactions.value.unshift({
       id: id(),
       emoji: event.emoji,
@@ -23,7 +23,7 @@ export const useRoom = defineStore('room', () => {
   })
 
   const typedText = ref('')
-  const { active: peersTyping, state: typingIndicator } = db.rooms.useTypingIndicatorX(current.value, 'typing', {
+  const { active: peersTyping, state: typingIndicator } = db.rooms.useTypingIndicatorX(current, 'typing', {
     stopOnEnter: true,
   })
 

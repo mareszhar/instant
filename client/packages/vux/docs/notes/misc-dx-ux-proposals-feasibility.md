@@ -1,5 +1,5 @@
-updated: 2026-05-16
-status: completed
+updated: 2026-05-28
+status: active
 
 # Misc DX/UX Proposals Feasibility (`@mszr/idb-vux`)
 
@@ -12,8 +12,9 @@ Use this note to track additive DX/UX proposals that reduce common Vux SDK boile
 - `useAuth` now returns destructurable reactive refs (`isLoading`, `user`, `error`) for parity-style ergonomics.
 - `useAuthX` has now been implemented with `refs` + `state` aliases sharing the same underlying auth data source.
 - `useUser` now supports explicit requirement policy options (`clientOnly` | `yes` | `no`) with SSR-resilient defaults and init-level override.
+- Room handles now use a store-friendly raw factory return with watchable computed `id`/`type` refs. The remaining open question is whether an additive `db.roomX(...)` should expose the full X pattern.
 
-## Next-wave X API proposals (implemented)
+## Implemented X API proposals
 
 Sorted by priority for progressive implementation.
 
@@ -124,6 +125,157 @@ if (userX.state.user) {
 
 5. Outcome
 Implemented for full X symmetry across auth APIs, while preserving `useUser` strictness semantics.
+
+## Room API proposals
+
+## P3: `db.room(...)` watchability parity tightening (implemented)
+
+1. Value
+Regular `db.room(...)` is a baseline parity API, so common Vue usage should be as close as possible to the official SDK while avoiding avoidable TypeScript gotchas.
+
+Official Vue currently normalizes `db.room(type, id)` inputs into computed refs internally, so the runtime object returned by `db.room(...)` can be watched by passing `room.id` or `room.type` directly to Vue `watch`. However, the public class type is `ComputedRef<T> | T`, so a type-only verification of the official Vue source shows `watch(room.id, ...)` fails TypeScript overload resolution because the source might be a plain string. The same verification also shows a Vue/Pinia-unwrapped official room cannot be passed back to `usePresence` because TypeScript recurses into core internals and hits private `PersistedObject` fields.
+
+Vux already improves the Pinia/store case by returning raw room handles with a shallow public core projection. The remaining parity-by-usage gap is making this direct watch pattern type-check:
+
+```ts
+const room = db.room('workspace', () => workspaces.current?.id)
+
+watch(room.id, (id) => {
+  console.log(id)
+})
+
+watch(room.type, (type) => {
+  console.log(type)
+})
+```
+
+2. Target behavior
+Keep regular `db.room(...)` as the official-compatible room handle:
+
+```ts
+const room = db.room('workspace', workspaceId)
+
+db.rooms.usePresence(room, { keys: ['name'] })
+db.rooms.useTopicEffect(room, 'reaction', onReaction)
+db.rooms.useTypingIndicator(room, 'chat-input')
+```
+
+Also support reactive inputs without requiring callers to use `toValue`:
+
+```ts
+const room = db.room('workspace', () => workspaces.current?.id)
+
+watch(room.id, loadRoomSettings)
+```
+
+And keep the Vux store-friendly improvement:
+
+```ts
+export const useRoomStore = defineStore('room', () => {
+  const room = db.room('workspace', () => workspaces.current?.id)
+  const presence = db.rooms.usePresenceX(room, { keys: ['name'] })
+
+  return { room, presence }
+})
+```
+
+3. Feasibility
+High. The implementation can keep the runtime semantics already used by official Vue (`computed(() => toValue(...))`) while narrowing the return type for rooms produced by `db.room(...)`.
+
+Possible implementation shapes:
+- Make `InstantVuxRoom.id` and `InstantVuxRoom.type` always `ComputedRef`s by normalizing in the constructor.
+- Or keep the class constructor flexible but have `db.room(...)` return a narrower room-handle type whose `id` and `type` are computed refs.
+
+The second shape preserves more compatibility for direct `new InstantVuxRoom(...)` tests or internal construction while making the public factory ergonomic.
+
+4. Risks/tradeoffs
+- Narrowing `id`/`type` to computed refs is a type-level divergence from official Vue's exported class shape, but it matches the runtime object returned by official `db.room(...)` and improves the same usage pattern.
+- If users instantiate `InstantVuxRoom` directly and expect string `room.id`, constructor normalization would be a breaking change. Prefer a factory-return type if that compatibility matters.
+- This does not add no-`.value` script reads for room identity; it only makes the direct Vue watch source ergonomic.
+
+5. Outcome
+Implemented via a factory-return room-handle type. `InstantVuxRoom` can still model the official-compatible constructor shape, while `db.room(...)` returns a raw handle whose `id` and `type` are computed refs.
+
+## P4: `db.roomX(...)` (draft)
+
+1. Value
+Expose a Vux-native room handle that follows the X mental model while remaining directly usable anywhere a regular room is accepted. The goal is not a wrapper that forces `.room`; the returned object should itself be the room handle.
+
+2. Target behavior
+`roomX` should return a stable raw object with:
+- top-level refs/computed refs for Vue watch/source ergonomics
+- a `refs` alias for explicit ref forwarding
+- a `state` projection for no-`.value` script reads
+- the same schema-branded room identity accepted by `db.rooms.*` APIs and `<Cursors>`
+
+```ts
+const room = db.roomX('workspace', () => workspaces.current?.id)
+
+watch(room.id, loadRoomSettings)
+watch(room.type, syncRoomTypeMetric)
+
+room.refs.id.value
+room.state.id
+
+db.rooms.usePresenceX(room, { keys: ['name'] })
+db.rooms.useTopicEffect(room, 'reaction', onReaction)
+```
+
+Pinia setup-store usage should not need `shallowRef`, `skipHydrate`, `.room`, or `toValue`:
+
+```ts
+export const useRoomStore = defineStore('room', () => {
+  const room = db.roomX('workspace', () => workspaces.current?.id)
+  const presence = db.rooms.usePresenceX(room, { keys: ['name'] })
+
+  return { room, presence }
+})
+```
+
+Component usage should be identical to regular room usage:
+
+```vue
+<Cursors :room="room" />
+```
+
+3. Consistency with existing X pattern
+This is consistent with the raw getter state projection pattern:
+- `room.id` and `room.type` are the source refs/computed refs.
+- `room.refs` points at the same refs for explicit forwarding.
+- `room.state` is a raw getter projection over those refs.
+- the room shell is marked raw so Pinia does not hydrate SDK-owned room internals.
+
+Unlike query/auth X APIs, the room handle also needs to remain assignable to the regular room parameter type. That means `roomX` should augment a room handle rather than return `{ room, refs, state }`.
+
+4. What it enables beyond regular `db.room(...)`
+- No-`.value` room identity reads in script:
+
+```ts
+const room = db.roomX('workspace', () => workspaces.current?.id)
+
+if (room.state.id) {
+  console.log(room.state.id)
+}
+```
+
+- Ref forwarding from composables without inventing a local shape:
+
+```ts
+function useCurrentRoom() {
+  const room = db.roomX('workspace', () => workspaces.current?.id)
+  return { room, ...room.refs }
+}
+```
+
+- One object that is simultaneously a room handle, a watchable source holder, and a Pinia-safe projection.
+
+5. Risks/tradeoffs
+- Adds another API surface. This is acceptable only if regular `db.room(...)` remains official-compatible and `roomX` is clearly framed as the Vux convenience layer.
+- The `state` object follows the same X reactivity rules as other raw getter projections: `watch(room.id, ...)` is the primary direct watch form; `watch(() => room.state.id, ...)` works for no-`.value` state reads; `watch(() => room.state, ...)` is not useful because the state shell is stable.
+- If regular `db.room(...)` is tightened enough, `roomX` becomes mostly about X consistency and no-`.value` reads rather than fixing a missing capability.
+
+6. Priority
+Medium-high after regular `db.room(...)` watchability is resolved. The X API should be strictly additive and should not be necessary for baseline official-compatible room usage.
 
 ## Not recommended as X APIs (for now)
 

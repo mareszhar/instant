@@ -1,12 +1,12 @@
 import type { RoomSchemaShape } from '@instantdb/core'
-import type { InstantVuxRoom } from '../InstantVuxRoom.js'
 import type {
   CursorPresence,
-  CursorSlotProps,
   CursorsComponent,
+  CursorSlotProps,
   CursorsProps,
   CursorsSlots,
 } from '../index.js'
+import type { InstantVuxRoom } from '../InstantVuxRoom.js'
 import { i } from '@instantdb/core'
 import { Cursors } from '../index.js'
 

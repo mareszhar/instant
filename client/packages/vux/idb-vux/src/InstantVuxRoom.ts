@@ -21,6 +21,58 @@ import {
 } from 'vue'
 import { createXResult } from './xResult.js'
 
+declare const roomSchemaBrand: unique symbol
+
+type RoomUnsubscribe = () => void
+
+interface RoomReactor {
+  querySubs?: {
+    updateInPlace?: (...args: any[]) => unknown
+  }
+  kv?: {
+    updateInPlace?: (...args: any[]) => unknown
+  }
+  getPresence: (
+    roomType: PropertyKey,
+    roomId: string,
+    opts?: PresenceOpts<any, any>,
+  ) => unknown
+  joinRoom: (
+    roomType: PropertyKey,
+    roomId: string,
+    initialPresence?: unknown,
+  ) => RoomUnsubscribe
+  publishPresence: (
+    roomType: PropertyKey,
+    roomId: string,
+    data: unknown,
+  ) => void
+  publishTopic: (payload: {
+    roomType: PropertyKey
+    roomId: string
+    topic: PropertyKey
+    data: unknown
+  }) => void
+  subscribePresence: (
+    roomType: PropertyKey,
+    roomId: string,
+    opts: PresenceOpts<any, any>,
+    cb: (data: unknown) => void,
+  ) => RoomUnsubscribe
+  subscribeTopic: (
+    roomType: PropertyKey,
+    roomId: string,
+    topic: PropertyKey,
+    cb: (event: unknown, peer: unknown) => void,
+  ) => RoomUnsubscribe
+}
+
+// Keep the public room handle shallow: Vue/Pinia unwrapping should not walk the
+// full Instant core internals, which include private persisted-object fields.
+interface RoomCore {
+  _reactor: RoomReactor
+}
+
 function isServerRuntime() {
   return typeof window === 'undefined'
 }
@@ -111,6 +163,15 @@ export type UseTypingIndicatorXResult<PresenceShape>
     UseTypingIndicatorXRefs<PresenceShape>,
     UseTypingIndicatorXState<PresenceShape>
   >
+
+export type InstantVuxRoomHandle<
+  Schema extends InstantSchemaDef<any, any, any>,
+  RoomSchema extends RoomSchemaShape,
+  RoomType extends keyof RoomSchema,
+> = InstantVuxRoom<Schema, RoomSchema, RoomType> & {
+  readonly type: ComputedRef<RoomType>
+  readonly id: ComputedRef<string>
+}
 
 export const defaultActivityStopTimeout = 1_000
 
@@ -352,10 +413,16 @@ export function useTypingIndicator<
     const snapshot = room.core._reactor.getPresence(
       toValue(room.type),
       toValue(room.id),
-    )
+    ) as
+    | PresenceResponse<
+      RoomSchema[RoomType]['presence'],
+      keyof RoomSchema[RoomType]['presence']
+    >
+    | null
+    | undefined
     active.value = Object.values(snapshot?.peers ?? {}).filter(
       (peer: any) => peer[inputName] === true,
-    )
+    ) as RoomSchema[RoomType]['presence'][]
   })
 
   attachScopeCleanup(activeStop)
@@ -446,7 +513,13 @@ export class InstantVuxRoom<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 > {
-  core: InstantCoreDatabase<Schema, boolean>
+  declare readonly [roomSchemaBrand]: {
+    schema: Schema
+    rooms: RoomSchema
+    type: RoomType
+  }
+
+  core: RoomCore
   type: ComputedRef<RoomType> | RoomType
   id: ComputedRef<string> | string
 
@@ -455,7 +528,7 @@ export class InstantVuxRoom<
     type: ComputedRef<RoomType> | RoomType,
     id: ComputedRef<string> | string,
   ) {
-    this.core = core
+    this.core = core as RoomCore
     this.type = type
     this.id = id
   }

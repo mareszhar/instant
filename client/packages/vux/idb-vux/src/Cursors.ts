@@ -48,7 +48,7 @@ export interface CursorsProps<
   style?: StyleValue
   userCursorColor?: string
   renderCursor?: (
-    props: CursorSlotProps<RoomSchema[RoomType]['presence']>
+    props: CursorSlotProps<RoomSchema[RoomType]['presence']>,
   ) => VNodeChild
   propagate?: boolean
   zIndex?: number
@@ -329,7 +329,7 @@ const Cursors = defineComponent({
       const fullPresence = reactor?.getPresence?.(
         toValue(props.room.type),
         toValue(props.room.id),
-      )
+      ) as { peers?: Record<string, unknown> } | null | undefined
       const peers = cursorsPresence?.peers.value ?? {}
 
       const overlayChildren = Object.entries(peers).map(([peerId, presence]) => {
@@ -406,16 +406,16 @@ const Cursors = defineComponent({
 type CursorsPublicProps<
   RoomSchema extends RoomSchemaShape,
   RoomType extends string & keyof RoomSchema,
-> =
-  & CursorsProps<RoomSchema, RoomType>
-  & VNodeProps
-  & AllowedComponentProps
-  & ComponentCustomProps
+>
+  = & CursorsProps<RoomSchema, RoomType>
+    & VNodeProps
+    & AllowedComponentProps
+    & ComponentCustomProps
 
 type CursorsRuntime = Omit<typeof Cursors, never>
 
 export type CursorsComponent = CursorsRuntime & {
-  new <
+  new<
     RoomSchema extends RoomSchemaShape,
     RoomType extends string & keyof RoomSchema,
   >(

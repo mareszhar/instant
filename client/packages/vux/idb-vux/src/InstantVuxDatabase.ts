@@ -23,6 +23,7 @@ import type {
   DefinedQuery,
   ValidateTypedQueryForSchema,
 } from './defineQuery.js'
+import type { InstantVuxRoomHandle } from './InstantVuxRoom.js'
 import type { StateFromRefs, XResult } from './xResult.js'
 import {
   coerceQuery,
@@ -31,9 +32,11 @@ import {
   InstantError,
   txInit,
 } from '@instantdb/core'
+
 import {
   computed,
   getCurrentScope,
+  markRaw,
   onScopeDispose,
   reactive,
   ref,
@@ -41,7 +44,6 @@ import {
   watch,
   watchEffect,
 } from 'vue'
-
 import { InstantVuxRoom, rooms } from './InstantVuxRoom.js'
 import version from './version.js'
 import { createStateFromRefs, createXResult } from './xResult.js'
@@ -1028,11 +1030,13 @@ export class InstantVuxDatabase<
     )
     const resolvedId = computed(() => toValue(id) ?? '_defaultRoomId')
 
-    return new InstantVuxRoom<Schema, Rooms, RoomType>(
+    const room = new InstantVuxRoom<Schema, Rooms, RoomType>(
       this.core,
       resolvedType,
       resolvedId,
-    )
+    ) as InstantVuxRoomHandle<Schema, Rooms, RoomType>
+
+    return markRaw(room)
   }
 
   rooms = rooms

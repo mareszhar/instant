@@ -2,7 +2,7 @@ import type { AuthState, ConnectionStatus } from '@instantdb/core'
 import type { EffectScope } from 'vue'
 import { i } from '@instantdb/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { effectScope, isReactive, isRef, nextTick, ref, toValue, watch, watchEffect } from 'vue'
+import { effectScope, isReactive, isRef, nextTick, reactive, ref, toValue, watch, watchEffect } from 'vue'
 import { defineDb } from '../defineDb.js'
 import { InstantVuxDatabase } from '../InstantVuxDatabase.js'
 
@@ -1473,7 +1473,14 @@ describe('instantVuxDatabase', () => {
       const room = db.room('chat' as any, 'room-1')
       expect(toValue(room.type)).toBe('chat')
       expect(toValue(room.id)).toBe('room-1')
+      expect(isRef(room.type)).toBe(true)
+      expect(isRef(room.id)).toBe(true)
       expect(room.core).toBe(mockCore)
+      expect(isReactive(room)).toBe(false)
+
+      const storeLike = reactive({ room })
+      expect(storeLike.room).toBe(room)
+      expect(isReactive(storeLike.room)).toBe(false)
     })
 
     it('defaults type and id when omitted', () => {

@@ -1,12 +1,12 @@
 import type { AttrsDefs, AuthState, BackwardsCompatibleSchema, CardinalityKind, CheckMagicCodeParams, CheckMagicCodeResponse, Config, ConnectionStatus, CreateParams, CreateReadStreamOpts, CreateWriteStreamOpts, DataAttrDef, DeleteFileResponse, EntitiesDef, EntitiesWithLinks, EntityDef, ExchangeCodeForTokenParams, FileOpts, IInstantDatabase, InstantConfig, InstantObject, InstantReadableStream, InstantRules, InstantSchemaDef, InstantUnknownSchema, InstantUnknownSchemaDef, InstantWritableStream, InstaQLEntity, InstaQLEntitySubquery, InstaQLFields, InstaQLParams, InstaQLResult, LinkAttrDef, LinkDef, LinkParams, LinksDef, PresenceOf, PresencePeer, Query, QueryResponse, ResolveAttrs, RoomHandle, RoomsDef, RoomsOf, SendMagicCodeParams, SendMagicCodeResponse, SignInWithIdTokenParams, StoreInterfaceStoreName, SyncTableCallback, SyncTableCallbackEvent, SyncTableInitialSyncBatch, SyncTableInitialSyncComplete, SyncTableLoadFromStorage, SyncTableSetupError, SyncTableSyncTransaction, TopicOf, TopicsOf, TransactionChunk, UpdateParams, UploadFileResponse, User, ValidQuery, ValueTypes, VerifyMagicCodeParams, VerifyResponse } from '@instantdb/core'
-import type { DefineDbOptions } from './defineDb.js'
 import type {
   CursorPresence,
-  CursorSlotProps,
   CursorsComponent,
+  CursorSlotProps,
   CursorsProps,
   CursorsSlots,
 } from './Cursors.js'
+import type { DefineDbOptions } from './defineDb.js'
 import type {
   TypedQueryForSchema,
   ValidateTypedQueryForSchema,
@@ -43,6 +43,7 @@ import type {
   UseUserXState,
 } from './InstantVuxDatabase.js'
 import type {
+  InstantVuxRoomHandle,
   UsePresenceXRefs,
   UsePresenceXResult,
   UsePresenceXState,
@@ -88,10 +89,10 @@ export {
   type CreateParams,
   type CreateReadStreamOpts,
   type CreateWriteStreamOpts,
-  Cursors,
   type CursorPresence,
-  type CursorSlotProps,
+  Cursors,
   type CursorsComponent,
+  type CursorSlotProps,
   type CursorsProps,
   type CursorsSlots,
   type DataAttrDef,
@@ -119,6 +120,7 @@ export {
   InstantVuxDatabase,
   type InstantVuxInitConfig,
   InstantVuxRoom,
+  type InstantVuxRoomHandle,
   type InstantWritableStream,
   type InstaQLEntity,
   type InstaQLEntitySubquery,
