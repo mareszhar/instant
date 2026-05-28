@@ -1,13 +1,5 @@
 export default defineEventHandler(async (event) => {
-  const workspaceId = event.context.params?.id
-
-  if (!workspaceId) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Missing required query param: workspaceId',
-    })
-  }
-
+  const workspaceId = expectWorkspaceId(event)
   const { adminDb } = useIdbn(event)
 
   const workspacePromise = go(adminDb.query(q({
@@ -36,7 +28,6 @@ export default defineEventHandler(async (event) => {
 
   return {
     generatedAt: new Date().toISOString(),
-    mode: errorGettingWorkspaceData ? 'degraded' as const : 'live' as const,
     counts: {
       totalTasks: workspace?.tasks.length ?? 0,
       doneTasks: countOfTasksDone,
