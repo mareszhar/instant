@@ -39,8 +39,8 @@ import {
   getCurrentScope,
   markRaw,
   onScopeDispose,
-  reactive,
   ref,
+  shallowReactive,
   toValue,
   watch,
 } from 'vue'
@@ -654,7 +654,7 @@ export class InstantVuxDatabase<
   ): UseInfiniteQueryResult<Schema, QueryMaybeRefOrGetterRuntimeQuery<Source>, UseDates> => {
     let activeSub: InfiniteQuerySubscription | null = null
 
-    const state = reactive({
+    const state = shallowReactive({
       ...defaultInfiniteQueryState,
       loadNextPage: () => {
         activeSub?.loadNextPage()
@@ -735,7 +735,7 @@ export class InstantVuxDatabase<
     query: QueryMaybeRefOrGetterSource<Schema, Source>,
     opts?: MaybeRefOrGetter<UseQueryOptions | null | undefined>,
   ): UseQueryResult<Schema, QueryMaybeRefOrGetterRuntimeQuery<Source>, UseDates> => {
-    const state = reactive({ ...defaultState }) as UseQueryState<Schema, QueryMaybeRefOrGetterRuntimeQuery<Source>, UseDates>
+    const state = shallowReactive({ ...defaultState }) as UseQueryState<Schema, QueryMaybeRefOrGetterRuntimeQuery<Source>, UseDates>
     const refs = createUseQueryResultRefs(state)
 
     if (isServerRuntime() || !isReactorReadyForSubscriptions(this.core)) {
@@ -889,7 +889,7 @@ export class InstantVuxDatabase<
   }
 
   useAuth = (): UseAuthResult => {
-    const state = reactive(
+    const state = shallowReactive(
       this.core._reactor._currentUserCached
         ? { ...this.core._reactor._currentUserCached }
         : { ...defaultAuthState },

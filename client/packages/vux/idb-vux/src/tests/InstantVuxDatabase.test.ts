@@ -222,6 +222,35 @@ describe('instantVuxDatabase', () => {
       expect(query.data.value).toEqual({ goals: [{ id: '1', title: 'Test' }] })
     })
 
+    it('keeps query payloads shallow (non-reactive) like the official vue sdk', async () => {
+      let queryCb: ((result: any) => void) | undefined
+      mockCore.subscribeQuery.mockImplementation((_q: any, cb: any) => {
+        queryCb = cb
+        return () => { }
+      })
+
+      let query: any
+      scope.run(() => {
+        query = db.useQuery({ goals: {} } as any)
+      })
+      await nextTick()
+
+      const payload = { goals: [{ id: '1', title: 'Shallow payload' }] }
+      const pageInfo = { goals: { hasNextPage: false } }
+
+      queryCb?.({
+        data: payload,
+        pageInfo,
+        error: undefined,
+      })
+      await nextTick()
+
+      expect(query.data.value).toEqual(payload)
+      expect(query.pageInfo.value).toEqual(pageInfo)
+      expect(isReactive(query.data.value)).toBe(false)
+      expect(isReactive(query.pageInfo.value)).toBe(false)
+    })
+
     it('supports reactive destructuring for parity-style query usage', async () => {
       let queryCb: ((result: any) => void) | undefined
       mockCore.subscribeQuery.mockImplementation((_q: any, cb: any) => {
@@ -398,7 +427,10 @@ describe('instantVuxDatabase', () => {
 
       scope.run(() => {
         db.useQuery(() => {
-          unrelatedDependency.value
+          const trackedCounter = unrelatedDependency.value
+          if (trackedCounter < 0) {
+            return null
+          }
           return {
             goals: {
               $: {

@@ -1,7 +1,7 @@
 import type { ConnectionStatus } from '@instantdb/core'
 import type { EffectScope } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { effectScope, nextTick, ref } from 'vue'
+import { effectScope, isReactive, nextTick, ref } from 'vue'
 import { InstantVuxDatabase } from '../InstantVuxDatabase.js'
 
 function createMockCore() {
@@ -143,6 +143,35 @@ describe('instantVuxDatabase.useInfiniteQuery', () => {
     expect(infiniteQuery.data.value).toEqual({ posts: [{ id: 'p2', title: 'live' }] })
     expect(infiniteQuery.canLoadNextPage.value).toBe(true)
     expect(infiniteQuery.error.value).toBeUndefined()
+  })
+
+  it('keeps infinite query payloads shallow (non-reactive) like the official vue sdk', async () => {
+    let cb: ((result: any) => void) | undefined
+    mockCore.subscribeInfiniteQuery.mockImplementation((_query: any, callback: any) => {
+      cb = callback
+      return {
+        unsubscribe: vi.fn(),
+        loadNextPage: vi.fn(),
+      }
+    })
+
+    let infiniteQuery: any
+    scope.run(() => {
+      infiniteQuery = db.useInfiniteQuery({ posts: { $: { limit: 2 } } } as any)
+    })
+    await nextTick()
+
+    const payload = { posts: [{ id: 'p2', title: 'Shallow payload' }] }
+
+    cb?.({
+      error: undefined,
+      data: payload,
+      canLoadNextPage: true,
+    })
+    await nextTick()
+
+    expect(infiniteQuery.data.value).toEqual(payload)
+    expect(isReactive(infiniteQuery.data.value)).toBe(false)
   })
 
   it('supports reactive destructuring for parity-style infinite query usage', async () => {
@@ -309,7 +338,10 @@ describe('instantVuxDatabase.useInfiniteQuery', () => {
 
     scope.run(() => {
       db.useInfiniteQuery(() => {
-        unrelatedDependency.value
+        const trackedCounter = unrelatedDependency.value
+        if (trackedCounter < 0) {
+          return null
+        }
         return {
           posts: {
             $: {
