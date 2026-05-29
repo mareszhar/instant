@@ -5,7 +5,7 @@ export const useIdb = defineStore('idb', () => {
   const db = init({
     appId: useRuntimeConfig().public.instantAppId,
     schema,
-    firstPartyPath: '/api/syncAuth',
+    firstPartyPath: '/api/idb',
   })
 
   const { state: auth } = db.useAuthX()

@@ -10,19 +10,15 @@ section.card.demo-intro
   .stats
     .stat
       span.label App ID
-      code.inline-value {{ appId || 'missing NUXT_PUBLIC_INSTANT_APP_ID' }}
+      code.inline-value {{ useRuntimeConfig().public.instantAppId || 'missing NUXT_PUBLIC_INSTANT_APP_ID' }}
     .stat
       span.label Connection
-      code.inline-value {{ connectionLabel }}
+      code.inline-value {{ access.connectionStatus }}
     .stat
       span.label Local Device
-      code.inline-value {{ localIdLabel }}
+      code.inline-value {{ access.localId }}
 </template>
 
 <script setup lang="ts">
-defineProps<{
-  appId: string
-  connectionLabel: string
-  localIdLabel: string
-}>()
+const access = useAccess()
 </script>

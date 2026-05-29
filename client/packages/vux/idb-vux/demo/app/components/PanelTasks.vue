@@ -5,120 +5,59 @@ article.card
 
     .segmented
       button(
-        v-for="statusName in tasks.statusFilters"
-        :key="statusName"
+        v-for="status in tasks.statusFilters"
+        :key="status"
         type="button"
-        :class="{ 'is-active': tasks.statusFilter === statusName }"
-        @click="tasks.setStatusFilter(statusName)"
-      ) {{ statusName }}
+        :class="{ 'is-active': tasks.activeStatusFilter === status }"
+        @click="tasks.setActiveStatusFilter(status)"
+      ) {{ status }}
 
-    form.composer(@submit.prevent="tasks.createTask")
+    form.composer(@submit.prevent="tasks.create")
       input.input(
-        v-model="tasks.titleInput"
+        v-model.trim="tasks.form.title"
         type="text"
         placeholder="Do a nice deed..."
         autocomplete="off"
-        :disabled="!tasks.canEdit"
+        :disabled="!auth.user"
       )
       button.btn(
         type="submit"
-        :disabled="!tasks.canEdit || !tasks.titleInput.trim() || tasks.isMutating"
+        :disabled="!auth.user || !tasks.form.title || tasks.form.isProcessing"
       ) Add
 
-  p.alert.danger(v-if="tasks.queryError") {{ tasks.queryError }}
-  p.alert.danger(v-else-if="tasks.actionError") {{ tasks.actionError }}
-  p.alert.info(v-else-if="tasks.actionMessage") {{ tasks.actionMessage }}
-  p.muted(v-else) {{ tasks.statusText }}
+  p.alert(v-if="tasks.form.feedback" :class="tasks.form.feedback.tone") {{ tasks.form.feedback.text }}
+  p.muted(v-else)
+    template(v-if="tasks.isLoading") Loading tasks...
+    template(v-else-if="tasks.error") Error loading tasks: {{ formatError(tasks.error) }}
+    template(v-else-if="!tasks.available.length") No tasks yet. Create your first one.
+    template(v-else-if="!tasks.shown.length") No {{ tasks.activeStatusFilter }} tasks found.
+    template(v-else) {{ tasks.shown.length }} task{{ tasks.shown.length === 1 ? '' : 's' }} visible.
 
   .chip-list
-    span.badge {{ tasks.pendingCount }} pending
-    span.badge.success {{ tasks.doneCount }} done
+    span.badge {{ tasks.byStatus.pending.length }} pending
+    span.badge.success {{ tasks.byStatus.done.length }} done
 
   ul.task-list.demo-scroll
-    li.task(v-for="task in tasks.visibleTasks" :key="task.id")
-      button.check(
-        type="button"
-        :class="{ 'is-checked': task.isDone }"
-        :aria-label="task.isDone ? 'Mark task pending' : 'Mark task done'"
-        :disabled="tasks.isMutating"
-        @click="tasks.toggleTaskDone(task)"
-      )
-        span
-
-      p.task__title(:class="{ 'is-done': task.isDone }") {{ task.title }}
-
-      .menu.task__menu
-        button.btn.ghost.icon.menu__trigger(
-          :ref="element => setTriggerRef(task.id, element)"
-          type="button"
-          aria-label="Task actions"
-          :aria-expanded="openMenuId === task.id"
-          @click.stop="toggleMenu(task.id)"
-        ) ⋯
-        Teleport(to="body")
-          ul.context-menu.context-menu--floating(
-            v-if="openMenuId === task.id"
-            ref="floatingMenuElement"
-            :style="floatingMenuStyle"
-            role="menu"
-            @click.stop
-          )
-            li(role="none")
-              button(
-                type="button"
-                role="menuitem"
-                :disabled="!tasks.canEdit || tasks.isMutating"
-                @click="runTaskAction(task.id, () => tasks.toggleTaskAssignee(task))"
-              ) {{ task.assignee?.id === signedInUserId ? 'Unassign me' : 'Assign me' }}
-            li(role="none")
-              button(
-                type="button"
-                role="menuitem"
-                :disabled="!tasks.canEdit || tasks.isMutating"
-                @click="runTaskAction(task.id, () => tasks.deleteTask(task.id))"
-              ) Delete
-
-      .task__meta
-        span.badge.warning(v-if="task.assignee") assignee: {{ formatAssignee(task) }}
+    ItemTask(
+      v-for="task in tasks.shown"
+      :key="task.id"
+      :context-menu="contextMenu"
+      :task
+      @toggle-check="tasks.toggleCheck(task)"
+      @toggle-claim="tasks.toggleClaim(task)"
+      @remove="tasks.remove(task)"
+    )
 
   .row.demo-end
     button.btn.secondary(
       type="button"
-      :disabled="!tasks.canEdit || tasks.isMutating"
-      @click="tasks.clearDoneTasks"
+      :disabled="!auth.user"
+      @click="tasks.removeDone"
     ) Clear done tasks
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
-  workspaceId: string
-  signedInUserId: string
-}>()
-
-const tasks = useTasksComp(props.workspaceId)
-const signedInUserId = toRef(props, 'signedInUserId')
-const {
-  openMenuId,
-  floatingMenuElement,
-  floatingMenuStyle,
-  setTriggerRef,
-  toggleMenu,
-  runTaskAction,
-} = useFloatingTaskMenu()
-
-function formatAssignee(task: {
-  assignee?: {
-    id: string
-    email?: string | null
-  } | null
-}): string {
-  if (task.assignee?.id === signedInUserId.value)
-    return 'me'
-
-  const email = task.assignee?.email?.trim()
-  if (email)
-    return email
-
-  return task.assignee?.id.slice(-6) ?? 'unknown'
-}
+const { auth } = useIdb()
+const tasks = useTasks()
+const contextMenu = useContextMenu()
 </script>
