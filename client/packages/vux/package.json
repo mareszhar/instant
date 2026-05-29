@@ -69,7 +69,9 @@
     "sdk:demo:main:validate": "pnpm run sdk:demo:main:lint && pnpm --dir idb-vux/demo run typecheck",
     "sdmv": "pnpm run sdk:demo:main:validate",
     "sdk:demo:main:validate:fix": "pnpm run sdk:demo:main:lint:fix && pnpm --dir idb-vux/demo run typecheck",
-    "sdmvf": "pnpm run sdk:demo:main:validate:fix"
+    "sdmvf": "pnpm run sdk:demo:main:validate:fix",
+    "pack:all:refresh:all": "pnpm run sdk:pack:all && pnpm run sdk:demo:all:refresh",
+    "para": "pnpm run pack:all:refresh:all"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^8.3.0",
