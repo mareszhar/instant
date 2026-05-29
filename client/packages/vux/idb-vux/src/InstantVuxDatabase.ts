@@ -677,18 +677,10 @@ export class InstantVuxDatabase<
         const resolvedOpts = toValue(opts)
 
         activeSub = null
-        state.isLoading = true
-        state.data = undefined
-        state.error = undefined
-        state.canLoadNextPage = false
-
-        if (!resolvedQuery) {
-          return
-        }
 
         const snapshot = getInfiniteQueryInitialSnapshot(
           this.core,
-          resolvedQuery as any,
+          (resolvedQuery ?? null) as any,
           resolvedOpts ?? undefined,
         ) as
         | InfiniteQueryCallbackResponse<Schema, QueryMaybeRefOrGetterRuntimeQuery<Source>, UseDates>
@@ -702,6 +694,10 @@ export class InstantVuxDatabase<
         state.data = snapshot.data
         state.canLoadNextPage = snapshot.canLoadNextPage
         state.isLoading = !snapshot.data && !snapshot.error
+
+        if (!resolvedQuery) {
+          return
+        }
 
         const sub = this.core.subscribeInfiniteQuery(
           resolvedQuery as any,

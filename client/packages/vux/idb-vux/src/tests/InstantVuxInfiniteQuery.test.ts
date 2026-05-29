@@ -1,7 +1,7 @@
 import type { ConnectionStatus } from '@instantdb/core'
 import type { EffectScope } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { effectScope, isReactive, nextTick, ref } from 'vue'
+import { effectScope, isReactive, nextTick, ref, watch } from 'vue'
 import { InstantVuxDatabase } from '../InstantVuxDatabase.js'
 
 function createMockCore() {
@@ -319,6 +319,53 @@ describe('instantVuxDatabase.useInfiniteQuery', () => {
     expect(infiniteQuery.isLoading.value).toBe(true)
     expect(infiniteQuery.data.value).toBeUndefined()
     expect(infiniteQuery.canLoadNextPage.value).toBe(false)
+  })
+
+  it('does not emit an intermediate empty data state when query changes with cached snapshot', async () => {
+    const dataTransitions: Array<string | null> = []
+    mockCore._reactor.getPreviousResult
+      .mockReturnValueOnce({
+        data: { posts: [{ id: 'p1', status: 'pending' }] },
+        pageInfo: {},
+      })
+      .mockReturnValueOnce({
+        data: { posts: [{ id: 'p2', status: 'done' }] },
+        pageInfo: {},
+      })
+
+    const filter = ref<'done' | 'pending'>('pending')
+    let infiniteQuery: any
+
+    scope.run(() => {
+      infiniteQuery = db.useInfiniteQuery(() => ({
+        posts: {
+          $: {
+            where: {
+              status: filter.value,
+            },
+            limit: 5,
+          },
+        },
+      }) as any)
+
+      watch(
+        () => infiniteQuery.data.value,
+        (value) => {
+          dataTransitions.push(value?.posts?.[0]?.status ?? null)
+        },
+        { flush: 'sync' },
+      )
+    })
+    await nextTick()
+
+    expect(infiniteQuery.data.value).toEqual({ posts: [{ id: 'p1', status: 'pending' }] })
+
+    dataTransitions.length = 0
+    filter.value = 'done'
+    await nextTick()
+
+    expect(infiniteQuery.data.value).toEqual({ posts: [{ id: 'p2', status: 'done' }] })
+    expect(dataTransitions).toEqual(['done'])
   })
 
   it('does not re-subscribe when factory dependencies change but query and options hashes are stable', async () => {
