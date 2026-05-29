@@ -10,14 +10,11 @@ const SHARES_WORKSPACE_WITH_USER
   = 'auth.id in data.ref(\'memberships.workspace.memberships.user.id\')'
 
 const IS_MEMBER_FROM_WORKSPACE = 'auth.id in data.ref(\'memberships.user.id\')'
-const IS_OWNER_FROM_WORKSPACE = 'auth.id in data.ref(\'owner.id\')'
 const HAS_INVITE_CODE_ON_WORKSPACE
   = 'ruleParams.inviteCode != null && ruleParams.inviteCode == data.inviteCode'
 
 const IS_MEMBER_FROM_MEMBERSHIP
   = 'auth.id in data.ref(\'workspace.memberships.user.id\')'
-const IS_OWNER_FROM_MEMBERSHIP
-  = 'auth.id in data.ref(\'workspace.owner.id\')'
 const IS_SELF_FROM_MEMBERSHIP = 'auth.id in data.ref(\'user.id\')'
 const HAS_INVITE_CODE_ON_MEMBERSHIP
   = 'ruleParams.inviteCode != null && ruleParams.inviteCode in data.ref(\'workspace.inviteCode\')'
@@ -52,27 +49,19 @@ const rules = {
     bind: {
       isSignedIn: IS_SIGNED_IN,
       isMember: IS_MEMBER_FROM_WORKSPACE,
-      isOwner: IS_OWNER_FROM_WORKSPACE,
       hasInviteCode: HAS_INVITE_CODE_ON_WORKSPACE,
     },
     allow: {
       view: 'isMember || hasInviteCode',
       create: 'isSignedIn',
-      update: 'isOwner',
+      update: 'isMember',
       delete: 'isMember',
-      link: {
-        owner: 'linkedData.id == auth.id',
-      },
-      unlink: {
-        owner: 'false',
-      },
     },
   },
   memberships: {
     bind: {
       isSignedIn: IS_SIGNED_IN,
       isMember: IS_MEMBER_FROM_MEMBERSHIP,
-      isOwner: IS_OWNER_FROM_MEMBERSHIP,
       isSelf: IS_SELF_FROM_MEMBERSHIP,
       hasInviteCode: HAS_INVITE_CODE_ON_MEMBERSHIP,
     },
@@ -83,7 +72,7 @@ const rules = {
       delete: 'isSelf',
       link: {
         user: 'linkedData.id == auth.id',
-        workspace: `isMember || isOwner || ${LINKED_WORKSPACE_MATCHES_INVITE}`,
+        workspace: `isMember || ${LINKED_WORKSPACE_MATCHES_INVITE}`,
       },
       unlink: {
         user: 'isSelf',

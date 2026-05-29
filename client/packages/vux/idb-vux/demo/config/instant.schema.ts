@@ -20,10 +20,6 @@ const schema = i.schema({
     }),
   },
   links: {
-    workspaceOwner: {
-      forward: { on: 'workspaces', has: 'one', label: 'owner' },
-      reverse: { on: '$users', has: 'many', label: 'ownedWorkspaces' },
-    },
     membershipWorkspace: {
       forward: { on: 'memberships', has: 'one', label: 'workspace' },
       reverse: { on: 'workspaces', has: 'many', label: 'memberships' },
