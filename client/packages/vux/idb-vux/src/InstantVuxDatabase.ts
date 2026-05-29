@@ -42,7 +42,6 @@ import {
   ref,
   toValue,
   watch,
-  watchEffect,
 } from 'vue'
 import { InstantVuxRoom, rooms } from './InstantVuxRoom.js'
 import version from './version.js'
@@ -667,57 +666,61 @@ export class InstantVuxDatabase<
       return refs
     }
 
-    const stop = watchEffect((onCleanup) => {
-      const resolvedQuery = toValue(query as MaybeRefOrGetter<any>)
-      const resolvedOpts = toValue(opts)
+    const stop = watch(
+      () => [
+        toValue(query as MaybeRefOrGetter<any>),
+        toValue(opts),
+      ] as const,
+      ([resolvedQuery, resolvedOpts], _previous, onCleanup) => {
+        activeSub = null
+        state.isLoading = true
+        state.data = undefined
+        state.error = undefined
+        state.canLoadNextPage = false
 
-      activeSub = null
-      state.isLoading = true
-      state.data = undefined
-      state.error = undefined
-      state.canLoadNextPage = false
-
-      if (!resolvedQuery) {
-        return
-      }
-
-      const snapshot = getInfiniteQueryInitialSnapshot(
-        this.core,
-        resolvedQuery as any,
-        resolvedOpts ?? undefined,
-      ) as
-      | InfiniteQueryCallbackResponse<Schema, QueryMaybeRefOrGetterRuntimeQuery<Source>, UseDates>
-      | {
-        canLoadNextPage: false
-        data: undefined
-        error: undefined
-      }
-
-      state.error = snapshot.error
-      state.data = snapshot.data
-      state.canLoadNextPage = snapshot.canLoadNextPage
-      state.isLoading = !snapshot.data && !snapshot.error
-
-      const sub = this.core.subscribeInfiniteQuery(
-        resolvedQuery as any,
-        (result) => {
-          state.error = result.error
-          state.data = result.data
-          state.canLoadNextPage = result.canLoadNextPage
-          state.isLoading = false
-        },
-        resolvedOpts ?? undefined,
-      )
-
-      activeSub = sub
-
-      onCleanup(() => {
-        if (activeSub === sub) {
-          activeSub = null
+        if (!resolvedQuery) {
+          return
         }
-        sub.unsubscribe()
-      })
-    })
+
+        const snapshot = getInfiniteQueryInitialSnapshot(
+          this.core,
+          resolvedQuery as any,
+          resolvedOpts ?? undefined,
+        ) as
+        | InfiniteQueryCallbackResponse<Schema, QueryMaybeRefOrGetterRuntimeQuery<Source>, UseDates>
+        | {
+          canLoadNextPage: false
+          data: undefined
+          error: undefined
+        }
+
+        state.error = snapshot.error
+        state.data = snapshot.data
+        state.canLoadNextPage = snapshot.canLoadNextPage
+        state.isLoading = !snapshot.data && !snapshot.error
+
+        const sub = this.core.subscribeInfiniteQuery(
+          resolvedQuery as any,
+          (result) => {
+            state.error = result.error
+            state.data = result.data
+            state.canLoadNextPage = result.canLoadNextPage
+            state.isLoading = false
+          },
+          resolvedOpts ?? undefined,
+        )
+
+        activeSub = sub
+
+        onCleanup(() => {
+          if (activeSub === sub) {
+            activeSub = null
+          }
+          sub.unsubscribe()
+        })
+      },
+      { deep: true, immediate: true },
+    )
 
     attachScopeCleanup(stop)
 
@@ -735,45 +738,49 @@ export class InstantVuxDatabase<
       return refs
     }
 
-    const stop = watchEffect((onCleanup) => {
-      const resolvedQuery = toValue(query as MaybeRefOrGetter<any>)
-      const resolvedOpts = toValue(opts)
-
-      if (!resolvedQuery) {
-        state.isLoading = true
-        state.data = undefined as any
-        state.pageInfo = undefined as any
-        state.error = undefined
-        return
-      }
-
-      let nextQuery = resolvedQuery
-      if (resolvedOpts && 'ruleParams' in resolvedOpts) {
-        nextQuery = {
-          $$ruleParams: (resolvedOpts as any).ruleParams,
-          ...nextQuery,
+    const stop = watch(
+      () => [
+        toValue(query as MaybeRefOrGetter<any>),
+        toValue(opts),
+      ] as const,
+      ([resolvedQuery, resolvedOpts], _previous, onCleanup) => {
+        if (!resolvedQuery) {
+          state.isLoading = true
+          state.data = undefined as any
+          state.pageInfo = undefined as any
+          state.error = undefined
+          return
         }
-      }
 
-      const coerced = coerceQuery(nextQuery)
-      const prev = this.core._reactor.getPreviousResult?.(coerced)
-      const prevState = stateForResult(prev)
-      state.isLoading = prevState.isLoading
-      if (prev || !resolvedOpts?.keepPreviousData) {
-        state.data = prevState.data
-        state.pageInfo = prevState.pageInfo
-      }
-      state.error = prevState.error
+        let nextQuery = resolvedQuery
+        if (resolvedOpts && 'ruleParams' in resolvedOpts) {
+          nextQuery = {
+            $$ruleParams: (resolvedOpts as any).ruleParams,
+            ...nextQuery,
+          }
+        }
 
-      const unsub = this.core.subscribeQuery(coerced as any, (result: any) => {
-        state.isLoading = false
-        state.data = result.data
-        state.pageInfo = result.pageInfo
-        state.error = result.error
-      })
+        const coerced = coerceQuery(nextQuery)
+        const prev = this.core._reactor.getPreviousResult?.(coerced)
+        const prevState = stateForResult(prev)
+        state.isLoading = prevState.isLoading
+        if (prev || !resolvedOpts?.keepPreviousData) {
+          state.data = prevState.data
+          state.pageInfo = prevState.pageInfo
+        }
+        state.error = prevState.error
 
-      onCleanup(unsub)
-    })
+        const unsub = this.core.subscribeQuery(coerced as any, (result: any) => {
+          state.isLoading = false
+          state.data = result.data
+          state.pageInfo = result.pageInfo
+          state.error = result.error
+        })
+
+        onCleanup(unsub)
+      },
+      { deep: true, immediate: true },
+    )
 
     attachScopeCleanup(stop)
 
