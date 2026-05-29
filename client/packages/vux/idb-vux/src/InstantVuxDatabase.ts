@@ -31,6 +31,7 @@ import {
   getInfiniteQueryInitialSnapshot,
   InstantError,
   txInit,
+  weakHash,
 } from '@instantdb/core'
 
 import {
@@ -667,11 +668,14 @@ export class InstantVuxDatabase<
     }
 
     const stop = watch(
-      () => [
-        toValue(query as MaybeRefOrGetter<any>),
-        toValue(opts),
-      ] as const,
-      ([resolvedQuery, resolvedOpts], _previous, onCleanup) => {
+      [
+        () => weakHash(toValue(query as MaybeRefOrGetter<any>)),
+        () => weakHash(toValue(opts)),
+      ],
+      (_currentHash, _previousHash, onCleanup) => {
+        const resolvedQuery = toValue(query as MaybeRefOrGetter<any>)
+        const resolvedOpts = toValue(opts)
+
         activeSub = null
         state.isLoading = true
         state.data = undefined
@@ -719,7 +723,7 @@ export class InstantVuxDatabase<
           sub.unsubscribe()
         })
       },
-      { deep: true, immediate: true },
+      { immediate: true },
     )
 
     attachScopeCleanup(stop)
@@ -739,11 +743,27 @@ export class InstantVuxDatabase<
     }
 
     const stop = watch(
-      () => [
-        toValue(query as MaybeRefOrGetter<any>),
-        toValue(opts),
-      ] as const,
-      ([resolvedQuery, resolvedOpts], _previous, onCleanup) => {
+      () => {
+        const resolvedQuery = toValue(query as MaybeRefOrGetter<any>)
+        const resolvedOpts = toValue(opts)
+
+        if (!resolvedQuery) {
+          return null
+        }
+
+        const queryWithRuleParams = resolvedOpts && 'ruleParams' in resolvedOpts
+          ? {
+              $$ruleParams: (resolvedOpts as any).ruleParams,
+              ...resolvedQuery,
+            }
+          : resolvedQuery
+
+        return weakHash(coerceQuery(queryWithRuleParams))
+      },
+      (_currentHash, _previousHash, onCleanup) => {
+        const resolvedQuery = toValue(query as MaybeRefOrGetter<any>)
+        const resolvedOpts = toValue(opts)
+
         if (!resolvedQuery) {
           state.isLoading = true
           state.data = undefined as any
@@ -779,7 +799,7 @@ export class InstantVuxDatabase<
 
         onCleanup(unsub)
       },
-      { deep: true, immediate: true },
+      { immediate: true },
     )
 
     attachScopeCleanup(stop)

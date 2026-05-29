@@ -292,6 +292,83 @@ describe('instantVuxDatabase.useInfiniteQuery', () => {
     expect(infiniteQuery.canLoadNextPage.value).toBe(false)
   })
 
+  it('does not re-subscribe when factory dependencies change but query and options hashes are stable', async () => {
+    const subs: Array<{ unsubscribe: ReturnType<typeof vi.fn>, loadNextPage: ReturnType<typeof vi.fn> }> = []
+
+    mockCore.subscribeInfiniteQuery.mockImplementation((_query: any, _callback: any) => {
+      const sub = {
+        unsubscribe: vi.fn(),
+        loadNextPage: vi.fn(),
+      }
+      subs.push(sub)
+      return sub
+    })
+
+    const unrelatedDependency = ref(0)
+    const optsRef = ref({ ruleParams: { tenant: 'a' } })
+
+    scope.run(() => {
+      db.useInfiniteQuery(() => {
+        unrelatedDependency.value
+        return {
+          posts: {
+            $: {
+              where: {
+                status: 'pending',
+              },
+              limit: 5,
+            },
+          },
+        } as any
+      }, optsRef)
+    })
+    await nextTick()
+
+    expect(mockCore.subscribeInfiniteQuery).toHaveBeenCalledTimes(1)
+
+    unrelatedDependency.value += 1
+    await nextTick()
+
+    expect(mockCore.subscribeInfiniteQuery).toHaveBeenCalledTimes(1)
+    expect(subs[0]?.unsubscribe).not.toHaveBeenCalled()
+
+    optsRef.value = { ruleParams: { tenant: 'a' } }
+    await nextTick()
+
+    expect(mockCore.subscribeInfiniteQuery).toHaveBeenCalledTimes(1)
+    expect(subs[0]?.unsubscribe).not.toHaveBeenCalled()
+  })
+
+  it('does not cyclically re-subscribe when subscription callbacks update hook state', async () => {
+    let cb: ((result: any) => void) | undefined
+    const sub = {
+      unsubscribe: vi.fn(),
+      loadNextPage: vi.fn(),
+    }
+
+    mockCore.subscribeInfiniteQuery.mockImplementation((_query: any, callback: any) => {
+      cb = callback
+      return sub
+    })
+
+    scope.run(() => {
+      db.useInfiniteQuery({ posts: { $: { limit: 2 } } } as any)
+    })
+    await nextTick()
+
+    expect(mockCore.subscribeInfiniteQuery).toHaveBeenCalledTimes(1)
+
+    cb?.({
+      error: undefined,
+      data: { posts: [{ id: 'p1', title: 'Loop guard' }] },
+      canLoadNextPage: true,
+    })
+    await nextTick()
+
+    expect(mockCore.subscribeInfiniteQuery).toHaveBeenCalledTimes(1)
+    expect(sub.unsubscribe).not.toHaveBeenCalled()
+  })
+
   it('skips subscription when query resolves to null', async () => {
     let infiniteQuery: any
 

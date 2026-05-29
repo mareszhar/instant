@@ -390,6 +390,65 @@ describe('instantVuxDatabase', () => {
       expect(mockCore.subscribeQuery).toHaveBeenCalledTimes(2)
     })
 
+    it('does not re-subscribe when factory dependencies change but the query hash is stable', async () => {
+      const unsub = vi.fn()
+      mockCore.subscribeQuery.mockImplementation(() => unsub)
+
+      const unrelatedDependency = ref(0)
+
+      scope.run(() => {
+        db.useQuery(() => {
+          unrelatedDependency.value
+          return {
+            goals: {
+              $: {
+                where: {
+                  status: {
+                    $in: ['active'],
+                  },
+                },
+              },
+            },
+          } as any
+        })
+      })
+      await nextTick()
+
+      expect(mockCore.subscribeQuery).toHaveBeenCalledTimes(1)
+
+      unrelatedDependency.value += 1
+      await nextTick()
+
+      expect(unsub).not.toHaveBeenCalled()
+      expect(mockCore.subscribeQuery).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not cyclically re-subscribe when subscription callbacks update hook state', async () => {
+      let queryCb: ((result: any) => void) | undefined
+      const unsub = vi.fn()
+      mockCore.subscribeQuery.mockImplementation((_query: any, cb: any) => {
+        queryCb = cb
+        return unsub
+      })
+
+      scope.run(() => {
+        db.useQuery({ goals: {} } as any)
+      })
+      await nextTick()
+
+      expect(mockCore.subscribeQuery).toHaveBeenCalledTimes(1)
+
+      queryCb?.({
+        data: { goals: [{ id: '1', title: 'Loop guard' }] },
+        pageInfo: { goals: { hasNextPage: false } },
+        error: undefined,
+      })
+      await nextTick()
+
+      expect(unsub).not.toHaveBeenCalled()
+      expect(mockCore.subscribeQuery).toHaveBeenCalledTimes(1)
+    })
+
     it('uses cached result when available', async () => {
       mockCore._reactor.getPreviousResult.mockReturnValue({
         data: { goals: [{ id: '1' }] },
