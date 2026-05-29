@@ -185,6 +185,37 @@ describe('instantVuxRoom hooks', () => {
     expect(unsub).toHaveBeenCalled()
   })
 
+  it('usePresence does not re-subscribe when presence callbacks update refs', async () => {
+    let presenceCb: ((data: any) => void) | undefined
+
+    mockCore._reactor.subscribePresence.mockImplementation(
+      (_roomType: any, _roomId: any, _opts: any, cb: any) => {
+        presenceCb = cb
+        return () => {}
+      },
+    )
+
+    const scope = effectScope()
+    scope.run(() => {
+      (rooms.usePresence as any)(room, { keys: ['name'] })
+    })
+    await nextTick()
+
+    expect(mockCore._reactor.subscribePresence).toHaveBeenCalledTimes(1)
+
+    presenceCb?.({
+      peers: { p2: { name: 'Bob' } },
+      isLoading: false,
+      user: { name: 'Me' },
+      error: undefined,
+    })
+    await nextTick()
+
+    expect(mockCore._reactor.subscribePresence).toHaveBeenCalledTimes(1)
+
+    scope.stop()
+  })
+
   it('usePresenceX exposes refs plus state alias from one source', async () => {
     const scope = effectScope()
     let presenceX: any
@@ -335,6 +366,42 @@ describe('instantVuxRoom hooks', () => {
 
     scope.stop()
     vi.useRealTimers()
+  })
+
+  it('useTypingIndicator does not re-subscribe to presence after callback updates', async () => {
+    const presenceSnapshot = {
+      peers: {
+        p1: { chat: true, name: 'Alice' },
+      },
+      isLoading: false,
+    }
+
+    let presenceCb: ((data: any) => void) | undefined
+    mockCore._reactor.getPresence.mockImplementation(() => presenceSnapshot)
+    mockCore._reactor.subscribePresence.mockImplementation(
+      (_roomType: any, _roomId: any, _opts: any, cb: any) => {
+        presenceCb = cb
+        return () => {}
+      },
+    )
+
+    const scope = effectScope()
+    let typing: any
+
+    scope.run(() => {
+      typing = (rooms.useTypingIndicator as any)(room, 'chat')
+    })
+    await nextTick()
+
+    expect(mockCore._reactor.subscribePresence).toHaveBeenCalledTimes(1)
+
+    presenceCb?.(presenceSnapshot)
+    await nextTick()
+
+    expect(typing.active.value).toEqual([{ chat: true, name: 'Alice' }])
+    expect(mockCore._reactor.subscribePresence).toHaveBeenCalledTimes(1)
+
+    scope.stop()
   })
 
   it('useTypingIndicatorX exposes refs plus state alias from one source', async () => {
