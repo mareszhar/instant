@@ -48,7 +48,7 @@ const db = init({ appId: 'test', schema })
 
 const queryObjectOne = {
   workspaces: {},
-  // nonexistentNamespace: {},
+  /* cursor */
 }
 
 const _queryOnce = db.queryOnce(queryObjectOne)
