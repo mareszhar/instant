@@ -66,3 +66,19 @@ const _queryOnceDirect = db.queryOnce({
   // @ts-expect-error - QERR_QUERY_ROOT_KEY_UNKNOWN: nonexistentNamespace is not a valid top-level key in q() query."
   nonexistentNamespace: {},
 })
+
+interface Fruit {
+  name: string
+  price: number
+  availableQuantity: number
+}
+
+function registerFruit(fruit: Fruit) { }
+
+registerFruit({
+  name: 'apple',
+  price: 5,
+  availableQuantity: 100,
+})
+
+// registerFruit({ /* cursor */ })
