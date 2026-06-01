@@ -1,12 +1,8 @@
 # ts-probe — Library Specification
 
-**Version:** 1.0  
-**Status:** Approved — Ready for Implementation
+**Version:** 1.0 **Status:** Approved — Ready for Implementation
 
-> A TypeScript library for writing IntelliSense tests. ts-probe exposes the TypeScript Language
-> Service through a high-DX tagged-template API, letting you assert on completions, hover text,
-> diagnostics, signature help, inlay hints, and more — with the same fluency you'd expect from a
-> well-designed test utility.
+> A TypeScript library for writing IntelliSense tests. ts-probe exposes the TypeScript Language Service through a high-DX tagged-template API, letting you assert on completions, hover text, diagnostics, signature help, inlay hints, and more — with the same fluency you'd expect from a well-designed test utility.
 
 ---
 
@@ -37,65 +33,33 @@
 
 ## 1. Vision & Philosophy
 
-TypeScript's value as a language comes largely from the guarantees it provides to tooling: when you
-write `registerFruit({ })`, your editor knows which keys belong there, which are optional, what
-their types are, and which ones are deprecated. These are behavioral guarantees of your library's
-type surface — and like any behavior, they can regress silently.
+TypeScript's value as a language comes largely from the guarantees it provides to tooling: when you write `registerFruit({ })`, your editor knows which keys belong there, which are optional, what their types are, and which ones are deprecated. These are behavioral guarantees of your library's type surface — and like any behavior, they can regress silently.
 
-ts-probe exists because that type surface deserves the same regression protection as runtime
-behavior. Just as you'd test that `registerFruit({ neim: 'apple' })` throws at runtime, you should
-be able to assert that it produces a type error at authoring time. Just as you'd test that
-`db.queryOnce` and `db.useQuery` behave consistently at runtime, you should be able to verify that
-they offer identical autocomplete in every equivalent position.
+ts-probe exists because that type surface deserves the same regression protection as runtime behavior. Just as you'd test that `registerFruit({ neim: 'apple' })` throws at runtime, you should be able to assert that it produces a type error at authoring time. Just as you'd test that `db.queryOnce` and `db.useQuery` behave consistently at runtime, you should be able to verify that they offer identical autocomplete in every equivalent position.
 
-The library is designed around a central conviction: **writing IntelliSense tests should feel like
-writing any other test.** No line/column arithmetic, no magic comment strings, no separate DSL to
-learn. The TypeScript code under test lives as real code inside tagged template literals. Cursors
-are first-class JavaScript values interpolated directly into that code. Results are plain objects
-you pass to your test runner's `expect`. The mental model is minimal, the output is readable, and
-the tests are self-explanatory to anyone — human or agent — encountering them for the first time.
+The library is designed around a central conviction: **writing IntelliSense tests should feel like writing any other test.** No line/column arithmetic, no magic comment strings, no separate DSL to learn. The TypeScript code under test lives as real code inside tagged template literals. Cursors are first-class JavaScript values interpolated directly into that code. Results are plain objects you pass to your test runner's `expect`. The mental model is minimal, the output is readable, and the tests are self-explanatory to anyone — human or agent — encountering them for the first time.
 
 ---
 
 ## 2. Design Principles
 
-These principles govern every design decision in ts-probe. When requirements conflict, earlier
-principles take precedence. When adding new features in future versions, evaluate them against this
-list.
+These principles govern every design decision in ts-probe. When requirements conflict, earlier principles take precedence. When adding new features in future versions, evaluate them against this list.
 
-**Self-documenting.** A person or agent reading ts-probe tests without context should understand
-what is being tested and why. Names should match mental models. Structure should reflect intent.
-Comments should be optional, not required for comprehension.
+**Self-documenting.** A person or agent reading ts-probe tests without context should understand what is being tested and why. Names should match mental models. Structure should reflect intent. Comments should be optional, not required for comprehension.
 
-**Empathetic.** Design for the moment of use. What is the user thinking? What would feel natural?
-What would feel like friction? The best API is one that disappears — the user thinks about their
-problem, not the library. When multiple solutions exist, choose the one that fits the mental model
-of someone trying to understand the code, not the one that was technically simpler to implement.
+**Empathetic.** Design for the moment of use. What is the user thinking? What would feel natural? What would feel like friction? The best API is one that disappears — the user thinks about their problem, not the library. When multiple solutions exist, choose the one that fits the mental model of someone trying to understand the code, not the one that was technically simpler to implement.
 
-**DRY as a first-class feature.** Boilerplate is an active harm. Repeated structure in tests
-obscures the variance that actually matters. Snippets, groups, and the mode matrix exist
-specifically to let you write a pattern once and exercise it across every variant that matters.
+**DRY as a first-class feature.** Boilerplate is an active harm. Repeated structure in tests obscures the variance that actually matters. Snippets, groups, and the mode matrix exist specifically to let you write a pattern once and exercise it across every variant that matters.
 
-**Configurable over opinionated.** Where there is no objectively correct answer, offer a choice
-rather than forcing one path. But only expose configuration when the alternative would genuinely
-limit users — unnecessary options are their own form of friction.
+**Configurable over opinionated.** Where there is no objectively correct answer, offer a choice rather than forcing one path. But only expose configuration when the alternative would genuinely limit users — unnecessary options are their own form of friction.
 
-**Modular & extensible.** Core ts-probe is a focused primitive. Optional addons (Vitest matchers,
-Jest matchers, future domain packs) augment it without changing its semantics. Escape hatches give
-power users access to the raw language service when the library doesn't cover their case. New
-features should be addable without breaking existing APIs.
+**Modular & extensible.** Core ts-probe is a focused primitive. Optional addons (Vitest matchers, Jest matchers, future domain packs) augment it without changing its semantics. Escape hatches give power users access to the raw language service when the library doesn't cover their case. New features should be addable without breaking existing APIs.
 
-**YAGNI with foresight.** Build for the 80% case first. The 20% case that only appears in niche
-scenarios should not make the 80% case worse. Defer, but design deliberately — defer in a way that
-leaves the door open without committing to an implementation that would paint us into a corner.
+**YAGNI with foresight.** Build for the 80% case first. The 20% case that only appears in niche scenarios should not make the 80% case worse. Defer, but design deliberately — defer in a way that leaves the door open without committing to an implementation that would paint us into a corner.
 
-**Plain values.** Results are plain JavaScript objects — strings, arrays, booleans, null. No
-custom assertion chains on result objects. No special matchers required for basic use. Everything
-works natively with your test runner's `expect` out of the box.
+**Plain values.** Results are plain JavaScript objects — strings, arrays, booleans, null. No custom assertion chains on result objects. No special matchers required for basic use. Everything works natively with your test runner's `expect` out of the box.
 
-**Synchronous.** The TypeScript Language Service is synchronous. ts-probe is synchronous. Forced
-`await` on queries would be pure noise with no benefit. Project initialization (I/O and program
-construction) is the one async step, and it is abstracted away entirely.
+**Synchronous.** The TypeScript Language Service is synchronous. ts-probe is synchronous. Forced `await` on queries would be pure noise with no benefit. Project initialization (I/O and program construction) is the one async step, and it is abstracted away entirely.
 
 ---
 
@@ -107,13 +71,9 @@ ts-probe/vitest       # optional: extends global expect with ts-probe matchers
 ts-probe/jest         # optional: same for Jest
 ```
 
-**Peer dependencies:** `typescript` (>=4.7), `vitest` or `jest` (only when using the matcher
-addons).
+**Peer dependencies:** `typescript` (>=4.7), `vitest` or `jest` (only when using the matcher addons).
 
-**Core has zero runtime dependencies** beyond TypeScript itself. It uses only the TypeScript
-compiler API (`typescript` package) and Node's built-in `fs` module for reading `tsconfig.json`
-and resolving paths. The Vitest and Jest addons each depend only on their respective runner's type
-definitions.
+**Core has zero runtime dependencies** beyond TypeScript itself. It uses only the TypeScript compiler API (`typescript` package) and Node's built-in `fs` module for reading `tsconfig.json` and resolving paths. The Vitest and Jest addons each depend only on their respective runner's type definitions.
 
 ---
 
@@ -125,26 +85,20 @@ import { cursor, defineProject, group, snippet } from 'ts-probe'
 
 ### `cursor`
 
-`cursor` is both a bare value (for the unnamed, single-cursor case) and a callable (for the named,
-multi-cursor case). The visual distinction is intentional: bare means "simple case," called means
-"I am naming this position."
+`cursor` is both a bare value (for the unnamed, single-cursor case) and a callable (for the named, multi-cursor case). The visual distinction is intentional: bare means "simple case," called means "I am naming this position."
 
 ```ts
 cursor          // unnamed cursor — used when there is only one cursor in the query
 cursor('root')  // named cursor — required when the query contains more than one cursor
 ```
 
-Internally `cursor` is a function with an additional sentinel property that makes the bare form
-work as an interpolation value. Implementors may use a Proxy, `Object.assign` over a function, or
-a class instance — the public contract is the usage shown above.
+Internally `cursor` is a function with an additional sentinel property that makes the bare form work as an interpolation value. Implementors may use a Proxy, `Object.assign` over a function, or a class instance — the public contract is the usage shown above.
 
-`cursor` may only appear inside `project.query` tagged templates or `snippet` tagged templates.
-Placing it anywhere else produces a runtime error with a clear message.
+`cursor` may only appear inside `project.query` tagged templates or `snippet` tagged templates. Placing it anywhere else produces a runtime error with a clear message.
 
 ### `snippet`
 
-A reusable, composable code fragment that carries its own cursors. Defined with the `snippet`
-tagged template tag.
+A reusable, composable code fragment that carries its own cursors. Defined with the `snippet` tagged template tag.
 
 ```ts
 const whereClause = snippet`{ status: 'open', ${cursor('where')} }`
@@ -164,8 +118,7 @@ group(['db.queryOnce', 'db.useQuery', 'db.useInfiniteQuery'])              // an
 group('queryApis', ['db.queryOnce', 'db.useQuery', 'db.useInfiniteQuery']) // named
 ```
 
-The label in the named form is cosmetic only — it appears in test failure output and log messages.
-It does not affect cursor addressing. Both forms are fully functional.
+The label in the named form is cosmetic only — it appears in test failure output and log messages. It does not affect cursor addressing. Both forms are fully functional.
 
 ---
 
@@ -173,9 +126,7 @@ It does not affect cursor addressing. Both forms are fully functional.
 
 ### `defineProject(config?)`
 
-Creates a project handle. The call is synchronous. All async work (reading tsconfig, resolving
-modules, constructing the TS Program) is deferred to a `beforeAll` that ts-probe registers
-automatically at the call site's scope.
+Creates a project handle. The call is synchronous. All async work (reading tsconfig, resolving modules, constructing the TS Program) is deferred to a `beforeAll` that ts-probe registers automatically at the call site's scope.
 
 ```ts
 // Zero-config — auto-detects the nearest tsconfig.json, falls back to strict in-memory TS
@@ -241,9 +192,7 @@ interface DefineProjectConfig {
 
 ### Lifecycle — auto-registered hooks
 
-`defineProject` must be called at module scope or at the top level of a `describe` callback —
-never inside a test callback. Calling it inside a test is a no-op for the `beforeAll` and produces
-a clear warning.
+`defineProject` must be called at module scope or at the top level of a `describe` callback — never inside a test callback. Calling it inside a test is a no-op for the `beforeAll` and produces a clear warning.
 
 ```ts
 // ✓ module scope — beforeAll/afterAll registered for the whole test file
@@ -260,8 +209,7 @@ describe('my suite', () => {
 })
 ```
 
-Internally, `defineProject` calls `beforeAll(async () => { /* build Program */ })` and
-`afterAll(() => { /* dispose Program */ })` using the test runner globals. This means:
+Internally, `defineProject` calls `beforeAll(async () => { /* build Program */ })` and `afterAll(() => { /* dispose Program */ })` using the test runner globals. This means:
 
 - No lifecycle boilerplate for the user.
 - Lifecycle scope follows standard test runner rules.
@@ -269,9 +217,7 @@ Internally, `defineProject` calls `beforeAll(async () => { /* build Program */ }
 
 ### `project.ready()`
 
-An async method that resolves when initialization is complete. Never required in normal use, since
-queries automatically wait for readiness. Provided as an escape hatch for advanced scenarios
-(e.g., pre-warming a shared project in a custom test setup file).
+An async method that resolves when initialization is complete. Never required in normal use, since queries automatically wait for readiness. Provided as an escape hatch for advanced scenarios (e.g., pre-warming a shared project in a custom test setup file).
 
 ```ts
 await project.ready()
@@ -283,8 +229,7 @@ await project.ready()
 
 ### `project.query` — language service probe
 
-The primary API. Takes a tagged template literal containing TypeScript code with at least one
-cursor interpolation. Returns a result object with full language service data.
+The primary API. Takes a tagged template literal containing TypeScript code with at least one cursor interpolation. Returns a result object with full language service data.
 
 ```ts
 // Single unnamed cursor — access results directly on the returned object
@@ -307,13 +252,11 @@ result.completionItem('name')       // CompletionItem | undefined
 result.completionItemsOfKind('property') // CompletionItem[]
 ```
 
-A query with no cursor is a compile error (TypeScript will flag it because the return type changes
-— see `project.check` for the diagnostic-only path).
+A query with no cursor is a compile error (TypeScript will flag it because the return type changes — see `project.check` for the diagnostic-only path).
 
 ### `project.check` — diagnostics only
 
-No cursor required. Returns only diagnostic information. Use this to assert that code produces
-(or does not produce) type errors.
+No cursor required. Returns only diagnostic information. Use this to assert that code produces (or does not produce) type errors.
 
 ```ts
 const result = project.check`
@@ -344,22 +287,17 @@ String interpolation enables patterns like `project.entry` in mode matrix tests 
 
 ### `project.queryGroup` — multi-API parity query
 
-A curried function for testing a group of equivalent APIs together. The first call configures which
-APIs to test and how to generate each call. The tagged template that follows provides the shared
-prelude (typically imports).
+A curried function for testing a group of equivalent APIs together. The first call configures which APIs to test and how to generate each call. The tagged template that follows provides the shared prelude (typically imports).
 
 ```ts
 project.queryGroup(groupPrimitive, factory)`prelude`
 ```
 
 - `groupPrimitive` — a `group([...])` or `group('label', [...])` value
-- `factory` — a function `(api: string) => Snippet` that, given an API expression string, returns
-  the snippet representing one call to that API
-- The tagged template is the shared setup code (imports, shared variable declarations) that all
-  generated calls share
+- `factory` — a function `(api: string) => Snippet` that, given an API expression string, returns the snippet representing one call to that API
+- The tagged template is the shared setup code (imports, shared variable declarations) that all generated calls share
 
-ts-probe assembles one virtual file containing the prelude followed by a generated call for each
-group member, with each member's cursors automatically scoped to `{apiName}.{cursorName}`.
+ts-probe assembles one virtual file containing the prelude followed by a generated call for each group member, with each member's cursors automatically scoped to `{apiName}.{cursorName}`.
 
 ```ts
 const queryApis = group('queryApis', [
@@ -463,8 +401,7 @@ interface SingleCursorResult {
 
 ### Multi-cursor result
 
-Returned by `project.query` when the template contains more than one named cursor. The root result
-holds file-wide diagnostics. Per-cursor data is accessed via `.at()`.
+Returned by `project.query` when the template contains more than one named cursor. The root result holds file-wide diagnostics. Per-cursor data is accessed via `.at()`.
 
 ```ts
 interface MultiCursorResult {
@@ -495,8 +432,7 @@ Covered in detail in §10.
 
 ## 8. Named Cursors & Multi-position Queries
 
-When a query contains more than one cursor, every cursor must be named. The result's `.at()` method
-addresses each cursor's data by name.
+When a query contains more than one cursor, every cursor must be named. The result's `.at()` method addresses each cursor's data by name.
 
 ```ts
 const result = project.query`
@@ -513,17 +449,11 @@ result.diagnostics                 // Diagnostic[] — file-wide, not per-cursor
 
 A query with more than one cursor position has two validation rules:
 
-1. **All cursors must be named.** A bare `cursor` may not appear alongside a named `cursor('name')`
-   in the same query. Doing so throws with: `"Mixed cursor types detected — bare cursor cannot be
-   used alongside named cursors. Replace bare cursor with cursor('name') for all positions."`
+1. **All cursors must be named.** A bare `cursor` may not appear alongside a named `cursor('name')` in the same query. Doing so throws with: `"Mixed cursor types detected — bare cursor cannot be used alongside named cursors. Replace bare cursor with cursor('name') for all positions."`
 
-2. **All cursor names must be unique.** Two cursors with the same name in the same query (including
-   cursors contributed by snippets that were not scoped with `.for()`) throw with:
-   `"Duplicate cursor name 'name' — each cursor in a query must have a unique name. Use
-   .for('alias') to scope reused snippets."`
+2. **All cursor names must be unique.** Two cursors with the same name in the same query (including cursors contributed by snippets that were not scoped with `.for()`) throw with: `"Duplicate cursor name 'name' — each cursor in a query must have a unique name. Use .for('alias') to scope reused snippets."`
 
-These are distinct errors with distinct messages so that the user immediately knows which rule was
-violated and what to do.
+These are distinct errors with distinct messages so that the user immediately knows which rule was violated and what to do.
 
 ---
 
@@ -550,8 +480,7 @@ result.at('where').completions
 
 ### Multiple uses — scope with `.for()`
 
-When the same snippet appears more than once in a query, scope each use with `.for('alias')` to
-avoid cursor name collisions. The alias becomes a prefix in the cursor path.
+When the same snippet appears more than once in a query, scope each use with `.for('alias')` to avoid cursor name collisions. The alias becomes a prefix in the cursor path.
 
 ```ts
 const result = project.query`
@@ -565,11 +494,9 @@ result.at('hook.where').completions
 
 ### Snippet composition
 
-Snippets may be nested. The cursor path is the concatenation of all `.for()` names encountered
-from outermost to innermost, with the cursor name appended.
+Snippets may be nested. The cursor path is the concatenation of all `.for()` names encountered from outermost to innermost, with the cursor name appended.
 
-**The rule:** only `.for('alias')` calls insert a path segment. Unnamed snippet embedding is
-transparent — it does not add a path segment.
+**The rule:** only `.for('alias')` calls insert a path segment. Unnamed snippet embedding is transparent — it does not add a path segment.
 
 ```ts
 const inner = snippet`{ ${cursor('field')} }`
@@ -594,8 +521,7 @@ const result = project.query`someApi(${outer.for('ctx')})`
 → result.at('ctx.inner.field')
 ```
 
-The path is always fully visible in the source code by reading the `.for()` calls — no hidden
-naming magic.
+The path is always fully visible in the source code by reading the `.for()` calls — no hidden naming magic.
 
 ### Snippets and multiple arguments
 
@@ -637,8 +563,7 @@ const queryApis = group('queryApis', [
 ])
 ```
 
-The label is purely cosmetic. It appears in test failure messages and log output. It has no effect
-on cursor addressing or result access. Anonymous groups are fully functional.
+The label is purely cosmetic. It appears in test failure messages and log output. It has no effect on cursor addressing or result access. Anonymous groups are fully functional.
 
 ### `project.queryGroup` — full API
 
@@ -650,9 +575,7 @@ const result = project.queryGroup(queryApis, api => snippet`${api}(${rootArg})`)
 `
 ```
 
-ts-probe calls the factory once per group member, passing the API string. Each invocation's cursors
-are automatically scoped to `{apiName}.{cursorName}`. The user never sees these internal scoped
-names — they always address via the group result API described below.
+ts-probe calls the factory once per group member, passing the API string. Each invocation's cursors are automatically scoped to `{apiName}.{cursorName}`. The user never sees these internal scoped names — they always address via the group result API described below.
 
 ### Group result shape
 
@@ -721,8 +644,7 @@ if (!result.group.at('root').hasParity) {
 
 ### Cross-position parity (two snippets, no group)
 
-For the simpler case of asserting two cursor positions agree, use `toEqualCompletions` from the
-matcher addon rather than a group:
+For the simpler case of asserting two cursor positions agree, use `toEqualCompletions` from the matcher addon rather than a group:
 
 ```ts
 expect(result.at('once.where').completions)
@@ -733,14 +655,11 @@ expect(result.at('once.where').completions)
 
 ## 11. Mode Matrix
 
-`project.forModes` runs a set of test definitions once per named build target. It is designed for
-library authors who need to verify that type information survives compilation to CJS, ESM, or other
-distribution formats.
+`project.forModes` runs a set of test definitions once per named build target. It is designed for library authors who need to verify that type information survives compilation to CJS, ESM, or other distribution formats.
 
 ### Mode configuration
 
-Each mode is either a string shorthand (path to an entry file) or an object with explicit `entry`
-and optional `dts`:
+Each mode is either a string shorthand (path to an entry file) or an object with explicit `entry` and optional `dts`:
 
 ```ts
 project.forModes(
@@ -757,13 +676,11 @@ project.forModes(
 )
 ```
 
-The `dts` field is required when the entry is a compiled `.js` file that lacks embedded type
-information. ts-probe uses the `.d.ts` file as the type source for that mode.
+The `dts` field is required when the entry is a compiled `.js` file that lacks embedded type information. ts-probe uses the `.d.ts` file as the type source for that mode.
 
 ### `project.entry`
 
-Inside a `forModes` callback, the scoped project exposes `project.entry` — a plain string
-containing the current mode's entry path. It is designed for interpolation into query templates:
+Inside a `forModes` callback, the scoped project exposes `project.entry` — a plain string containing the current mode's entry path. It is designed for interpolation into query templates:
 
 ```ts
 project.forModes(modes, (project, mode) => {
@@ -782,15 +699,13 @@ project.forModes(modes, (project, mode) => {
 - The callback is invoked synchronously at test-definition time, once per mode.
 - Each invocation creates its own set of test definitions (via `it` / `test` calls inside).
 - Mode programs are built lazily — a mode whose tests are skipped is never compiled.
-- `forModes` does not create its own `describe` block. Test naming (e.g., including `[${mode}]` in
-  the test name) is the user's responsibility.
+- `forModes` does not create its own `describe` block. Test naming (e.g., including `[${mode}]` in the test name) is the user's responsibility.
 
 ---
 
 ## 12. Scoped Project Overrides
 
-`project.with()` creates a scoped clone of the project with additional or overriding configuration.
-The clone is immutable and independent — the parent project is not modified.
+`project.with()` creates a scoped clone of the project with additional or overriding configuration. The clone is immutable and independent — the parent project is not modified.
 
 ```ts
 const scoped = project.with({
@@ -803,10 +718,8 @@ const scoped = project.with({
 
 ### Merge behavior
 
-- `aliases`: merged with the parent project's aliases. Conflicting keys are overridden by the
-  `with()` value. All parent aliases remain active.
-- `files`: merged with the parent project's virtual files. Conflicting file paths are overridden by
-  the `with()` value. All parent files remain visible.
+- `aliases`: merged with the parent project's aliases. Conflicting keys are overridden by the `with()` value. All parent aliases remain active.
+- `files`: merged with the parent project's virtual files. Conflicting file paths are overridden by the `with()` value. All parent files remain visible.
 
 ### Use cases
 
@@ -843,8 +756,7 @@ const extended = base.with({ files: { 'more.d.ts': `export type Shape = 'circle'
 // extended sees both extra.d.ts and more.d.ts
 ```
 
-`project.with()` creates incremental clones backed by the same TS Program — it does not rebuild
-from scratch. See §15 for the caching model.
+`project.with()` creates incremental clones backed by the same TS Program — it does not rebuild from scratch. See §15 for the caching model.
 
 ---
 
@@ -852,8 +764,7 @@ from scratch. See §15 for the caching model.
 
 ### Setup
 
-Add to your Vitest setup file. The import is a side effect — it extends the global `expect`
-automatically:
+Add to your Vitest setup file. The import is a side effect — it extends the global `expect` automatically:
 
 ```ts
 // vitest.setup.ts
@@ -925,8 +836,7 @@ expect(result.signatureHelp).toHaveParameterCount(2)
 
 ### Type snapshots
 
-A separate snapshot bucket for type-level output. Type signatures change at a different rate than
-runtime behavior, and mixing them into the same `.snap` file creates noise during routine updates.
+A separate snapshot bucket for type-level output. Type signatures change at a different rate than runtime behavior, and mixing them into the same `.snap` file creates noise during routine updates.
 
 ```ts
 // Applied to result.hover (string | null) or result.completionItems (CompletionItem[])
@@ -934,18 +844,15 @@ expect(result.hover).toMatchTypeSnapshot()
 expect(result.completionItems).toMatchTypeSnapshot()
 ```
 
-**Snapshot file location:** `__type_snapshots__/[test-filename].type-snapshot`, adjacent to the
-test file. This mirrors Vitest's `__snapshots__` convention.
+**Snapshot file location:** `__type_snapshots__/[test-filename].type-snapshot`, adjacent to the test file. This mirrors Vitest's `__snapshots__` convention.
 
-**Updates:** use Vitest's standard `-u` / `--update` flag. ts-probe hooks into Vitest's snapshot
-lifecycle so no additional commands are needed.
+**Updates:** use Vitest's standard `-u` / `--update` flag. ts-probe hooks into Vitest's snapshot lifecycle so no additional commands are needed.
 
 **Format:** human-readable serialized strings, same style as Vitest's `.snap` files.
 
 ### Jest
 
-`ts-probe/jest` provides the same matchers for Jest. The usage is identical — replace the import
-path. All matcher names, signatures, and snapshot behavior are identical between the two adapters.
+`ts-probe/jest` provides the same matchers for Jest. The usage is identical — replace the import path. All matcher names, signatures, and snapshot behavior are identical between the two adapters.
 
 ---
 
@@ -953,8 +860,7 @@ path. All matcher names, signatures, and snapshot behavior are identical between
 
 ### Never throw on invalid positions or missing data
 
-ts-probe's results are always safe to assert against. An exception from the library should always
-be a programming error (wrong API usage), never a consequence of testing invalid TypeScript.
+ts-probe's results are always safe to assert against. An exception from the library should always be a programming error (wrong API usage), never a consequence of testing invalid TypeScript.
 
 | Situation | Behavior |
 |---|---|
@@ -969,17 +875,11 @@ be a programming error (wrong API usage), never a consequence of testing invalid
 
 ### Diagnostics are scoped to the virtual file
 
-`result.errors` and `result.diagnostics` contain diagnostics for the **virtual file only** — the
-code block you wrote in the template literal. Errors inside files you import (`./src`,
-`node_modules`) do not appear unless the import statement itself fails (which appears in the
-virtual file's diagnostics).
+`result.errors` and `result.diagnostics` contain diagnostics for the **virtual file only** — the code block you wrote in the template literal. Errors inside files you import (`./src`, `node_modules`) do not appear unless the import statement itself fails (which appears in the virtual file's diagnostics).
 
-This is a natural consequence of how the TS language service API works: `getSemanticDiagnostics`
-takes a filename and returns diagnostics for that file. No filtering needed; no `ownErrors` property
-needed.
+This is a natural consequence of how the TS language service API works: `getSemanticDiagnostics` takes a filename and returns diagnostics for that file. No filtering needed; no `ownErrors` property needed.
 
-**Implication:** if `./src` has a type error, it will not pollute your IntelliSense test results.
-Your tests remain isolated from the state of your source files.
+**Implication:** if `./src` has a type error, it will not pollute your IntelliSense test results. Your tests remain isolated from the state of your source files.
 
 ---
 
@@ -987,35 +887,23 @@ Your tests remain isolated from the state of your source files.
 
 ### One Program per project
 
-A TypeScript `Program` object is expensive to construct. ts-probe creates exactly one `Program` per
-`project` instance, during the auto-registered `beforeAll`. All queries against that project are
-**read-only** — they call `getCompletionsAtPosition`, `getSemanticDiagnostics`, etc. without
-mutating the `Program`. This means the same program handles thousands of queries in a test suite
-with no degradation.
+A TypeScript `Program` object is expensive to construct. ts-probe creates exactly one `Program` per `project` instance, during the auto-registered `beforeAll`. All queries against that project are **read-only** — they call `getCompletionsAtPosition`, `getSemanticDiagnostics`, etc. without mutating the `Program`. This means the same program handles thousands of queries in a test suite with no degradation.
 
 ### `project.with()` — incremental clones
 
-`project.with()` does not rebuild the `Program` from scratch. It creates a lightweight clone that
-adds the new virtual files and aliases to the language service host, triggering only an incremental
-update. The cost is proportional to the number of new files added, not the size of the project.
+`project.with()` does not rebuild the `Program` from scratch. It creates a lightweight clone that adds the new virtual files and aliases to the language service host, triggering only an incremental update. The cost is proportional to the number of new files added, not the size of the project.
 
 ### `forModes()` — lazy program construction
 
-Each mode in `forModes()` has its own scoped program. Programs are built lazily — the first query
-against a mode triggers its program construction. A mode whose tests are never reached (e.g., if
-only running a subset of tests) is never built.
+Each mode in `forModes()` has its own scoped program. Programs are built lazily — the first query against a mode triggers its program construction. A mode whose tests are never reached (e.g., if only running a subset of tests) is never built.
 
 ### Disposal
 
-The `afterAll` registered by `defineProject` disposes the program and releases memory. This
-happens automatically. No manual cleanup needed.
+The `afterAll` registered by `defineProject` disposes the program and releases memory. This happens automatically. No manual cleanup needed.
 
 ### Performance guidance
 
-For very large monorepos, constructing the TS Program can take several seconds. The recommended
-pattern is one `defineProject` at module scope per test file, shared across all tests in that file.
-Creating a new `defineProject` per `describe` or per `it` will be slow and is not recommended
-unless the test genuinely requires an isolated program.
+For very large monorepos, constructing the TS Program can take several seconds. The recommended pattern is one `defineProject` at module scope per test file, shared across all tests in that file. Creating a new `defineProject` per `describe` or per `it` will be slow and is not recommended unless the test genuinely requires an isolated program.
 
 ---
 
@@ -1023,20 +911,13 @@ unless the test genuinely requires an isolated program.
 
 **ts-probe is safe for concurrent use with no configuration required.**
 
-Vitest runs each test file in its own worker process (or thread). Since `defineProject` is called
-at module scope, each worker has its own `project` instance with its own `Program`. There is no
-shared mutable state between workers.
+Vitest runs each test file in its own worker process (or thread). Since `defineProject` is called at module scope, each worker has its own `project` instance with its own `Program`. There is no shared mutable state between workers.
 
-Within a single worker, `project.query` and `project.check` are synchronous. Synchronous
-operations do not interleave, even in an async test context (they complete fully before the event
-loop can schedule another). There is no intra-worker concurrency concern.
+Within a single worker, `project.query` and `project.check` are synchronous. Synchronous operations do not interleave, even in an async test context (they complete fully before the event loop can schedule another). There is no intra-worker concurrency concern.
 
-**Result:** standard Vitest concurrent mode (the default) works without any `singleThread` or
-`pool: 'forks'` configuration. This is not a workaround — it is a natural property of the
-synchronous TS language service API combined with Vitest's worker isolation.
+**Result:** standard Vitest concurrent mode (the default) works without any `singleThread` or `pool: 'forks'` configuration. This is not a workaround — it is a natural property of the synchronous TS language service API combined with Vitest's worker isolation.
 
-The spec should document this fact clearly so users do not add unnecessary configuration out of
-caution.
+The spec should document this fact clearly so users do not add unnecessary configuration out of caution.
 
 ---
 
@@ -1051,18 +932,13 @@ const ls = project.languageService
 const definitions = ls.getDefinitionAtPosition(virtualFilePath, position)
 ```
 
-The virtual file path and position calculation are internal details. ts-probe exposes a
-`project.virtualPath` helper and a `project.positionOf(cursorName)` helper (available after a
-query has been executed) to make this escape hatch usable.
+The virtual file path and position calculation are internal details. ts-probe exposes a `project.virtualPath` helper and a `project.positionOf(cursorName)` helper (available after a query has been executed) to make this escape hatch usable.
 
-This is intentionally a power-user escape hatch, not a supported first-class API. Features
-accessed this way are not covered by ts-probe's stability guarantees.
+This is intentionally a power-user escape hatch, not a supported first-class API. Features accessed this way are not covered by ts-probe's stability guarantees.
 
 ### Custom matcher sets
 
-Teams can build domain-specific matcher sets on top of ts-probe's plain value results, following
-the same pattern as `ts-probe/vitest`. A matcher pack for a specific framework (e.g., Zod, Prisma,
-tRPC) can add semantic matchers without touching ts-probe's core:
+Teams can build domain-specific matcher sets on top of ts-probe's plain value results, following the same pattern as `ts-probe/vitest`. A matcher pack for a specific framework (e.g., Zod, Prisma, tRPC) can add semantic matchers without touching ts-probe's core:
 
 ```ts
 // ts-probe-prisma/vitest.ts
@@ -1075,14 +951,11 @@ expect.extend({
 
 ### Framework adapters
 
-`project.with()` and `project.forModes()` provide enough surface area that framework-specific
-wrappers (e.g., `ts-probe-angular` that pre-configures the Angular compiler plugin) can be built
-without forking core ts-probe.
+`project.with()` and `project.forModes()` provide enough surface area that framework-specific wrappers (e.g., `ts-probe-angular` that pre-configures the Angular compiler plugin) can be built without forking core ts-probe.
 
 ### Plugin hooks — future (v2+)
 
-The following extension points are reserved for a future plugin system. They are not implemented in
-v1 but are mentioned here to document the intended expansion path:
+The following extension points are reserved for a future plugin system. They are not implemented in v1 but are mentioned here to document the intended expansion path:
 
 - `onProgramCreate` — called after the TS Program is built, allows augmentation
 - `onQueryResolved` — called after a query completes, allows post-processing results
@@ -1092,32 +965,24 @@ v1 but are mentioned here to document the intended expansion path:
 
 ## 18. Out of Scope — v1
 
-The following are deliberately excluded from v1. They may be added in future versions. The
-architecture is designed so that none of these additions would require breaking API changes.
+The following are deliberately excluded from v1. They may be added in future versions. The architecture is designed so that none of these additions would require breaking API changes.
 
 **Language service features not covered:**
 - Go-to-definition, find-references, rename symbol — zero regression value for the target use case
 - Code actions / quick fixes — same argument
 - Formatting and linting integration
 
-**Multi-file query environments:** queries operate on a single virtual file. Cross-file scenarios
-(module augmentation, declaration merging) are handled via `project.with({ files: {...} })`. True
-multi-file query environments — where you want a cursor in file A to reflect types contributed by
-file B written in the same test — are deferred to v2.
+**Multi-file query environments:** queries operate on a single virtual file. Cross-file scenarios (module augmentation, declaration merging) are handled via `project.with({ files: {...} })`. True multi-file query environments — where you want a cursor in file A to reflect types contributed by file B written in the same test — are deferred to v2.
 
 **Watch mode:** ts-probe is a test-time utility. Incremental watch support is v2+.
 
-**Async query API:** the TS language service is synchronous. There is no async version of
-`getCompletionsAtPosition`. Forcing an async API surface would add `await` noise with no benefit.
-If a future TypeScript version introduces an async language service, ts-probe may expose an async
-path as an opt-in.
+**Async query API:** the TS language service is synchronous. There is no async version of `getCompletionsAtPosition`. Forcing an async API surface would add `await` noise with no benefit. If a future TypeScript version introduces an async language service, ts-probe may expose an async path as an opt-in.
 
 ---
 
 ## 19. Phased Implementation Roadmap
 
-Each phase has a clear, testable outcome. A phase is complete when its own tests pass and no
-prior-phase tests are broken.
+Each phase has a clear, testable outcome. A phase is complete when its own tests pass and no prior-phase tests are broken.
 
 ### Phase 1 — Core Foundation
 
@@ -1214,9 +1079,7 @@ prior-phase tests are broken.
 
 ## 20. Complete Real-World Example
 
-This example demonstrates the full API surface together. It is designed to be readable without
-additional context — someone encountering this test file for the first time should understand what
-is being tested.
+This example demonstrates the full API surface together. It is designed to be readable without additional context — someone encountering this test file for the first time should understand what is being tested.
 
 ```ts
 import { defineProject, cursor, group, snippet } from 'ts-probe'
@@ -1395,5 +1258,4 @@ describe('hypothetical type environment', () => {
 
 ---
 
-*End of specification. This document, together with the phased roadmap in §19, constitutes the
-complete blueprint for implementing ts-probe v1.*
+*End of specification. This document, together with the phased roadmap in §19, constitutes the complete blueprint for implementing ts-probe v1.*
