@@ -511,8 +511,19 @@ result.at('empty').hover           // string | null
 result.diagnostics                 // Diagnostic[] — file-wide, not per-cursor
 ```
 
-Mixing a bare `cursor` with named `cursor('name')` calls in the same query is a runtime error with
-a clear message: "All cursors in a multi-cursor query must be named."
+A query with more than one cursor position has two validation rules:
+
+1. **All cursors must be named.** A bare `cursor` may not appear alongside a named `cursor('name')`
+   in the same query. Doing so throws with: `"Mixed cursor types detected — bare cursor cannot be
+   used alongside named cursors. Replace bare cursor with cursor('name') for all positions."`
+
+2. **All cursor names must be unique.** Two cursors with the same name in the same query (including
+   cursors contributed by snippets that were not scoped with `.for()`) throw with:
+   `"Duplicate cursor name 'name' — each cursor in a query must have a unique name. Use
+   .for('alias') to scope reused snippets."`
+
+These are distinct errors with distinct messages so that the user immediately knows which rule was
+violated and what to do.
 
 ---
 
@@ -566,21 +577,21 @@ const outer = snippet`{ nested: ${inner} }`
 
 // Unscoped — 'inner' is transparent; path is just 'field'
 project.query`someApi(${outer})`
-// → result.at('field')
+→ result.at('field')
 
 // Outer scoped — path is 'ctx.field'
 project.query`someApi(${outer.for('ctx')})`
-// → result.at('ctx.field')
+→ result.at('ctx.field')
 
 // Inner scoped — path is 'inner.field'
 const inner = snippet`{ ${cursor('field')} }`
 const outer = snippet`{ nested: ${inner.for('inner')} }`
 project.query`someApi(${outer})`
-// → result.at('inner.field')
+→ result.at('inner.field')
 
 // Both scoped — path concatenates all .for() segments
 const result = project.query`someApi(${outer.for('ctx')})`
-// → result.at('ctx.inner.field')
+→ result.at('ctx.inner.field')
 ```
 
 The path is always fully visible in the source code by reading the `.for()` calls — no hidden
@@ -951,7 +962,9 @@ be a programming error (wrong API usage), never a consequence of testing invalid
 | `completionItem('nonexistent')` | Returns `undefined` |
 | Code with parse errors | Parse errors appear in `result.errors`; all other fields represent what TS could partially infer |
 | Import fails to resolve | Module-not-found appears in `result.errors` (scoped to the virtual file) |
-| Snippet used without `.for()` in a multi-use context | Runtime error with clear message: "snippet used in multiple positions without .for() — add .for('alias') to each use" |
+| Bare `cursor` mixed with named `cursor('name')` in the same query | Runtime error: `"Mixed cursor types detected — bare cursor cannot be used alongside named cursors. Replace bare cursor with cursor('name') for all positions."` |
+| Two cursors share the same name in the same query | Runtime error: `"Duplicate cursor name 'name' — each cursor in a query must have a unique name. Use .for('alias') to scope reused snippets."` |
+| Snippet used without `.for()` in a multi-use context | Runtime error: `"snippet used in multiple positions without .for() — add .for('alias') to each use"` |
 | `cursor` interpolated outside a `project.query` or `snippet` | Runtime error with clear message |
 
 ### Diagnostics are scoped to the virtual file
@@ -1135,7 +1148,10 @@ prior-phase tests are broken.
 - Named cursors in `project.query` — `cursor('name')` form
 - `result.at('name')` for multi-cursor queries
 - `files` option in `defineProject` — virtual file injection
-- Validation and error messages for invalid API usage
+- Validation and error messages for all invalid cursor usage:
+  - Bare `cursor` mixed with named `cursor('name')` in the same query
+  - Duplicate cursor names within the same query (including names contributed by unscoped snippets)
+  - `cursor` used outside a `project.query` or `snippet` template
 
 ### Phase 3 — Composition Primitives
 
@@ -1203,7 +1219,7 @@ additional context — someone encountering this test file for the first time sh
 is being tested.
 
 ```ts
-import { cursor, defineProject, group, snippet } from 'ts-probe'
+import { defineProject, cursor, group, snippet } from 'ts-probe'
 import { describe, expect, it } from 'vitest'
 import 'ts-probe/vitest'
 
