@@ -504,21 +504,21 @@ const outer = snippet`{ nested: ${inner} }`
 
 // Unscoped — 'inner' is transparent; path is just 'field'
 project.query`someApi(${outer})`
-→ result.at('field')
+// → result.at('field')
 
 // Outer scoped — path is 'ctx.field'
 project.query`someApi(${outer.for('ctx')})`
-→ result.at('ctx.field')
+// → result.at('ctx.field')
 
 // Inner scoped — path is 'inner.field'
 const inner = snippet`{ ${cursor('field')} }`
 const outer = snippet`{ nested: ${inner.for('inner')} }`
 project.query`someApi(${outer})`
-→ result.at('inner.field')
+// → result.at('inner.field')
 
 // Both scoped — path concatenates all .for() segments
 const result = project.query`someApi(${outer.for('ctx')})`
-→ result.at('ctx.inner.field')
+// → result.at('ctx.inner.field')
 ```
 
 The path is always fully visible in the source code by reading the `.for()` calls — no hidden naming magic.
@@ -1082,7 +1082,7 @@ Each phase has a clear, testable outcome. A phase is complete when its own tests
 This example demonstrates the full API surface together. It is designed to be readable without additional context — someone encountering this test file for the first time should understand what is being tested.
 
 ```ts
-import { defineProject, cursor, group, snippet } from 'ts-probe'
+import { cursor, defineProject, group, snippet } from 'ts-probe'
 import { describe, expect, it } from 'vitest'
 import 'ts-probe/vitest'
 
