@@ -52,7 +52,7 @@
     "selfLink": false,
     "main": true,
     "module": true,
-    "project": "./tsconfig.json",
+    "project": "./tsconfig.build.json",
     "exports": {
       "./package.json": "./package.json",
       ".": "./src/index.ts",
@@ -63,6 +63,7 @@
   "files": [
     "!dist/**/*.spec.*",
     "!dist/**/*.test.*",
+    "!dist/**/tests/**",
     "dist"
   ],
   "scripts": {
@@ -74,8 +75,9 @@
     "test:watch": "vitest",
     "test:ci": "vitest run",
     "build:tshy": "tshy",
+    "build:strip-test-artifacts": "rm -rf dist/commonjs/tests dist/esm/tests",
     "build:cli-compat": "cp dist/commonjs/cli.d.ts dist/cli.d.ts && printf \"module.exports = require('./commonjs/cli.js')\\n\" > dist/cli.js",
-    "build": "rm -rf dist && pnpm run build:tshy && pnpm run build:cli-compat && pnpm run check-exports"
+    "build": "rm -rf dist && pnpm run build:tshy && pnpm run build:strip-test-artifacts && pnpm run build:cli-compat && pnpm run check-exports"
   },
   "peerDependencies": {
     "@instantdb/admin": "workspace:*",
