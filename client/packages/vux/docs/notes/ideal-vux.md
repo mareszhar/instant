@@ -84,10 +84,8 @@ Before architecture, here is what the ideal Vux feels like to write. This is the
 // or requires manual lazy-init boilerplate:
 import { init } from '@instantdb/vue'
 
-// Vux — defineDb handles the lazy-init + memoization pattern
-import { defineDb } from '@mszr/idb-vux'
-
 let db: ReturnType<typeof init<typeof schema>>
+
 export function useDb() {
   if (!db) {
     const appId = useRuntimeConfig().public.instantAppId
@@ -97,6 +95,12 @@ export function useDb() {
   }
   return db
 }
+```
+
+```ts
+// Vux — defineDb handles the lazy-init + memoization pattern
+import { defineDb } from '@mszr/idb-vux'
+
 export const useDb = defineDb({
   schema,
   getAppId: () => useRuntimeConfig().public.instantAppId,
@@ -107,53 +111,116 @@ export const useDb = defineDb({
 ### Queries — the biggest ergonomic improvement
 
 ```ts
-// Official Vue SDK — where objects are validated (namespaces + basic structure)
-// but you always get back raw data that needs ceremony before use
-const { isLoading, data, error } = db.useQuery({ todos: {} })
-const todos = computed(() => data.value?.todos ?? []) // ① manual normalization
-const firstTodo = computed(() => todos.value[0] ?? null) // ② manual singularization
-
-// Vux X — normalized by default, full validation built into the inline object
-const { isLoading, error, todos } = db.useQueryX({ todos: {} })
-// todos.value: Todo[] — never undefined                   ① eliminated
-
-// Vux X with limit: 'one' — type reflects the semantic intent
-const { isLoading, error, workspace } = db.useQueryX({
-  workspace: { $: { where: { inviteCode: code }, limit: 'one' } },
+// Official Vue SDK — query objects are validated (namespaces + basic structure), but you get data that typically needs ceremony before use
+const { data } = db.useQuery({
+  workspaces: {
+    $: { where: { id: workspaceId } },
+  }, // Workspace[] | undefined
+  todos: {} // Todo[] | undefined
 })
-// workspace.value: Workspace | null                       ② eliminated
+
+const workspace = computed(() => data.value?.workspaces?.[0]) // Workspace | undefined
+const todos = computed(() => data.value?.todos ?? []) // Todo[]
+```
+
+```ts
+// Vux X — normalization and full validation built into the inline object, top-level namespaces are directly destructurable
+const { workspaces: workspace, todos } = db.useQuery({
+  workspaces: {
+    $: { where: { id: workspaceId }, pick: 'first' },
+  }, // Workspace | undefined
+  todos: {} // Todo[]
+})
+
+// no need for any additional massaging!
+```
+
+alternatively, vux could also allow `$first: boolean` and `$last: boolean` keys in the `$:` object (in addition to 'pick'), and export shorthands like `export const $first: true` and `export const $last: true`. This way, users could write: `$: { $first }` instead of `$: { pick: 'first' }`. This shorthand is similar to `$skip`, which just maps to `undefined` to skip a filter entirely (`where: { isDone: activeView ?? $skip }`)
+
+```ts
+// Official Vue - validates where-clauses, but with many limitations
+const query = db.useQuery({
+  todos: {
+    $: {
+      where: {
+        isDone: { $ilike: '%true%' }, // no linter warning even though ilike only works on indexed strings
+        title: false, // warns, but message is "Type 'false' is not assignable to type 'undefined'."
+      },
+    },
+  },
+})
+```
+
+```ts
+// Vux - smarter validation with clearer error messages
+
+const query = db.useQueryX({
+  todos: {
+    $: {
+      where: {
+        isDone: { $ilike: '%true%' }, // error: Operator $ilike is only available for indexed string attributes.
+        title: false, // error: Type 'boolean' is not assignable to attribute `title` of type string
+      },
+    },
+  },
+})
 ```
 
 ### Dynamic queries — factory syntax with structural validation
 
 ```ts
-// Official Vue — validates namespace keys and basic structure,
-// but where-clause attribute keys and operator types are not checked
-const { data } = db.useQuery(() => {
+// Official Vue — no intellisense at all in factory syntax. validation and inference still work, but errors underline the call site, not the trigger line
+
+const dynamicQuery = db.useQuery(() => {
   if (!userId)
     return null
-  return { todos: { $: { where: { 'owner.id': userId, 'isDon': false } } } }
-  //                                                   ↑ typo — no diagnostic here
-})
 
-// Vux X inline — full deep validation, errors localized to the specific field
-const { todos } = db.useQueryX({
-  todos: { $: { where: { 'owner.id': userId, 'isDon': false } } }
-  //                                          ↑ QERR_WHERE_KEY_UNKNOWN: isDon is not
-  //                                            a valid where key on todos. Did you
-  //                                            mean isDone?
+  // no schema-aware nor query-construction intellisense available in factory syntax
+  return {
+    todos: {
+      $: { where: { isDone: 'lol' } },
+      // a mistake here flags the entire useQuery call
+    },
+  }
 })
+```
 
-// Vux X factory — structural validation (namespace + link labels) without q().
-// Wrap the returned object in q() for full deep where-clause validation inside factories.
-const { todos } = db.useQueryX(() => {
-  if (!auth.user?.id)
-    return null
-  return q({ // ← q() here enables deep where-clause validation inside the factory
-    todos: { $: { where: { 'owner.id': auth.user.id, 'isDon': false } } }
-    //                                                ↑ error localized here via q()
+```ts
+// Vux - use `q` for full deep validation and errors localized to the specific offending code. works with any query (can bring better intellisense to the regular apis and dynamic queries)
+
+const q = defineQuery<AppSchema>() // done once, shared across the codebase.
+
+// can help share one query among multiple callers
+function query(isDone?: boolean) {
+  return q({
+    // schema-aware and query-construction intellisense available here
+    todos: {
+      $: { where: { isDone } }
+      // a mistake here would flag only the offending bit of code
+    }
   })
+}
+
+const callerOne = db.useQuery(query(false))
+const callerTwo = db.useQuery(query(true))
+
+// can also be used to bring vux-quality intellisense/validation to the regular apis
+
+const regularQuery = db.useQuery(q({
+  // vux-quality intellisense and validation here
+}))
+
+// or to the factory syntax
+
+const dynamicQuery = db.useQueryX(() => {
+  if (!userId)
+    return null
+  return q({ /* intellisense and contextual validation here! */ })
 })
+
+// x apis get q-like intellisense and validation automatically in the regular object syntax
+
+const xQuery = db.useQueryX({ /* q-like intellisense and validation here */})
 ```
 
 **Research finding:** TypeScript CAN validate factory return types with a two-overload approach, and invalid factories do produce errors that name the offending field. However, in factory syntax the error surfaces at the call site (as a "no overload matches" detail), not on the specific field. For fully localized in-context errors inside factories, wrapping in `q()` is the right path. Without `q()`, factory syntax still gets namespace and link-label validation — which is already better than the official SDK.
@@ -173,6 +240,7 @@ export const useIdb = defineStore('idb', () => {
 // Consuming store in another store — auth.user is read directly, no .value
 export const useTasks = defineStore('tasks', () => {
   const { db, auth } = useIdb()
+  const workspaces = useWorkspaces()
 
   const { isLoading, error, tasks } = db.useQueryX(() => {
     if (!auth.user?.id)
@@ -209,7 +277,7 @@ const { workspaces } = await adminDb.queryX(q({
 // workspaces: Workspace[] — never undefined
 
 const { workspace } = await adminDb.queryX(q({
-  workspace: { $: { where: { id: workspaceId }, limit: 'one' } },
+  workspace: { $: { where: { id: workspaceId }, $first } },
 }))
 // workspace: Workspace | null
 ```
@@ -282,7 +350,7 @@ export default p.rules({
 
 ### Why `/admin` and `/nuxt` are separate
 
-Admin SDK ergonomics (`queryX`, array normalization, `limit: 'one'`, typed `lookup`) don't depend on H3 or Nuxt. They work in any server context — Express, Nitro, plain Node. These go in `/admin`.
+Admin SDK ergonomics (`queryX`, array normalization, `pick: 'first' | 'last'`, `$first | $last` shorthands, typed `lookup`) don't depend on H3 or Nuxt. They work in any server context — Express, Nitro, plain Node. These go in `/admin`.
 
 The Nuxt-specific layer adds things that depend on H3 event context: request-scoped auth caching on `event.context`, and eventually the SSR hydration plugin. These go in `/nuxt`.
 
@@ -354,7 +422,7 @@ Every X API returns: top-level refs for destructuring, `.refs` for composable pa
 
 | API | Improvement over baseline |
 |---|---|
-| `db.useQueryX(query, opts?)` | Namespace arrays default to `[]`; `limit: 'one'` returns `Entity \| null`; inline objects get full schema-aware validation |
+| `db.useQueryX(query, opts?)` | Namespace arrays default to `[]`; `pick: 'first' \| 'last'` returns `Entity \| null`; inline objects get full schema-aware validation |
 | `db.useInfiniteQueryX(query, opts?)` | Same pattern for paginated queries |
 | `db.queryOnceX(query, opts?)` | Typed + namespace array defaults; async |
 | `db.useAuthX()` | `refs + state` ergonomics |
@@ -380,7 +448,7 @@ import { init } from '@mszr/idb-vux/admin'
 const adminDb = init({ appId, adminToken, schema })
 
 // All X ergonomics available:
-adminDb.queryX(query) // typed + array normalization + limit: 'one'
+adminDb.queryX(query) // typed + array normalization + pick: 'first' | 'last' or $first or $last shorthands normalization
 adminDb.queryOnceX(query) // same, async
 adminDb.transact(/* ... */) // same as core admin
 adminDb.tx // same as core admin
@@ -425,7 +493,7 @@ const { isLoading } = db.useQueryX({ todos: {} })
 watch(isLoading, loading => console.log('loading:', loading))
 ```
 
-`state` is not useful as a direct accessor (`query.state.todos` vs `todos.value` are equivalent). Its value is as a remapped scope name: `const { state: tasks } = ...` and then `tasks.todos`, `tasks.isLoading` throughout — no `.value` anywhere in that scope.
+`state` is not useful as a direct accessor (`state.todos` vs `todos.value` are equivalent). Its value is as a remapped scope name: `const { state: user } = ...` and then `user.todos`, `user.isLoading` throughout — no `.value` anywhere in that scope.
 
 ### 6.2 Namespace array normalization
 
