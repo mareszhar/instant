@@ -135,7 +135,7 @@ const { workspaces: workspace, todos } = db.useQuery({
 // no need for any additional massaging!
 ```
 
-Vux also exports `$first` and `$last` boolean shorthand constants (both typed as `true`) that can be spread directly into `$:` objects: `$: { $first }` is equivalent to `$: { pick: 'first' }`. This mirrors the `$skip` shorthand pattern (`where: { isDone: activeView ?? $skip }`). The shorthands read especially naturally in the server-side admin context (see §5.3 and §9).
+Vux also exports `$first` and `$last` as `true` constants. Because they share names with the `$:` object keys they enable, they work as JavaScript property shorthands: `$: { $first }` expands to `$: { $first: true }` and is equivalent to `$: { pick: 'first' }`. This mirrors the `$skip` pattern (`where: { isDone: activeView ?? $skip }`).
 
 ```ts
 // Official Vue - validates where-clauses, but with many limitations
@@ -293,17 +293,12 @@ db.tx.memberships[id()].link({ workspace: lookup('inviteCode', inviteCode) })
 // shared/utils/idb.ts
 export const lu = defineLookup<AppSchema>()
 
-// Primary use: loose form inside .link() — namespace-keyed, field validated as unique attr, value typed
-db.tx.memberships[id()].link({ workspace: lu.workspaces('inviteCode', inviteCode) })
-//                                            ↑ EntityName<Schema>
-//                                                        ↑ unique attr of workspaces ✓
-//                                                                   ↑ must match attr type ✓
+// Primary use: loose form inside .link() — namespace + attr validated, value typed
+db.tx.memberships[id()].link({ workspace: lu('workspaces', 'inviteCode', inviteCode) })
+//                                                ↑ namespace ✓   ↑ unique attr ✓   ↑ typed ✓
 
-// Chain form — official SDK already handles this well:
+// Chain form — official SDK already handles this well; lu adds nothing here:
 db.tx.$users.lookup('email', 'eva@...').update({ name: 'Eva' })
-// lu is equivalent here:
-db.tx.$users[lu.$users('email', 'eva@...')].update({ name: 'Eva' })
-// Both validate: 'email' must be unique attr of $users, value must match its type (though, ofc, there's no good reason to use `lu` in that scenario)
 ```
 
 ### Permissions — safe, schema-aware, still readable
@@ -321,11 +316,11 @@ export default p.rules({
     bind: {
       isMember: p.auth.id.in(p.data.ref('memberships.user.id')),
       //             reads as: "auth.id in data.ref(...)"
-      hasInviteCode: p.ruleParam('inviteCode').neq(p.null()).and(p.ruleParam('inviteCode').eq(p.data.field('inviteCode'))),
+      hasInviteCode: p.ruleParam('inviteCode').neq(null).and(p.ruleParam('inviteCode').eq(p.data.field('inviteCode'))),
     },
     allow: {
       view: p.var('isMember').or(p.var('hasInviteCode')),
-      create: p.auth.id.neq(p.null()),
+      create: p.auth.id.neq(null),
       update: p.var('isMember'),
       delete: p.var('isMember'),
     },
@@ -434,7 +429,7 @@ Every X API returns: top-level refs for destructuring, `.refs` for composable pa
 | Utility | Purpose |
 |---|---|
 | `defineQuery<Schema>()` | Returns a `q()` helper for schema-aware query authoring. Inline `useQueryX({})` objects have equivalent validation built in — `q` is most valuable in factory syntax `useQueryX(() => q(...))` and for named/reusable queries. `q` is schema-scoped (not db-scoped) and works identically on client and server. |
-| `defineLookup<Schema>()` | Returns a namespace-keyed lookup helper `lu`. `lu.workspaces('inviteCode', value)` validates that `'inviteCode'` is an indexed attribute of `workspaces` and that `value` matches its type. Same design pattern as `defineQuery`. |
+| `defineLookup<Schema>()` | Returns a typed lookup function `lu`. `lu('workspaces', 'inviteCode', value)` validates that `'inviteCode'` is a unique attribute of `workspaces` and that `value` matches its type. Same design pattern as `defineQuery`. |
 | `defineDb(config)` | Memoized db factory for runtime-resolved app IDs. Handles the lazy-init singleton pattern. |
 
 ### 5.4 Admin utilities (`@mszr/idb-vux/admin`)
@@ -543,16 +538,18 @@ const { post } = db.useQueryX({ post: { $: { where: { slug: 'hello-world' }, pic
 const { latest } = db.useQueryX({ latest: { $: { limit: 1, orderBy: { createdAt: 'desc' }, pick: 'first' } } })
 ```
 
-**Shorthand exports:** `$first` and `$last` are exported as `true` constants that can be spread into `$:` objects:
+**Shorthand exports:** `$first` and `$last` are exported `true` constants. Because they share names with the keys they enable, they work as JavaScript property shorthands in the `$:` object:
 
 ```ts
 import { $first, $last } from '@mszr/idb-vux'
 
 const { workspace } = db.useQueryX({
   workspace: { $: { where: { inviteCode: code }, $first } },
+  // ↑ property shorthand: expands to { $first: true }, equivalent to pick: 'first'
 })
-// Equivalent to pick: 'first' — reads naturally as "give me the first"
 ```
+
+The `$:` object supports three mutually exclusive singularity keys: `pick: 'first' | 'last'`, `$first?: boolean`, `$last?: boolean`. Setting `$first` or `$last` to `false` is a no-op — the exported constants are `true`, making `false` an unlikely accident in practice.
 
 **Why not auto-infer singularity?** Several query shapes guarantee at most one result: filtering by `id`, filtering by a `.unique()` attribute, `limit: 1`, `first: 1`, `last: 1`. TypeScript *could* infer singularity from these. The reason to prefer explicit `pick` over auto-inference:
 
@@ -563,24 +560,45 @@ Auto-inference remains a future spike for the most common static cases (filterin
 
 ### 6.4 X-compatible type utilities
 
-When you accept X-shaped data in a function or store, you need types that match what `useQueryX` actually returns (normalized arrays, singular for `pick: 'first' | 'last'`, etc.)
-
-The current `InstaQLEntity<Schema, 'tasks', { assignee: {} }>` type matches IDB's raw return shape. Vux needs equivalent utilities for the massaged shape:
+`InstaQLEntity<Schema, 'tasks'>` already returns a single entity type — not an array. It already correctly infers link cardinality: `has: 'one'` links become `Entity | undefined`, `has: 'many'` links become `Entity[]`. So `InstaQLEntity` already conforms well to the X shape for most cases:
 
 ```ts
-// Planned: InstaQLEntityX mirrors what useQueryX returns
-type Task = InstaQLEntityX<AppSchema, 'tasks'>
-// Task[] is what tasks.value gives you (arrays)
+// Works as-is for typing X query results
+type Todo = InstaQLEntity<AppSchema, 'todos', { assignee: {} }>
+// Todo is: { id, title, isDone, ..., assignee: User | undefined }
 
-type TaskWithAssignee = InstaQLEntityX<AppSchema, 'tasks', { assignee: {} }>
-// TaskWithAssignee[] with assignee: User | undefined inside
+type Todos = Todo[] // matches todos.value from useQueryX
 
-// For pick: 'first' | 'last' shape:
-type MaybeWorkspace = InstaQLEntityX<AppSchema, 'workspaces', {}, 'first'>
-// Workspace | undefined
+function expectTodos(todos: Todo[]) {}
+const { todos } = db.useQueryX({ todos: { assignee: {} } })
+expectTodos(todos.value) // ✓
 ```
 
-The exact API shape of these type helpers is TBD. The goal: type definitions and runtime returns should be derivable from the same schema + query shape without duplication.
+The two gaps worth addressing with a Vux type utility:
+
+**Gap 1 — Schema-bound binding.** Passing `AppSchema` at every call site is repetitive. A `DefineInstaQLEntity` pattern fixes this:
+
+```ts
+// Once, co-located with the schema
+type IdbEntity = DefineInstaQLEntity<AppSchema>
+
+// Everywhere else
+type Todo = IdbEntity<'todos'>
+type TodoWithAssignee = IdbEntity<'todos', { assignee: {} }>
+```
+
+**Gap 2 — Singularity coercion for `pick`.** When a query uses `$one` on a namespace, the result is `Entity | undefined`, not `Entity[]`. There's no built-in type utility for this. Planned syntax (TBD. Unlike queries, it doesn't matter if the entity picked is the first or last, we only care about coercing the array into a single entity):
+
+```ts
+type UserLastTodo = IdbEntity<'users', {
+  todos: {
+    $one // should coerce `todos` into Todo | undefined
+    notes: {} // it should still be possible to nest other valid queries, inferred as Note[] like usual
+  }
+}>
+```
+
+The exact API shape is TBD. The goal: type definitions and runtime returns are derivable from the same schema + query shape without duplication.
 
 ### 6.5 Pinia safety
 
@@ -647,66 +665,38 @@ The approach: write selenita intellisense tests to identify exactly which cursor
 
 ### 7.5 `defineLookup<Schema>()` — typed lookups
 
-`lookup(field, value)` from core is untyped. `defineLookup` fixes this for the contexts where type safety is actually missing.
+The official `lookup()` free function is completely untyped (`lookup(attribute: string, value: any)`). `defineLookup` fills that gap specifically for the **loose form** — `.link()` contexts where lookup is passed as a free function value.
 
 ```ts
 // shared/utils/idb.ts
 export const lu = defineLookup<AppSchema>()
-//  lu is a proxy with namespace-keyed methods
-//  lu.workspaces(field, value) — field must be a unique attr of workspaces, value must match its type
-//  lu.$users(field, value)     — field must be a unique attr of $users
-```
 
-**Where `lu` adds value — the loose (free-function) form:**
-
-The official `lookup()` free function is completely untyped (`lookup(attribute: string, value: any)`). This is the gap `defineLookup` fills:
-
-```ts
-// Current — no validation whatsoever
+// Without lu — no validation whatsoever
 db.tx.memberships[id()].link({ workspace: lookup('inviteCode', inviteCode) })
 //                                         ↑ any string, any value
 
-// With lu — namespace-keyed, validated
-db.tx.memberships[id()].link({ workspace: lu.workspaces('inviteCode', inviteCode) })
-//                                            ↑ EntityName<Schema>
-//                                                        ↑ unique attr of workspaces ✓
-//                                                                   ↑ must match attr type ✓
-
-// Chained lookups in the same transaction
-db.tx.users[lu.$users('email', 'user@...')].link({
-  posts: lu.posts('number', 15),
-})
+// With lu — namespace explicit, attr validated as unique, value typed
+db.tx.memberships[id()].link({ workspace: lu('workspaces', 'inviteCode', inviteCode) })
+//                                                ↑ namespace name ✓
+//                                                              ↑ unique attr of workspaces ✓
+//                                                                         ↑ must match attr type ✓
 ```
 
-**Where `lu` does NOT add value — the chain form:**
+Note: the official SDK's typed tx chain (`.lookup()` on `db.tx`) already validates unique attrs and value types in chain position — `db.tx.$users.lookup('email', value)` is already fully typed. `lu` adds nothing there. Its value is exclusively in the loose form.
 
-The official SDK's typed tx chain already validates lookups in chain position. `ETypeChunk.lookup()` constrains `attrName` to `UniqueKeys<...>` (only attributes marked `.unique()` in the schema) and types `value` against the attribute type. So `db.tx.$users.lookup('email', 'eva@...')` is already fully typed and safe. Using `lu` in chain position (`db.tx.$users[lu.$users('email', ...)]`) is equivalent and equally safe — choose whichever reads better.
+**Future direction — `db.txX`:**
 
-One important constraint: **the lookup namespace must match the tx target namespace**. `lu.$users('email', value)` produces a lookup for the `$users` namespace and should only appear in `db.tx.$users[...]`. Using it as `db.tx.profiles[lu.$users('email', ...)]` asks IDB to find a `profiles` entity with a `$users` email attribute — the attribute doesn't exist on profiles and the lookup will fail.
-
-**Linked attribute paths are not supported.** IDB's `lookup()` encodes a single attribute name, not a dot-path (`lookup('inviteCode', value)` → `lookup__inviteCode__"value"`). There is no way to traverse a relationship before matching — e.g., `lookup('workspace.inviteCode', value)` is not valid IDB syntax.
-
-**Syntax recommendation — `lu.namespace()` over `lu('namespace', ...)`:**
-
-The namespace-keyed proxy form (`lu.workspaces('attr', value)`) is preferred over a positional call form (`lu('workspaces', 'attr', value)`) because the proxy narrows the suggestion context at each step: after `lu.`, IntelliSense surfaces namespace names; after `lu.workspaces(`, it surfaces only unique attributes of that namespace. A single positional call can only validate after all args are typed.
-
-`defineLookup` is schema-scoped (not db-scoped) — same justification as `defineQuery`: it only needs the schema, not a db instance, so it can be shared between client and server.
-
-**Ergonomic gap and future direction:**
-
-`lu.workspaces('inviteCode', ...)` still requires the developer to name `'workspaces'` even though `.link({ workspace: ... })` already implies the target namespace from the schema. The ideal end state is a typed tx chain where `.link()` accepts dot-path keys that carry both the namespace and the attribute:
+`lu('workspaces', 'inviteCode', ...)` still requires naming `'workspaces'` even though `.link({ workspace: ... })` implies it from the schema. The long-term goal is a typed tx chain where `.link()` accepts dot-path keys directly:
 
 ```ts
-// Long-term goal: db.txX — link() validates namespace + unique attr in one
+// Long-term: db.txX — link() validates namespace + unique attr in one
 db.txX.memberships[id()].link({
   'workspace.inviteCode': inviteCode,
-  //  ↑ 'workspace' links to 'workspaces' per schema
-  //            ↑ 'inviteCode' is suggested as a unique attr of workspaces
-  //                          ↑ value typed against inviteCode's type
+  // ↑ 'workspace' → 'workspaces' per schema; 'inviteCode' validated as unique attr; value typed
 })
 ```
 
-This requires vux to reimplement the tx chain (`db.txX`). Internally vux would recognize the dot-path key, look up the target namespace from the schema, and construct the appropriate `lookup()` call. Track as the `txX` future milestone.
+Track as the `txX` future milestone.
 
 ---
 
@@ -727,8 +717,8 @@ Rather than purely functional (`p.in(a, b)`) or template literal forms, the perm
 p.auth.id.in(p.data.ref('memberships.user.id'))
 // reads: "auth.id in data.ref(...)"
 
-p.auth.id.neq(p.null())
-// reads: "auth.id not equal to null"
+p.auth.id.neq(null)
+// reads: "auth.id not equal to null" — raw JS values accepted directly
 
 p.ruleParam('inviteCode').eq(p.data.field('inviteCode'))
 // reads: "ruleParam('inviteCode') equals data.field('inviteCode')"
@@ -739,7 +729,7 @@ For multi-operand logical combinations, both chained (binary) and free-function 
 ```ts
 // Chain — reads left to right
 p.var('isMember').or(p.var('hasInviteCode'))
-p.ruleParam('code').neq(p.null()).and(p.ruleParam('code').eq(p.data.field('inviteCode')))
+p.ruleParam('code').neq(null).and(p.ruleParam('code').eq(p.data.field('inviteCode')))
 
 // Free function — for 3+ operands or complex nesting
 p.and(p.var('a'), p.var('b'), p.var('c'))
@@ -748,26 +738,25 @@ p.or(p.var('x'), p.var('y'), p.var('z'))
 
 ### 8.3 API comparison
 
-**Approach A: Purely functional**
+**Approach A: Purely functional (not recommended)**
 
 ```ts
 workspaces: p.entity({
   bind: {
     isMember: p.in(p.auth.id, p.data.ref('memberships.user.id')),
     hasInviteCode: p.and(
-      p.neq(p.ruleParam('inviteCode'), p.null()),
+      p.neq(p.ruleParam('inviteCode'), null),
       p.eq(p.ruleParam('inviteCode'), p.data.field('inviteCode')),
     ),
   },
   allow: {
     view: p.or(p.var('isMember'), p.var('hasInviteCode')),
-    create: p.neq(p.auth.id, p.null()),
+    create: p.neq(p.auth.id, null),
   },
 })
 ```
 
-Pros: composable, predictable parameter order
-Cons: reads inside-out — the outer operation is named first, operands come later. In complex expressions, you have to parse backwards to understand what's being compared to what.
+Reads inside-out — outer operation named first, operands come later. Hard to parse in complex expressions.
 
 **Approach B: Fluent (recommended)**
 
@@ -775,37 +764,32 @@ Cons: reads inside-out — the outer operation is named first, operands come lat
 workspaces: p.entity({
   bind: {
     isMember: p.auth.id.in(p.data.ref('memberships.user.id')),
-    hasInviteCode: p.ruleParam('inviteCode').neq(p.null()).and(p.ruleParam('inviteCode').eq(p.data.field('inviteCode'))),
+    hasInviteCode: p.ruleParam('inviteCode').neq(null).and(p.ruleParam('inviteCode').eq(p.data.field('inviteCode'))),
   },
   allow: {
     view: p.var('isMember').or(p.var('hasInviteCode')),
-    create: p.auth.id.neq(p.null()),
+    create: p.auth.id.neq(null),
   },
 })
 ```
 
-Pros: reads left to right, subject-first — "auth.id in [list]" not "in(auth.id, [list])". Familiar to anyone who has used assertion libraries or query builders. Type-safe: `.in()` is only available on expressions that produce list-compatible subjects.
-Cons: `.and()` chaining for deeply nested multi-condition expressions can be slightly harder to parse than the free-function form.
-
-**Hybrid in practice:** use fluent for binary expressions, free functions for n-ary logical grouping:
+Reads left to right, subject-first. Familiar to anyone who has used query builders or assertion libraries. Type-safe: `.in()` is only available on list-compatible expression nodes. For n-ary logical grouping, free-function forms:
 
 ```ts
 hasAccess: p.and(
-  p.auth.id.neq(p.null()),
+  p.auth.id.neq(null),
   p.var('isMember').or(p.var('hasInviteCode')),
   p.data.field('isActive').eq(true),
 )
 ```
 
-**Approach C: Tagged template literals**
+**Approach C: Tagged template literals (escape hatch only)**
 
 ```ts
 view: cel`${p.auth.id} in ${p.data.ref('memberships.user.id')}`
 ```
 
-Closer to CEL syntax. But interpolation type-checking is fundamentally limited — TypeScript template literal types can't validate arbitrary interpolated expressions or apply action-context constraints. Ruled out for the core API. Could be offered as a convenience escape hatch for simple, unvalidated expressions.
-
-**Recommendation: Approach B (fluent) with free-function forms for n-ary logical ops.**
+TypeScript template literal types can't validate interpolated expressions or gate context availability. Ruled out for the core API; could be offered as an unvalidated escape hatch.
 
 ### 8.4 Helper reference
 
@@ -821,13 +805,12 @@ No `$` prefix — everything is cleanly scoped under `p`. Methods on expressions
 | `p.data.field('attr')` | `data.field('attr')` |
 | `p.data.ref('link.attr')` | `data.ref('link.attr')` |
 | `p.newData.field('attr')` | `newData.field('attr')` |
-| `p.linkedData(label).id` | `linkedData.id` |
-| `p.linkedData(label).field('attr')` | `linkedData.field('attr')` |
-| `p.ruleParam('name')` | `ruleParam('name')` |
+| `p.linkedData.id` | `linkedData.id` |
+| `p.linkedData.field('attr')` | `linkedData.attr` |
+| `p.ruleParam('name')` | `ruleParams.name` |
 | `p.var('name')` | `name` (bind alias) |
-| `p.null()` | `null` |
-| `p.true()` / `p.false()` | `true` / `false` |
-| `p.val('str')` / `p.val(42)` | `'str'` / `42` |
+
+Methods accept raw JS values (`null`, `true`, `false`, strings, numbers) directly — no wrapper expressions needed. For standalone `allow` rules that are always true or always false, pass the raw string `'true'` or `'false'` which IDB already accepts.
 
 **Methods on expression nodes:**
 
@@ -848,120 +831,41 @@ No `$` prefix — everything is cleanly scoped under `p`. Methods on expressions
 | `p.or(a, b, ...)` | `a \|\| b \|\| ...` |
 | `p.not(a)` | `!a` |
 
-### 8.5 Type safety scope
+### 8.5 Type safety scope and honest Phase 1 limitations
 
-Phase 1 (viable):
-- Schema path validation in `p.data.ref('...')` and `p.auth.ref('...')`
-- Link label validation in `p.linkedData(label)`
-- Typed bind variable references in `p.var(...)`
+**Phase 1 — what's validated:**
+- Logical operators are typed: `.in()` only on list-compatible subjects, `.and()`/`.or()` only on boolean expressions
+- `p.var('name')` is validated against declared bind keys
+- The overall shape (`p.rules`, `p.entity`, `bind`/`allow`/`link`/`unlink` keys) is structurally typed
 
-Phase 2 (harder):
-- Action-context gating: `p.newData` in a `view` rule is a type error
-- Link operation context: `p.linkedData` only valid in `link`/`unlink` rules
+**Phase 1 — what is NOT validated:**
+- `p.data.ref('...')` paths — unvalidated strings, same as raw CEL today
+- `p.linkedData.field('...')` attribute names — unvalidated strings
+- Action-context gating (`p.newData` in a `view` rule should be a TS error — not enforced in Phase 1)
 
-### 8.6 Demo refactoring reference
+**Why ref path validation is hard:** `p` is a global builder with no entity context. For `p.data.ref('memberships.user.id')` inside `workspaces` to validate the path against the workspaces schema, TypeScript needs to know the call site is inside `workspaces`. That context doesn't flow through a global `p` object.
 
-The demo's `instant.perms.ts` (raw CEL strings with typed constants) refactored to `definePerms`:
+**Path to Phase 2 — callback form:**
 
 ```ts
-// instant.perms.ts
-import type { AppSchema } from './instant.schema'
-import { definePerms } from '@mszr/idb-vux/perms'
-
-const p = definePerms<AppSchema>()
-
-// Shared fragments — same role as the string constants in the original file.
-// These are expression nodes, not strings; they emit correct CEL when serialized.
-const isSignedIn = p.auth.id.neq(p.null())
-const isSelfUser = p.auth.id.eq(p.data.id)
-
-export default p.rules({
-  attrs: p.entity({
-    allow: { create: p.false() },
-  }),
-
-  $default: p.entity({
-    allow: { $default: p.false() },
-  }),
-
-  $users: p.entity({
-    allow: {
-      view: p.or(isSelfUser, p.auth.id.in(p.data.ref('memberships.workspace.memberships.user.id'))),
-      create: p.true(),
-      update: isSelfUser,
-    },
-    fields: {
-      email: p.or(isSelfUser, p.auth.id.in(p.data.ref('memberships.workspace.memberships.user.id'))),
-    },
-  }),
-
-  workspaces: p.entity({
-    bind: {
-      isSignedIn,
-      isMember: p.auth.id.in(p.data.ref('memberships.user.id')),
-      hasInviteCode: p.ruleParam('inviteCode').neq(p.null()).and(p.ruleParam('inviteCode').eq(p.data.field('inviteCode'))),
-    },
-    allow: {
-      view: p.var('isMember').or(p.var('hasInviteCode')),
-      create: p.var('isSignedIn'),
-      update: p.var('isMember'),
-      delete: p.var('isMember'),
-    },
-  }),
-
-  memberships: p.entity({
-    bind: {
-      isSignedIn,
-      isMember: p.auth.id.in(p.data.ref('workspace.memberships.user.id')),
-      isSelf: p.auth.id.in(p.data.ref('user.id')),
-      hasInviteCode: p.ruleParam('inviteCode').neq(p.null()).and(p.ruleParam('inviteCode').in(p.data.ref('workspace.inviteCode'))),
-    },
-    allow: {
-      view: p.var('isMember'),
-      create: p.var('isSignedIn'),
-      update: p.var('isSelf'),
-      delete: p.var('isSelf'),
-      link: {
-        user: p.linkedData('user').id.eq(p.auth.id),
-        workspace: p.var('isMember').or(
-          p.ruleParam('inviteCode').neq(p.null())
-            .and(p.ruleParam('inviteCode').in(p.linkedData('workspace').field('inviteCode'))),
-        ),
-      },
-      unlink: {
-        user: p.var('isSelf'),
-        workspace: p.var('isSelf'),
-      },
-    },
-  }),
-
-  tasks: p.entity({
-    bind: {
-      isSignedIn,
-      isMember: p.auth.id.in(p.data.ref('workspace.memberships.user.id')),
-    },
-    allow: {
-      view: p.var('isMember'),
-      create: p.and(p.var('isSignedIn'), p.var('isMember')),
-      update: p.var('isMember'),
-      delete: p.var('isMember'),
-      link: {
-        workspace: p.var('isMember'),
-        assignee: p.var('isMember')
-          .and(p.linkedData('assignee').id.in(p.data.ref('workspace.memberships.user.id'))),
-      },
-      unlink: {
-        workspace: p.false(),
-        assignee: p.var('isMember'),
-      },
-    },
-  }),
-})
+// Phase 2 design: p.entity<'entity'>((ctx) => ...) provides entity-scoped context
+workspaces: p.entity<'workspaces'>(ctx => ({
+  bind: {
+    isMember: ctx.auth.id.in(ctx.data.ref('memberships.user.id')),
+    // ↑ ctx.data.ref() validates against 'workspaces' schema — suggests valid link paths
+  },
+  allow: {
+    link: {
+      user: ctx.linkedData('user').id.eq(ctx.auth.id),
+      // ↑ ctx.linkedData('user') knows 'user' links to '$users'; .field() suggests $users attrs
+    }
+  }
+}))
 ```
 
-**Comparison with the original:** The fluent version is slightly longer for simple rules (`p.false()` vs `'false'`). The payoff is the `p.data.ref(...)` and `p.data.field(...)` paths — those get schema-aware IntelliSense and typo catching that raw CEL strings silently miss. Complex compound expressions like `hasInviteCode` also become more structurally readable without escaped quote noise. Plain CEL strings remain valid (the output shape is still `InstantRules<Schema>`), so the two styles can coexist.
+**On CEL library ecosystem:** existing TypeScript CEL packages ([`@marcbachmann/cel-js`](https://www.npmjs.com/package/@marcbachmann/cel-js), [`libcel-ts`](https://github.com/libdbm/libcel-ts/)) are *evaluators* — they run CEL against runtime data. None are CEL *builders* generating typed CEL strings from TypeScript DSLs. The `definePerms` builder is novel and built from scratch.
 
-### 8.7 Subpath rationale
+### 8.6 Subpath rationale
 
 `@mszr/idb-vux/perms` belongs in its own subpath: no client runtime behavior (only helps author `instant.perms.ts`), should not be bundled into client JS, and its type machinery is substantial enough that it should not slow the main package's TS compilation.
 
@@ -1010,7 +914,7 @@ Three distinct layers, each testing a different property.
 - Inline `useQueryX({/* cursor */})` → namespace names
 - `q({ todos: { $: { where: { /* cursor */ } } } })` → attribute names, dot-paths
 - `p.auth.id./* cursor */` → `.eq`, `.neq`, `.in`, `.and`, `.or`
-- `lu./* cursor */` → namespace names
+- `lu('/* cursor */')` → namespace name completions; second arg narrows to unique attrs
 - This layer is currently missing and would have caught the regression
 
 **Parity tests** (could be behavior or type): verify that baseline Vux APIs produce identical reactive output to the official Vue SDK under the same scenarios.
@@ -1024,12 +928,11 @@ Three distinct layers, each testing a different property.
 | # | Question | Current lean |
 |---|---|---|
 | Q1 | Auto-infer singularity from static patterns (`where: { id: ... }`, unique-field filter) without explicit `pick`? | Future spike; `pick` / `$first` / `$last` lands first — dynamic queries make full auto-inference impractical |
-| Q2 | `InstaQLEntityX` type utilities — exact API shape? | TBD; co-design alongside `pick` inference |
+| Q2 | `IdbEntity` (schema-bound `InstaQLEntity`) — exact API shape, especially for singularity coercion? | TBD; likely `IdbEntity<'ns', { nested: { $one } }>` for `pick` scenarios |
 | Q3 | Typed tx chain (`db.txX`) — `.link({ 'namespace.attr': value })` dot-path form? | Future milestone; `defineLookup` ships first |
 | Q4 | Does the official chain `.lookup()` also suggest only unique attributes in real IDE completions (not just type-check)? | Needs IDE verification — if yes, custom chain `.lookupX` is unneeded |
-| Q5 | `p.linkedData(label)` — should label be required for field access, or optional with fallback to untyped? | Require label for field access; `.id` always available without label |
-| Q6 | Permissions Phase 2 (action-context gating: `p.newData` in `view` is a type error)? | After Phase 1 ships |
-| Q7 | SSR query hydration Nuxt plugin? | After core SDK is stable |
+| Q5 | Permissions Phase 2 — callback form `p.entity<'ns'>((ctx) => ...)` for ref path + linkedData validation? | After Phase 1 ships |
+| Q6 | SSR query hydration Nuxt plugin? | After core SDK is stable |
 
 ---
 
@@ -1045,8 +948,10 @@ Three distinct layers, each testing a different property.
 | `$isNull` restriction | Fix: any attribute, not just optional | Per official docs | 2026-06-04 |
 | `$like` restriction | Fix: require indexed string, not just string | Per official docs | 2026-06-04 |
 | `defineLookup` primary use case | Loose form (`.link()` context) — the official chain `.lookup()` already validates unique attrs + value types | Official chain form confirmed typed via `ETypeChunk` in instatx.ts | 2026-06-04 |
-| `defineLookup` syntax | Namespace-keyed proxy: `lu.workspaces('attr', value)` over positional `lu('workspaces', 'attr', value)` | Two-step IntelliSense narrowing is better than single positional string | 2026-06-04 |
+| `defineLookup` syntax | Generic function form: `lu('workspaces', 'attr', value)` | generic function form is simpler to implement and handles dynamic namespaces | 2026-06-04 |
 | Typed tx chain | Future milestone (`db.txX`); `defineLookup` ships first | Non-trivial tx reimplementation; current `lu` covers the primary use case | 2026-06-04 |
-| Linked attr path lookup | Not supported by IDB — `lookup()` is single-attr only, no traversal | Confirmed from core source; the `txX` milestone is the right place for this DX | 2026-06-04 |
+| `p.null()` / `p.true()` / `p.false()` | Removed — methods accept raw JS values directly; standalone allow rules use raw `'true'`/`'false'` strings | Cleaner API; no wrapping needed for scalars | 2026-06-04 |
+| `InstaQLEntity` correctness | Already returns a single entity and correctly infers link cardinality — no `InstaQLEntityX` needed; Vux adds `DefineInstaQLEntity` (schema-bound) and singularity coercion for `pick` | Confirmed from `queryTypes.ts` | 2026-06-04 |
+| `definePerms` Phase 1 scope | Typed logical operators + `p.var()` bind validation; ref paths (`p.data.ref()`, `p.linkedData.field()`) are unvalidated strings in Phase 1 | Entity context not available in global `p`; callback form needed for Phase 2 | 2026-06-04 |
 | Factory validation | Structural validation (namespace + link labels) without `q()`; deep where-clause validation requires `q()` in factory return | TypeScript limitation — confirmed via experiment | 2026-06-04 |
 | Suggestion depth | 3 hops; not configurable for now | Matches stated goal; YAGNI on configurability | 2026-06-04 |
