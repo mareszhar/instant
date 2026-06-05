@@ -279,36 +279,52 @@ Common callback form:
 }))
 ```
 
-Action callback form:
+Hybrid action-specific form:
 
 ```TS
-.allow({
-  view: ({ b }) => b.isMember,
-  create: ({ b, req }) => b.isSignedIn.and(
+.allow(({ b }) => ({
+  view: b.isMember,
+  create: ({ req }) => b.isSignedIn.and(
     req.modifiedFields.all((field) => field.in(['title', 'createdAt'])),
   ),
-  update: ({ b, d, nd }) => b.isMember.and(
+  update: ({ d, nd }) => b.isMember.and(
     nd.title.neq(d.title),
   ),
   link: {
-    assignee: ({ b, ld, dr }) => b.isMember.and(
+    assignee: ({ ld, dr }) => b.isMember.and(
       dr('workspace.memberships.user.id').contains(ld.id),
     ),
   },
   unlink: {
     workspace: false,
-    assignee: ({ b }) => b.isMember,
+    assignee: b.isMember,
   },
-})
+}))
 ```
 
 Design notes:
 
 - object and common callback forms are concise for normal rules
-- action callback form enables context-specific typing
+- the outer `.allow((ctx) => ({ ... }))` callback provides one shared common
+  context for the whole allow block
+- nested action callbacks enable context-specific typing
+- nested action callbacks can close over values from the outer common context
+- prefer the common callback form unless a rule needs `newData`, `linkedData`,
+  or another action-only value
+- simple link/unlink rules can be plain expressions; nested callbacks are only
+  needed when that rule reads link-label-specific context
 - `newData` / `nd` appears only in update contexts
 - `linkedData` / `ld` and linked ref helpers appear only in link/unlink contexts
 - `request.modifiedFields` appears only in create/update contexts
+
+Why link/unlink sometimes need a nested context:
+
+- `linkedData` is only meaningful for a specific link label
+- its type changes by link label, for example `tasks.link.assignee` may expose a
+  `$users` row while `tasks.link.workspace` exposes a `workspaces` row
+- the outer allow context cannot give `ld` one correct type for every link rule
+- therefore link/unlink rules accept either a plain expression or a nested
+  callback with the link-specific `ld`, `ldf`, and `ldr` helpers
 
 ### `.fields(...)`
 
@@ -640,9 +656,9 @@ posts: e => e
   .stageFor('update', ({ d, nd }) => ({
     titleChanged: nd.title.neq(d.title),
   }))
-  .allow({
+  .allow(() => ({
     update: ({ s }) => s.titleChanged,
-  })
+  }))
 ```
 
 Action-specific binds:
@@ -655,9 +671,9 @@ posts: e => e
   .bindFor('update', ({ auth, nd }) => ({
     isStillOwner: auth.id.eq(nd.ownerId),
   }))
-  .allow({
+  .allow(() => ({
     update: ({ b }) => b.isOwner.and(b.isStillOwner),
-  })
+  }))
 ```
 
 For link/unlink:
@@ -667,11 +683,11 @@ memberships: e => e
   .bindFor('link', 'user', ({ auth, ld }) => ({
     linksSelf: ld.id.eq(auth.id),
   }))
-  .allow({
+  .allow(() => ({
     link: {
       user: ({ b }) => b.linksSelf,
     },
-  })
+  }))
 ```
 
 Rules:
@@ -680,6 +696,8 @@ Rules:
   action callbacks
 - action-specific bind names still compile into the normal Instant `bind` block
 - they are only exposed in compatible action callbacks
+- nested action contexts include compatible common `stage`/`bind` values plus
+  action-specific `stageFor`/`bindFor` values
 - duplicate names across common and action-specific binds should be rejected
 - `.overrideBind(...)` may explicitly replace inherited names
 
@@ -694,11 +712,11 @@ The builder should emit plain `InstantRules<Schema>`.
 Authoring:
 
 ```TS
-.allow({
+.allow(({ b }) => ({
   view: true,
   create: false,
-  update: ({ b }) => b.isMember,
-})
+  update: b.isMember,
+}))
 ```
 
 Output:
@@ -736,9 +754,9 @@ const rules = definePerms(schema)
     },
   })
   .ns
-  .tasks(e => e.allow({
-    create: ({ rl, auth }) => rl.createTask.limit(auth.id),
-  }))
+  .tasks(e => e.allow(({ rl, auth }) => ({
+    create: rl.createTask.limit(auth.id),
+  })))
   .toRules()
 ```
 
@@ -853,43 +871,43 @@ const rules = definePerms(schema)
       isSelf: dr('user.id').contains(auth.id),
       hasInviteCode: rp('inviteCode').neq(null).and(dr('workspace.inviteCode').contains(rp('inviteCode'))),
     }))
-    .allow({
-      view: ({ b }) => b.isMember,
-      create: ({ b }) => b.isSignedIn,
-      update: ({ b }) => b.isSelf,
-      delete: ({ b }) => b.isSelf,
+    .allow(({ b }) => ({
+      view: b.isMember,
+      create: b.isSignedIn,
+      update: b.isSelf,
+      delete: b.isSelf,
       link: {
         user: ({ auth, ld }) => ld.id.eq(auth.id),
-        workspace: ({ b, rp, ld }) => b.isMember.or(
+        workspace: ({ rp, ld }) => b.isMember.or(
           rp('inviteCode').neq(null).and(ld.inviteCode.eq(rp('inviteCode'))),
         ),
       },
       unlink: {
-        user: ({ b }) => b.isSelf,
-        workspace: ({ b }) => b.isSelf,
+        user: b.isSelf,
+        workspace: b.isSelf,
       },
-    }))
+    })))
   .ns
   .tasks(e => e
     .bind(({ auth, dr }) => ({
       isMember: dr('workspace.memberships.user.id').contains(auth.id),
     }))
-    .allow({
-      view: ({ b }) => b.isMember,
-      create: ({ b }) => b.isSignedIn.and(b.isMember),
-      update: ({ b }) => b.isMember,
-      delete: ({ b }) => b.isMember,
+    .allow(({ b }) => ({
+      view: b.isMember,
+      create: b.isSignedIn.and(b.isMember),
+      update: b.isMember,
+      delete: b.isMember,
       link: {
-        workspace: ({ b }) => b.isMember,
-        assignee: ({ b, ld, dr }) => b.isMember.and(
+        workspace: b.isMember,
+        assignee: ({ ld, dr }) => b.isMember.and(
           dr('workspace.memberships.user.id').contains(ld.id),
         ),
       },
       unlink: {
         workspace: false,
-        assignee: ({ b }) => b.isMember,
+        assignee: b.isMember,
       },
-    }))
+    })))
   .toRules()
 
 export default rules
