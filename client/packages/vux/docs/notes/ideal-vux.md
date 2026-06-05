@@ -127,7 +127,7 @@ const todos = computed(() => data.value?.todos ?? []) // Todo[]
 // Vux X — normalization and full validation built into the inline object, top-level namespaces are directly destructurable
 const { workspaces: workspace, todos } = db.useQuery({
   workspaces: {
-    $: { where: { id: workspaceId }, pick: 'first' },
+    $: { where: { id: workspaceId }, $pick: 'first' },
   }, // Workspace | undefined
   todos: {} // Todo[]
 })
@@ -135,7 +135,7 @@ const { workspaces: workspace, todos } = db.useQuery({
 // no need for any additional massaging!
 ```
 
-Vux also exports `$first` and `$last` as `true` constants. Because they share names with the `$:` object keys they enable, they work as JavaScript property shorthands: `$: { $first }` expands to `$: { $first: true }` and is equivalent to `$: { pick: 'first' }`. This mirrors the `$skip` pattern (`where: { isDone: activeView ?? $skip }`).
+Vux also exports `$first` and `$last` as `true` constants. Because they share names with the `$:` object keys they enable, they work as JavaScript property shorthands: `$: { $first }` expands to `$: { $first: true }` and is equivalent to `$: { $pick: 'first' }`. This mirrors the `$skip` pattern (`where: { isDone: activeView ?? $skip }`).
 
 ```ts
 // Official Vue - validates where-clauses, but with many limitations
@@ -342,7 +342,7 @@ export default p.rules({
 
 ### Why `/admin` and `/nuxt` are separate
 
-Admin SDK ergonomics (`queryX`, array normalization, `pick: 'first' | 'last'`, `$first | $last` shorthands, typed `lookup`) don't depend on H3 or Nuxt. They work in any server context — Express, Nitro, plain Node. These go in `/admin`.
+Admin SDK ergonomics (`queryX`, array normalization, `$pick: 'first' | 'last'`, `$first | $last` shorthands, typed `lookup`) don't depend on H3 or Nuxt. They work in any server context — Express, Nitro, plain Node. These go in `/admin`.
 
 The Nuxt-specific layer adds things that depend on H3 event context: request-scoped auth caching on `event.context`, and eventually the SSR hydration plugin. These go in `/nuxt`.
 
@@ -414,7 +414,7 @@ Every X API returns: top-level refs for destructuring, `.refs` for composable pa
 
 | API | Improvement over baseline |
 |---|---|
-| `db.useQueryX(query, opts?)` | Namespace arrays default to `[]`; `pick: 'first' \| 'last'` returns `Entity \| undefined`; inline objects get full schema-aware validation |
+| `db.useQueryX(query, opts?)` | Namespace arrays default to `[]`; `$pick: 'first' \| 'last'` returns `Entity \| undefined`; inline objects get full schema-aware validation |
 | `db.useInfiniteQueryX(query, opts?)` | Same pattern for paginated queries |
 | `db.queryOnceX(query, opts?)` | Typed + namespace array defaults; async |
 | `db.useAuthX()` | `refs + state` ergonomics |
@@ -441,7 +441,7 @@ const adminDb = init({ appId, adminToken, schema })
 
 // X ergonomics on top of the admin SDK's query method:
 adminDb.query(query) // baseline — same as core admin (async, one-shot)
-adminDb.queryX(query) // typed + array normalization + pick / $first / $last support
+adminDb.queryX(query) // typed + array normalization + $pick / $first / $last support
 adminDb.transact(/* ... */) // same as core admin
 adminDb.tx // same as core admin
 ```
@@ -492,7 +492,7 @@ watch(isLoading, loading => console.log('loading:', loading))
 `useQueryX` delivers top-level namespaces as `Entity[]`, never `undefined`. Two important notes:
 
 1. **Nested `has: 'one'` links are already singular.** IDB natively returns linked entities with `has: 'one'` cardinality as `Entity | undefined` (not an array). Vux preserves this — no additional config needed and no massaging applied to those nested shapes.
-2. **`pick: 'first' | 'last'` returns `Entity | undefined`.** For top-level namespaces where you expect at most one result, use `pick` in the `$:` object (or the `$first`/`$last` shorthands) to get `Entity | undefined` instead of `Entity[]`. See §6.3.
+2. **`$pick: 'first' | 'last'` returns `Entity | undefined`.** For top-level namespaces where you expect at most one result, use `pick` in the `$:` object (or the `$first`/`$last` shorthands) to get `Entity | undefined` instead of `Entity[]`. See §6.3.
 
 ```ts
 // useQuery baseline — always needs the dance
@@ -505,7 +505,7 @@ const { todos } = db.useQueryX({ todos: {} })
 
 // has: 'one' linked entities are already singular — IDB handles this, Vux preserves it
 const { todos } = db.useQueryX({ todos: { assignee: {} } })
-// todos.value[0].assignee: User | undefined — already singular, no pick needed
+// todos.value[0].assignee: User | undefined — already singular, no $pick needed
 ```
 
 Same for imperative reads:
@@ -519,23 +519,23 @@ const { todos } = await db.queryOnceX({ todos: {} })
 
 Querying for a single entity is a common pattern with many causes: filtering by a unique attribute, filtering by `id`, using `limit: 1`, or a cursor position query with `first: 1` / `last: 1`. The ceremony of `data.value?.items?.[0] ?? null` should not be in userland.
 
-`pick: 'first' | 'last'` in the `$:` object signals to the type system that this namespace returns `Entity | undefined`. At runtime, Vux normalizes the array — `pick: 'first'` returns the first element (or undefined), `pick: 'last'` returns the last (or undefined). The underlying query is passed to core unchanged.
+`$pick: 'first' | 'last'` in the `$:` object signals to the type system that this namespace returns `Entity | undefined`. At runtime, Vux normalizes the array — `$pick: 'first'` returns the first element (or undefined), `$pick: 'last'` returns the last (or undefined). The underlying query is passed to core unchanged.
 
 ```ts
-// Without pick — the ceremony stays in userland
+// Without $pick — the ceremony stays in userland
 const { data } = db.useQuery({ workspaces: { $: { where: { inviteCode: code } } } })
 const workspace = computed(() => data.value?.workspaces?.[0])
 
-// With pick — the SDK handles it
+// With $pick — the SDK handles it
 const { workspaces: workspace } = db.useQueryX({
-  workspaces: { $: { where: { inviteCode: code }, pick: 'first' } },
+  workspaces: { $: { where: { inviteCode: code }, $pick: 'first' } },
 })
 // workspace.value: Workspace | undefined
 
-// Works for all single-entity cases — pick doesn't care why the result is singular:
-const { todo } = db.useQueryX({ todo: { $: { where: { id: todoId }, pick: 'first' } } })
-const { post } = db.useQueryX({ post: { $: { where: { slug: 'hello-world' }, pick: 'first' } } })
-const { latest } = db.useQueryX({ latest: { $: { limit: 1, orderBy: { createdAt: 'desc' }, pick: 'first' } } })
+// Works for all single-entity cases — $pick doesn't care why the result is singular:
+const { todo } = db.useQueryX({ todo: { $: { where: { id: todoId }, $pick: 'first' } } })
+const { post } = db.useQueryX({ post: { $: { where: { slug: 'hello-world' }, $pick: 'first' } } })
+const { latest } = db.useQueryX({ latest: { $: { limit: 1, orderBy: { createdAt: 'desc' }, $pick: 'first' } } })
 ```
 
 **Shorthand exports:** `$first` and `$last` are exported `true` constants. Because they share names with the keys they enable, they work as JavaScript property shorthands in the `$:` object:
@@ -545,16 +545,16 @@ import { $first, $last } from '@mszr/idb-vux'
 
 const { workspace } = db.useQueryX({
   workspace: { $: { where: { inviteCode: code }, $first } },
-  // ↑ property shorthand: expands to { $first: true }, equivalent to pick: 'first'
+  // ↑ property shorthand: expands to { $first: true }, equivalent to $pick: 'first'
 })
 ```
 
-The `$:` object supports three mutually exclusive singularity keys: `pick: 'first' | 'last'`, `$first?: boolean`, `$last?: boolean`. Setting `$first` or `$last` to `false` is a no-op — the exported constants are `true`, making `false` an unlikely accident in practice.
+The `$:` object supports three mutually exclusive singularity keys: `$pick: 'first' | 'last'`, `$first?: boolean`, `$last?: boolean`. Setting `$first` or `$last` to `false` is a no-op — the exported constants are `true`, making `false` an unlikely accident in practice.
 
 **Why not auto-infer singularity?** Several query shapes guarantee at most one result: filtering by `id`, filtering by a `.unique()` attribute, `limit: 1`, `first: 1`, `last: 1`. TypeScript *could* infer singularity from these. The reason to prefer explicit `pick` over auto-inference:
 
 - **Dynamic queries are stable.** If `limit` is a computed value, the return type would have to be `T[] | T | undefined` depending on the runtime value — useless for static type checking. Explicit `pick` decouples the singularity signal from the filter shape.
-- **Explicit is clear.** `pick: 'first'` documents intent at the query site. Auto-inference would make the return type depend on subtle schema annotations the reader might not remember.
+- **Explicit is clear.** `$pick: 'first'` documents intent at the query site. Auto-inference would make the return type depend on subtle schema annotations the reader might not remember.
 
 Auto-inference remains a future spike for the most common static cases (filtering by `id` or a unique attribute inline). Track in §11.
 
@@ -942,7 +942,7 @@ Three distinct layers, each testing a different property.
 |---|---|---|---|
 | Package structure | `@mszr/idb-vux` + `/admin` + `/nuxt` + `/perms` | `/admin` = framework-agnostic admin ergonomics; `/nuxt` = H3/Nuxt-specific layer wrapping `/admin`; `/perms` replaces `/permissions` for brevity | 2026-06-04 |
 | X APIs as primary | Yes — X APIs are the recommended path; baseline exists for compatibility and migration | DX goal | 2026-06-04 |
-| Single-entity normalization | `pick: 'first' \| 'last'` in `$:` object; `$first`/`$last` boolean shorthand exports — not `limit: 'one'` | One explicit mechanism covers all single-entity cases; avoids unstable types from dynamic limit values | 2026-06-04 |
+| Single-entity normalization | `$pick: 'first' \| 'last'` in `$:` object; `$first`/`$last` boolean shorthand exports — not `limit: 'one'` | One explicit mechanism covers all single-entity cases; avoids unstable types from dynamic limit values | 2026-06-04 |
 | Permissions naming | `definePerms` (not `definePermissions`), subpath `/perms` | Cleaner and consistent with the file name (`instant.perms.ts`) | 2026-06-04 |
 | Permissions API | Fluent expressions (method chains on expression nodes) with free-function n-ary logical ops; no `$` prefix needed under `p` | Reads left-to-right naturally; type-safe method availability by expression type | 2026-06-04 |
 | `$isNull` restriction | Fix: any attribute, not just optional | Per official docs | 2026-06-04 |
