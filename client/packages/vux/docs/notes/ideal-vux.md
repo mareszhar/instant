@@ -277,9 +277,9 @@ const { workspaces } = await adminDb.queryX(q({
 // workspaces: Workspace[] — never undefined
 
 const { workspace } = await adminDb.queryX(q({
-  workspace: { $: { where: { id: workspaceId }, $first } },
+  workspaces: { $: { where: { id: workspaceId }, $first } },
 }))
-// workspace: Workspace | undefined
+// workspace: Workspace | undefined — key auto-singularized from 'workspaces' because $first is set
 ```
 
 ### `lookup` — typed at last
@@ -414,7 +414,7 @@ Every X API returns: top-level refs for destructuring, `.refs` for composable pa
 
 | API | Improvement over baseline |
 |---|---|
-| `db.useQueryX(query, opts?)` | Namespace arrays default to `[]`; `$pick: 'first' \| 'last'` returns `Entity \| undefined`; inline objects get full schema-aware validation |
+| `db.useQueryX(query, opts?)` | Namespace arrays default to `[]`; `$pick`/`$first`/`$last` returns `Entity \| undefined` under auto-singularized key (or `$as` override); inline objects get full schema-aware validation |
 | `db.useInfiniteQueryX(query, opts?)` | Same pattern for paginated queries |
 | `db.queryOnceX(query, opts?)` | Typed + namespace array defaults; async |
 | `db.useAuthX()` | `refs + state` ergonomics |
@@ -526,37 +526,73 @@ Querying for a single entity is a common pattern with many causes: filtering by 
 const { data } = db.useQuery({ workspaces: { $: { where: { inviteCode: code } } } })
 const workspace = computed(() => data.value?.workspaces?.[0])
 
-// With $pick — the SDK handles it
+// With $pick — the SDK handles it (namespace key is always the schema name)
 const { workspaces: workspace } = db.useQueryX({
   workspaces: { $: { where: { inviteCode: code }, $pick: 'first' } },
 })
 // workspace.value: Workspace | undefined
-
-// Works for all single-entity cases — $pick doesn't care why the result is singular:
-const { todo } = db.useQueryX({ todo: { $: { where: { id: todoId }, $pick: 'first' } } })
-const { post } = db.useQueryX({ post: { $: { where: { slug: 'hello-world' }, $pick: 'first' } } })
-const { latest } = db.useQueryX({ latest: { $: { limit: 1, orderBy: { createdAt: 'desc' }, $pick: 'first' } } })
 ```
 
-**Shorthand exports:** `$first` and `$last` are exported `true` constants. Because they share names with the keys they enable, they work as JavaScript property shorthands in the `$:` object:
+**Shorthand exports:** `$first` and `$last` are exported `true` constants. They work as JavaScript property shorthands in the `$:` object:
 
 ```ts
 import { $first, $last } from '@mszr/idb-vux'
 
-const { workspace } = db.useQueryX({
-  workspace: { $: { where: { inviteCode: code }, $first } },
-  // ↑ property shorthand: expands to { $first: true }, equivalent to $pick: 'first'
+const { workspaces: workspace } = db.useQueryX({
+  workspaces: { $: { where: { inviteCode: code }, $first } },
+  // expands to { $first: true } — equivalent to $pick: 'first'
 })
 ```
 
-The `$:` object supports three mutually exclusive singularity keys: `$pick: 'first' | 'last'`, `$first?: boolean`, `$last?: boolean`. Setting `$first` or `$last` to `false` is a no-op — the exported constants are `true`, making `false` an unlikely accident in practice.
+The `$:` object supports three mutually exclusive singularity keys: `$pick: 'first' | 'last'`, `$first?: boolean`, `$last?: boolean`. Setting either to `false` is a no-op — the exported constants are `true`, making `false` an unlikely accident.
 
-**Why not auto-infer singularity?** Several query shapes guarantee at most one result: filtering by `id`, filtering by a `.unique()` attribute, `limit: 1`, `first: 1`, `last: 1`. TypeScript *could* infer singularity from these. The reason to prefer explicit `pick` over auto-inference:
+**Auto-singularized key names:**
 
-- **Dynamic queries are stable.** If `limit` is a computed value, the return type would have to be `T[] | T | undefined` depending on the runtime value — useless for static type checking. Explicit `pick` decouples the singularity signal from the filter shape.
-- **Explicit is clear.** `$pick: 'first'` documents intent at the query site. Auto-inference would make the return type depend on subtle schema annotations the reader might not remember.
+Manually aliasing `{ workspaces: workspace }` in every destructure is still ceremony. When a singularity key is set, Vux auto-singularizes the result key — removing a trailing `s` from the namespace name:
 
-Auto-inference remains a future spike for the most common static cases (filtering by `id` or a unique attribute inline). Track in §11.
+```ts
+// With auto-rename: schema name 'workspaces' → result key 'workspace'
+const { workspace } = db.useQueryX({
+  workspaces: { $: { where: { inviteCode: code }, $first } },
+})
+// workspace.value: Workspace | undefined — no manual alias needed
+
+const { todo } = db.useQueryX({ todos: { $: { where: { id: todoId }, $first } } })
+const { task } = db.useQueryX({ tasks: { $: { limit: 1, orderBy: { createdAt: 'desc' }, $last } } })
+```
+
+The TypeScript return type uses the same `Singularize<NS>` template literal type (`todos` → `todo`, `$users` → `$user`, etc.). Both the runtime key and the TypeScript type match.
+
+For namespaces where the default singularization is wrong (e.g., `$users` → `user` rather than `$user`, or a completely different alias), use `$as`:
+
+```ts
+const { user } = db.useQueryX({
+  $users: { $: { where: { id: userId }, $first, $as: 'user' } },
+  //                                           ↑ explicit override — default would give '$user'
+})
+// user.value: User | undefined
+
+// $as also works on nested link attrs:
+const { user } = db.useQueryX({
+  $users: {
+    $: { where: { id: userId }, $first, $as: 'user' },
+    todos: { $: { $last, $as: 'latestTodo' } },
+  }
+})
+// user.value.latestTodo: Todo | undefined
+```
+
+**Init transformer for custom naming:** `defineDb` (and `init`) accept a `singularize` callback for apps with non-standard naming conventions. This affects runtime key names only — TypeScript uses static `Singularize<NS>` logic at the type level. For exact type control in edge cases, `$as` is the escape hatch.
+
+```ts
+export const useDb = defineDb({
+  schema,
+  getAppId: () => { /* ... */ },
+  singularize: ns => myPluralizationLib.singular(ns), // runtime only
+})
+```
+
+**Why not auto-infer singularity from the query shape?** Explicit `$pick`/`$first`/`$last` is preferred over auto-inference because dynamic queries produce unstable types (eg: `T[] | T | undefined` when `limit` is a computed value). Explicit signaling keeps the type predictable regardless of what filter values are at runtime. Auto-inference for static patterns (filtering by `id`, unique attribute) remains a future spike — track in §11.
 
 ### 6.4 X-compatible type utilities
 
@@ -582,23 +618,34 @@ The two gaps worth addressing with a Vux type utility:
 // Once, co-located with the schema
 type IdbEntity = DefineInstaQLEntity<AppSchema>
 
-// Everywhere else
+// Everywhere else — no AppSchema repetition
 type Todo = IdbEntity<'todos'>
 type TodoWithAssignee = IdbEntity<'todos', { assignee: {} }>
 ```
 
-**Gap 2 — Singularity coercion for `pick`.** When a query uses `$one` on a namespace, the result is `Entity | undefined`, not `Entity[]`. There's no built-in type utility for this. Planned syntax (TBD. Unlike queries, it doesn't matter if the entity picked is the first or last, we only care about coercing the array into a single entity):
+**Gap 2 — Singularity coercion for linked attributes.** `IdbEntity<'$users'>` already returns a single user. The gap is when a `has: 'many'` link (like `todos`) should be typed as `Todo | undefined` because the data will have been picked via `$first`/`$last` in the query. Use `$one: true` in the link's `$:` to signal this:
 
 ```ts
-type UserLastTodo = IdbEntity<'users', {
+type UserWithLatestTodo = IdbEntity<'$users', {
   todos: {
-    $one // should coerce `todos` into Todo | undefined
-    notes: {} // it should still be possible to nest other valid queries, inferred as Note[] like usual
+    $: { $one: true } // coerces Todo[] → Todo | undefined
+    assignee: {} // still nests; inferred as User | undefined (has: 'one')
   }
 }>
+// user.todo: Todo | undefined   ← key auto-singularized (todos → todo)
+// user.todo?.assignee: User | undefined
 ```
 
-The exact API shape is TBD. The goal: type definitions and runtime returns are derivable from the same schema + query shape without duplication.
+**Key auto-renaming in `IdbEntity`** mirrors the query behavior: when `$one: true` is set, the key is singularized by the same `Singularize<NS>` logic. Use `$as` for explicit control:
+
+```ts
+type UserWithTask = IdbEntity<'$users', {
+  tasks: { $: { $one: true, $as: 'latestTask' } }
+}>
+// user.latestTask: Task | undefined
+```
+
+The exact API shape of `DefineInstaQLEntity` and `$one`/`$as` in subqueries is TBD. Goal: type definitions and runtime returns derivable from the same schema + query shape without duplication.
 
 ### 6.5 Pinia safety
 
@@ -928,7 +975,7 @@ Three distinct layers, each testing a different property.
 | # | Question | Current lean |
 |---|---|---|
 | Q1 | Auto-infer singularity from static patterns (`where: { id: ... }`, unique-field filter) without explicit `pick`? | Future spike; `pick` / `$first` / `$last` lands first — dynamic queries make full auto-inference impractical |
-| Q2 | `IdbEntity` (schema-bound `InstaQLEntity`) — exact API shape, especially for singularity coercion? | TBD; likely `IdbEntity<'ns', { nested: { $one } }>` for `pick` scenarios |
+| Q2 | `IdbEntity` / `DefineInstaQLEntity` — implementation of `$one`/`$as` in subquery `$:`, auto-singularize key remapping via mapped type `as` clause? | Design settled (see §6.4); TS implementation TBD |
 | Q3 | Typed tx chain (`db.txX`) — `.link({ 'namespace.attr': value })` dot-path form? | Future milestone; `defineLookup` ships first |
 | Q4 | Does the official chain `.lookup()` also suggest only unique attributes in real IDE completions (not just type-check)? | Needs IDE verification — if yes, custom chain `.lookupX` is unneeded |
 | Q5 | Permissions Phase 2 — callback form `p.entity<'ns'>((ctx) => ...)` for ref path + linkedData validation? | After Phase 1 ships |
@@ -942,7 +989,9 @@ Three distinct layers, each testing a different property.
 |---|---|---|---|
 | Package structure | `@mszr/idb-vux` + `/admin` + `/nuxt` + `/perms` | `/admin` = framework-agnostic admin ergonomics; `/nuxt` = H3/Nuxt-specific layer wrapping `/admin`; `/perms` replaces `/permissions` for brevity | 2026-06-04 |
 | X APIs as primary | Yes — X APIs are the recommended path; baseline exists for compatibility and migration | DX goal | 2026-06-04 |
-| Single-entity normalization | `$pick: 'first' \| 'last'` in `$:` object; `$first`/`$last` boolean shorthand exports — not `limit: 'one'` | One explicit mechanism covers all single-entity cases; avoids unstable types from dynamic limit values | 2026-06-04 |
+| Single-entity normalization | `$pick: 'first' \| 'last'` in `$:` object; `$first`/`$last` boolean shorthand exports; `$as` string for explicit key override | One explicit mechanism covers all single-entity cases; avoids unstable types from dynamic limit values | 2026-06-04 |
+| Auto-singularize key names | When `$first`/`$last`/`$pick` is set, result key auto-singularizes (`todos` → `todo`, `$users` → `$user`) via `Singularize<NS>` TS type + runtime transformer; `$as` overrides explicitly; `singularize` callback in `init()` for runtime-only custom logic | Eliminates manual `{ todos: todo }` aliasing at every call site | 2026-06-05 |
+| `IdbEntity` singularity coercion | `$one: true` in link subquery `$:` coerces `has-many` link from `Entity[]` to `Entity \| undefined`; key auto-singularized by same `Singularize<NS>` logic; `$as` for explicit rename | Mirrors query behavior; `IdbEntity<'$users', { todos: { $: { $one: true } } }>` → `user.todo: Todo \| undefined` | 2026-06-05 |
 | Permissions naming | `definePerms` (not `definePermissions`), subpath `/perms` | Cleaner and consistent with the file name (`instant.perms.ts`) | 2026-06-04 |
 | Permissions API | Fluent expressions (method chains on expression nodes) with free-function n-ary logical ops; no `$` prefix needed under `p` | Reads left-to-right naturally; type-safe method availability by expression type | 2026-06-04 |
 | `$isNull` restriction | Fix: any attribute, not just optional | Per official docs | 2026-06-04 |
