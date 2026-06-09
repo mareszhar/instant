@@ -1,4 +1,4 @@
-updated: 2026-06-04
+updated: 2026-06-09
 status: draft — living document, decisions get promoted to spec as they are settled
 
 # The Ideal idb-vux
@@ -18,10 +18,12 @@ Some improvements are Vue-specific: SSR resilience guards so hooks don't crash o
 **Relationship with the official SDK:**
 
 - Vux's baseline APIs are *behaviorally identical* to `@instantdb/vue`. A developer can swap one for the other on regular APIs without changing behavior.
-- Every Vux enhancement is *additional surface*, never replacement behavior. Additive APIs are explicitly named (X suffix, `define*` utilities) so the boundary is always visible.
+- Every Vux enhancement is *additional surface*, never replacement behavior. Additive APIs are explicitly named (X suffix, `define*X` utilities) so the boundary is always visible.
 - Vux reimplements the baseline rather than re-exporting it. This is necessary for SSR resilience guards, tighter TypeScript, and deep integration with the X ergonomics layer.
 
 The official Vue SDK is the behavior parity target. The React/Next SDK is the capability target (SSR hydration, streaming). Vux should eventually match or exceed both — on Vue and Nuxt's terms.
+
+**Naming convention:** the `X` suffix marks all Vux-owned APIs, including those with no official counterpart. This provides forward collision-proofing — if IDB later ships a `defineSchema`, our `defineSchemaX` is unambiguous. The `X` means "Vux-owned, collision-proof."
 
 **Primary user**: this SDK is built first for its maintainer. It is opinionated, deliberate, and optimized for delight — not for the widest possible API surface or the most conservative design choices.
 
@@ -77,6 +79,114 @@ Match all optimizations the official SDK implements. If core uses `weakHash` for
 
 Before architecture, here is what the ideal Vux feels like to write. This is the API we want to love using.
 
+### Schema definition
+
+```ts
+// Official IDB — terminology mismatch: docs say "namespace" but API uses "entity"
+import { i } from '@instantdb/core'
+
+const schema = i.schema({
+  entities: {
+    $users: i.entity({ email: i.string().unique().indexed().optional() }),
+    workspaces: i.entity({ name: i.string(), inviteCode: i.string().unique().indexed() }),
+  },
+  links: { /* ... */ },
+})
+```
+
+```ts
+// Vux — terminology matches docs; singular name and ruleParams collocated with namespace
+import { defineSchemaX, i } from '@mszr/idb-vux'
+
+export const schema = defineSchemaX({
+  namespaces: {
+    $users: i.namespaceX({
+      singular: 'user', // overrides default Singularize('$users') → '$user'
+      attrs: {
+        email: i.string().unique().indexed().optional(),
+        name: i.string().indexed(),
+      },
+    }),
+    workspaces: i.namespaceX({
+      attrs: {
+        name: i.string().indexed(),
+        inviteCode: i.string().unique().indexed(),
+        createdAt: i.date().indexed(),
+      },
+      ruleParams: { // collocated, namespace-specific, typed end-to-end
+        inviteCode: i.string(),
+      },
+    }),
+    memberships: i.namespaceX({
+      attrs: { createdAt: i.date().indexed() },
+      ruleParams: { inviteCode: i.string().optional() },
+    }),
+    tasks: i.namespaceX({
+      attrs: {
+        title: i.string().indexed(),
+        isDone: i.boolean().indexed(),
+        createdAt: i.date().indexed(),
+      },
+    }),
+  },
+  links: {
+    membershipWorkspace: {
+      forward: { on: 'memberships', has: 'one', label: 'workspace' },
+      reverse: { on: 'workspaces', has: 'many', label: 'memberships' },
+    },
+    membershipUser: {
+      forward: { on: 'memberships', has: 'one', label: 'user' },
+      reverse: { on: '$users', has: 'many', label: 'memberships' },
+    },
+    taskWorkspace: {
+      forward: { on: 'tasks', has: 'one', label: 'workspace' },
+      reverse: { on: 'workspaces', has: 'many', label: 'tasks' },
+    },
+    taskAssignee: {
+      forward: { on: 'tasks', has: 'one', label: 'assignee' },
+      reverse: { on: '$users', has: 'many', label: 'assignedTasks' },
+    },
+  },
+  rooms: {
+    workspace: {
+      presence: i.namespaceX({ attrs: { name: i.string(), typing: i.boolean().optional() } }),
+      topics: { reaction: i.namespaceX({ attrs: { emoji: i.string() } }) },
+    },
+  },
+  options: {
+    singularize: 'auto', // 'auto' | 'off' | 'explicit' — inherited by all Vux inits
+  },
+})
+
+export type AppSchema = typeof schema
+```
+
+`defineSchemaX` output is structurally compatible with the IDB CLI and official SDK — it produces the same entity/link shape with Vux metadata stored non-enumerable. `i.namespaceX` is a drop-in replacement for `i.entity` that accepts `singular`, `attrs`, and `ruleParams`. The `singular` field is the source of truth for auto-singularization — no separate config in `defineDbX` or elsewhere.
+
+Link labels also support an optional `singular` field for irregular English plurals:
+
+```TS
+// Most link labels singularize correctly by default:
+// memberships → membership, tasks → task, assignedTodos → assignedTodo
+// For irregular cases, declare singular on the label:
+reportAnalyses: {
+  forward: { on: 'reports', has: 'many', label: 'analyses', singular: 'analysis' },
+  reverse: { on: 'analyses', has: 'one', label: 'report' },
+},
+```
+
+**Namespace `singular` and link `singular` are independent** — they apply in different contexts:
+- **Namespace `singular`** in `i.namespaceX()` — governs the output key when `$only`/`$at` is set on a top-level namespace
+- **Link `singular`** on a link label — governs the output key when `$at` is applied to a nested link in `useQueryX`, or in type utilities (design under discussion)
+
+A `$users` namespace with `singular: 'user'` and an `analyses` link label with `singular: 'analysis'` are completely independent — each applies in its own scope.
+
+The `options` key in `defineSchemaX` holds schema-level behavioral config that all Vux inits inherit automatically — no need to repeat it on `defineDbX`, admin `init`, etc.:
+
+- **`singularize: 'auto'`** (default) — use schema `singular` if declared, otherwise run the default English algorithm (with the typed Singularize<string> utility for inference that matches runtime behavior)
+- **`singularize: 'explicit'`** — use schema `singular` if declared, otherwise leave the key as-is (no algorithm; `$as` required for unregistered plurals)
+- **`singularize: 'off'`** — never singularize; `$only`/`$at` still coerce to `Entity | undefined` but the key stays as the original name; `$as` always required for a renamed key
+
 ### Setup
 
 ```ts
@@ -98,10 +208,10 @@ export function useDb() {
 ```
 
 ```ts
-// Vux — defineDb handles the lazy-init + memoization pattern
-import { defineDb } from '@mszr/idb-vux'
+// Vux — defineDbX handles the lazy-init + memoization pattern
+import { defineDbX } from '@mszr/idb-vux'
 
-export const useDb = defineDb({
+export const useDb = defineDbX({
   schema,
   getAppId: () => useRuntimeConfig().public.instantAppId,
   firstPartyPath: '/api/idb',
@@ -124,18 +234,57 @@ const todos = computed(() => data.value?.todos ?? []) // Todo[]
 ```
 
 ```ts
-// Vux X — normalization and full validation built into the inline object, top-level namespaces are directly destructurable
-const { workspaces: workspace, todos } = db.useQuery({
-  workspaces: {
-    $: { where: { id: workspaceId }, $pick: 'first' },
-  }, // Workspace | undefined
-  todos: {} // Todo[]
+// Vux X — normalization and full validation built in; top-level namespaces are directly destructurable
+const { workspace, todos } = db.useQueryX({
+  workspaces: { $: { where: { id: workspaceId }, $only } }, // Workspace | undefined
+  todos: {}, // Todo[]
 })
 
 // no need for any additional massaging!
 ```
 
-Vux also exports `$first` and `$last` as `true` constants. Because they share names with the `$:` object keys they enable, they work as JavaScript property shorthands: `$: { $first }` expands to `$: { $first: true }` and is equivalent to `$: { $pick: 'first' }`. This mirrors the `$skip` pattern (`where: { isDone: activeView ?? $skip }`).
+Vux exports `$only` as a `true` constant. Because it shares its name with the `$:` key it enables, it works as a JavaScript property shorthand: `$: { $only }` expands to `$: { $only: true }`. This mirrors the `$skip` pattern. When `$only` or `$at` is set, Vux auto-singularizes the result key (`todos` → `todo`, `workspaces` → `workspace`) using the schema's declared `singular` or a default English pluralization algorithm. Use `$as` to override:
+
+```ts
+import { $only } from '@mszr/idb-vux'
+
+// $only → auto-singularize using schema
+const { workspace } = db.useQueryX({
+  workspaces: { $: { where: { inviteCode: code }, $only } },
+})
+// workspace.value: Workspace | undefined
+
+// $at → pick by position, also auto-singularizes
+const { task } = db.useQueryX({
+  tasks: { $: { limit: 1, orderBy: { createdAt: 'desc' }, $at: -1 } },
+})
+// task.value: Task | undefined
+
+// $as → explicit rename (useful when default singular is wrong, e.g. $users → '$user')
+const { user } = db.useQueryX({
+  $users: { $: { where: { id: userId }, $only, $as: 'user' } },
+})
+// user.value: User | undefined
+```
+
+For additional projections on the same data — indexed maps, grouped collections — use `$m`. The original data is always returned alongside `$m` outputs; `$m` keys create new sibling refs:
+
+```ts
+const { todos, todosById, todosByStatus } = db.useQueryX({
+  todos: {
+    $: { where: { workspace: workspaceId } },
+    $m: {
+      todosById: { indexBy: 'id' }, // Record<string, Todo> — id must be unique attr
+      todosByStatus: { groupBy: 'status' }, // Record<string, Todo[]> — status must be primitive attr
+    },
+  },
+})
+// todos.value: Todo[]
+// todosById.value: Record<string, Todo>
+// todosByStatus.value: Record<string, Todo[]>
+```
+
+`$m` keys cannot collide with the resolved scope label. TypeScript enforces this.
 
 ```ts
 // Official Vue - validates where-clauses, but with many limitations
@@ -188,7 +337,7 @@ const dynamicQuery = db.useQuery(() => {
 ```ts
 // Vux - use `q` for full deep validation and errors localized to the specific offending code. works with any query (can bring better intellisense to the regular apis and dynamic queries)
 
-const q = defineQuery<AppSchema>() // done once, shared across the codebase.
+const q = defineQueryX<AppSchema>() // done once, shared across the codebase.
 
 // can help share one query among multiple callers
 function query(isDone?: boolean) {
@@ -264,7 +413,7 @@ export const useTasks = defineStore('tasks', () => {
 // @mszr/idb-vux/admin — our wrapper around @instantdb/admin
 import { init } from '@mszr/idb-vux/admin'
 
-// In a Nuxt server route — defineServerIdb gives you the ergonomic layer
+// In a Nuxt server route — defineServerIdbX gives you the ergonomic layer
 const { adminDb, user } = await useIdbn(event, 'user?')
 
 // adminDb.queryX: same X ergonomics as the client
@@ -277,9 +426,9 @@ const { workspaces } = await adminDb.queryX(q({
 // workspaces: Workspace[] — never undefined
 
 const { workspace } = await adminDb.queryX(q({
-  workspaces: { $: { where: { id: workspaceId }, $first } },
+  workspaces: { $: { where: { id: workspaceId }, $only } },
 }))
-// workspace: Workspace | undefined — key auto-singularized from 'workspaces' because $first is set
+// workspace: Workspace | undefined — key auto-singularized from 'workspaces' because $only is set
 ```
 
 ### `lookup` — typed at last
@@ -289,9 +438,9 @@ const { workspace } = await adminDb.queryX(q({
 db.tx.memberships[id()].link({ workspace: lookup('inviteCode', inviteCode) })
 //                                         ↑ is inviteCode an attr of workspaces? unique? right type?
 
-// Vux — defineLookup pattern (same design as defineQuery)
+// Vux — defineLookupX pattern (same design as defineQueryX)
 // shared/utils/idb.ts
-export const lu = defineLookup<AppSchema>()
+export const lu = defineLookupX<AppSchema>()
 
 // Primary use: loose form inside .link() — namespace + attr validated, value typed
 db.tx.memberships[id()].link({ workspace: lu('workspaces', 'inviteCode', inviteCode) })
@@ -301,32 +450,32 @@ db.tx.memberships[id()].link({ workspace: lu('workspaces', 'inviteCode', inviteC
 db.tx.$users.lookup('email', 'eva@...').update({ name: 'Eva' })
 ```
 
-### Permissions — safe, schema-aware, still readable
+### Permissions — schema-aware, readable
 
 ```ts
-// Current — raw CEL strings, no validation, typos silently wrong
-// Vux permissions builder — fluent expressions, schema-validated paths
+import { definePermsX } from '@mszr/idb-vux/perms'
+import schema from './instant.schema'
 
-import { definePerms } from '@mszr/idb-vux/perms'
-
-const p = definePerms<AppSchema>()
-
-export default p.rules({
-  workspaces: p.entity({
-    bind: {
-      isMember: p.auth.id.in(p.data.ref('memberships.user.id')),
-      //             reads as: "auth.id in data.ref(...)"
-      hasInviteCode: p.ruleParam('inviteCode').neq(null).and(p.ruleParam('inviteCode').eq(p.data.field('inviteCode'))),
-    },
-    allow: {
-      view: p.var('isMember').or(p.var('hasInviteCode')),
-      create: p.auth.id.neq(null),
-      update: p.var('isMember'),
-      delete: p.var('isMember'),
-    },
-  }),
-})
-// Output is still plain InstantRules<Schema> — no backend changes needed
+export default definePermsX(schema)
+  .defaults(d => d
+    .bind(({ auth }) => ({ isSignedIn: auth.id.neq(null) }))
+    .allow({ $default: false }))
+  .namespaces({
+    workspaces: e => e
+      .bind(({ auth, dr }) => ({
+        isMember: dr('memberships.user.id').contains(auth.id),
+      }))
+      .allow(({ b }) => ({
+        view: b.isMember,
+        create: b.isSignedIn,
+        update: b.isMember,
+        delete: b.isMember,
+      })),
+    // ... other namespaces
+  })
+  .toRules()
+// Output is plain InstantRules<Schema> — no backend changes needed
+// Full API: docs/notes/ideal-perms-spec-x.md
 ```
 
 ---
@@ -342,28 +491,28 @@ export default p.rules({
 
 ### Why `/admin` and `/nuxt` are separate
 
-Admin SDK ergonomics (`queryX`, array normalization, `$pick: 'first' | 'last'`, `$first | $last` shorthands, typed `lookup`) don't depend on H3 or Nuxt. They work in any server context — Express, Nitro, plain Node. These go in `/admin`.
+Admin SDK ergonomics (`queryX`, array normalization, `$only`/`$at` coercion, typed `lookup`) don't depend on H3 or Nuxt. They work in any server context — Express, Nitro, plain Node. These go in `/admin`.
 
 The Nuxt-specific layer adds things that depend on H3 event context: request-scoped auth caching on `event.context`, and eventually the SSR hydration plugin. These go in `/nuxt`.
 
-The current `/nuxt` utilities (`defineServerIdb`, `defineInstantAuthSyncHandler`) accept user-provided resolvers — `getAppId: event => ...`, `getAdminToken: event => ...` — and store auth cache on `event.context`. They do not call `useRuntimeConfig` internally; that is the user's choice in their resolver functions. The H3 dependency is `event.context` caching and `H3Event` typing. This design correctly belongs in `/nuxt`, not `/admin`.
+The current `/nuxt` utilities (`defineServerIdbX`, `defineInstantAuthSyncHandlerX`) accept user-provided resolvers — `getAppId: event => ...`, `getAdminToken: event => ...` — and store auth cache on `event.context`. They do not call `useRuntimeConfig` internally; that is the user's choice in their resolver functions. The H3 dependency is `event.context` caching and `H3Event` typing. This design correctly belongs in `/nuxt`, not `/admin`.
 
-`/nuxt` wraps `/admin`: `defineServerIdb` internally uses the admin ergonomics layer from `/admin` and adds H3-specific caching on top.
+`/nuxt` wraps `/admin`: `defineServerIdbX` internally uses the admin ergonomics layer from `/admin` and adds H3-specific caching on top.
 
 ### Entry points
 
 ```ts
 // Client
-import { defineDb, defineQuery, init, /* ... */ } from '@mszr/idb-vux'
+import { defineDbX, defineQueryX, defineSchemaX, init, /* ... */ } from '@mszr/idb-vux'
 
 // Admin (wraps @instantdb/admin with X ergonomics — init is our typed init)
 import { init } from '@mszr/idb-vux/admin'
 
 // Nuxt — wraps /admin with H3 event context
-import { defineInstantAuthSyncHandler, defineServerIdb } from '@mszr/idb-vux/nuxt'
+import { defineInstantAuthSyncHandlerX, defineServerIdbX } from '@mszr/idb-vux/nuxt'
 
 // Permissions — no runtime behavior, just types + CEL string emitter
-import { definePerms } from '@mszr/idb-vux/perms'
+import { definePermsX } from '@mszr/idb-vux/perms'
 
 const adminDb = init({ appId, adminToken, schema })
 const { workspaces } = await adminDb.queryX({ workspaces: {} })
@@ -375,7 +524,7 @@ const { workspaces } = await adminDb.queryX({ workspaces: {} })
 
 - No separate `@mszr/idb-vux-admin` package — admin ergonomics are a subpath
 - No re-export barrel from `@instantdb/vue` — we own our implementation
-- No framework-wide singletons — `defineDb` returns a factory; global state is the app's responsibility
+- No framework-wide singletons — `defineDbX` returns a factory; global state is the app's responsibility
 
 ---
 
@@ -414,7 +563,7 @@ Every X API returns: top-level refs for destructuring, `.refs` for composable pa
 
 | API | Improvement over baseline |
 |---|---|
-| `db.useQueryX(query, opts?)` | Namespace arrays default to `[]`; `$pick`/`$first`/`$last` returns `Entity \| undefined` under auto-singularized key (or `$as` override); inline objects get full schema-aware validation |
+| `db.useQueryX(query, opts?)` | Namespace arrays default to `[]`; `$only`/`$at` in `$:` returns `Entity \| undefined` under auto-singularized key (or `$as` override); `$m` object for additional projections (`indexBy`/`groupBy`/`at`); inline objects get full schema-aware validation |
 | `db.useInfiniteQueryX(query, opts?)` | Same pattern for paginated queries |
 | `db.queryOnceX(query, opts?)` | Typed + namespace array defaults; async |
 | `db.useAuthX()` | `refs + state` ergonomics |
@@ -428,9 +577,10 @@ Every X API returns: top-level refs for destructuring, `.refs` for composable pa
 
 | Utility | Purpose |
 |---|---|
-| `defineQuery<Schema>()` | Returns a `q()` helper for schema-aware query authoring. Inline `useQueryX({})` objects have equivalent validation built in — `q` is most valuable in factory syntax `useQueryX(() => q(...))` and for named/reusable queries. `q` is schema-scoped (not db-scoped) and works identically on client and server. |
-| `defineLookup<Schema>()` | Returns a typed lookup function `lu`. `lu('workspaces', 'inviteCode', value)` validates that `'inviteCode'` is a unique attribute of `workspaces` and that `value` matches its type. Same design pattern as `defineQuery`. |
-| `defineDb(config)` | Memoized db factory for runtime-resolved app IDs. Handles the lazy-init singleton pattern. |
+| `defineSchemaX(config)` | Schema factory. `namespaces` key (instead of `entities`); `i.namespaceX()` with `singular`, `attrs`, and `ruleParams` collocated; links support `singular` on label definitions; `options` key for behavioral config (`singularize`, etc.) inherited by all Vux inits. Schema is the source of truth for auto-singularization and ruleParams typing. |
+| `defineQueryX<Schema>()` | Returns a `q()` helper for schema-aware query authoring. Inline `useQueryX({})` objects have equivalent validation built in — `q` is most valuable in factory syntax `useQueryX(() => q(...))` and for named/reusable queries. `q` is schema-scoped (not db-scoped) and works identically on client and server. |
+| `defineLookupX<Schema>()` | Returns a typed lookup function `lu`. `lu('workspaces', 'inviteCode', value)` validates that `'inviteCode'` is a unique attribute of `workspaces` and that `value` matches its type. Same design pattern as `defineQueryX`. |
+| `defineDbX(config)` | Memoized db factory for runtime-resolved app IDs. Handles the lazy-init singleton pattern. Reads `singular` from schema for runtime auto-singularization. |
 
 ### 5.4 Admin utilities (`@mszr/idb-vux/admin`)
 
@@ -441,7 +591,7 @@ const adminDb = init({ appId, adminToken, schema })
 
 // X ergonomics on top of the admin SDK's query method:
 adminDb.query(query) // baseline — same as core admin (async, one-shot)
-adminDb.queryX(query) // typed + array normalization + $pick / $first / $last support
+adminDb.queryX(query) // typed + array normalization + $only / $at / $as + $m support
 adminDb.transact(/* ... */) // same as core admin
 adminDb.tx // same as core admin
 ```
@@ -450,8 +600,8 @@ adminDb.tx // same as core admin
 
 | Utility | Purpose |
 |---|---|
-| `defineServerIdb(config)` | Wraps `/admin` with H3 event context caching. Per-request call returns `adminDb` (with X ergonomics), `userDb?`, `user?`, etc. based on mode. |
-| `defineInstantAuthSyncHandler(config)` | H3 handler for Instant's `firstPartyPath` auth sync. Writes/clears `refresh_token` cookie. |
+| `defineServerIdbX(config)` | Wraps `/admin` with H3 event context caching. Per-request call returns `adminDb` (with X ergonomics), `userDb?`, `user?`, etc. based on mode. |
+| `defineInstantAuthSyncHandlerX(config)` | H3 handler for Instant's `firstPartyPath` auth sync. Writes/clears `refresh_token` cookie. |
 
 ---
 
@@ -492,7 +642,7 @@ watch(isLoading, loading => console.log('loading:', loading))
 `useQueryX` delivers top-level namespaces as `Entity[]`, never `undefined`. Two important notes:
 
 1. **Nested `has: 'one'` links are already singular.** IDB natively returns linked entities with `has: 'one'` cardinality as `Entity | undefined` (not an array). Vux preserves this — no additional config needed and no massaging applied to those nested shapes.
-2. **`$pick: 'first' | 'last'` returns `Entity | undefined`.** For top-level namespaces where you expect at most one result, use `pick` in the `$:` object (or the `$first`/`$last` shorthands) to get `Entity | undefined` instead of `Entity[]`. See §6.3.
+2. **`$only` / `$at` returns `Entity | undefined`.** For top-level namespaces where you expect at most one result, use these in the `$:` object to get `Entity | undefined` instead of `Entity[]`. See §6.3.
 
 ```ts
 // useQuery baseline — always needs the dance
@@ -505,7 +655,7 @@ const { todos } = db.useQueryX({ todos: {} })
 
 // has: 'one' linked entities are already singular — IDB handles this, Vux preserves it
 const { todos } = db.useQueryX({ todos: { assignee: {} } })
-// todos.value[0].assignee: User | undefined — already singular, no $pick needed
+// todos.value[0].assignee: User | undefined — already singular, no $only needed
 ```
 
 Same for imperative reads:
@@ -515,137 +665,220 @@ const { todos } = await db.queryOnceX({ todos: {} })
 // todos: Todo[] — always
 ```
 
-### 6.3 Resolving to a single entity — `pick`
+### 6.3 Shaping query results — `$only`, `$at`, `$as`, `$m`
 
-Querying for a single entity is a common pattern with many causes: filtering by a unique attribute, filtering by `id`, using `limit: 1`, or a cursor position query with `first: 1` / `last: 1`. The ceremony of `data.value?.items?.[0] ?? null` should not be in userland.
+#### Per-scope controls in `$:`
 
-`$pick: 'first' | 'last'` in the `$:` object signals to the type system that this namespace returns `Entity | undefined`. At runtime, Vux normalizes the array — `$pick: 'first'` returns the first element (or undefined), `$pick: 'last'` returns the last (or undefined). The underlying query is passed to core unchanged.
+The `$:` object accepts two layers of keys:
+- **IDB-native keys** (`where`, `fields`, `limit`, `order`, etc.) — passed to IDB as-is
+- **Vux-only keys** (`$only`, `$at`, `$as`) — stripped before forwarding to IDB; act on the default scope key
+
+`$only` and `$at: number` coerce the namespace from `Entity[]` to `Entity | undefined` and trigger auto-singularization of the result key.
 
 ```ts
-// Without $pick — the ceremony stays in userland
+// Without $only — ceremony stays in userland
 const { data } = db.useQuery({ workspaces: { $: { where: { inviteCode: code } } } })
 const workspace = computed(() => data.value?.workspaces?.[0])
 
-// With $pick — the SDK handles it (namespace key is always the schema name)
-const { workspaces: workspace } = db.useQueryX({
-  workspaces: { $: { where: { inviteCode: code }, $pick: 'first' } },
+// With $only — SDK handles it; result key auto-singularized from 'workspaces' → 'workspace'
+const { workspace } = db.useQueryX({
+  workspaces: { $: { where: { inviteCode: code }, $only } },
 })
 // workspace.value: Workspace | undefined
 ```
 
-**Shorthand exports:** `$first` and `$last` are exported `true` constants. They work as JavaScript property shorthands in the `$:` object:
+`$only` is exported as a `true` constant and works as a JavaScript property shorthand: `$: { $only }` expands to `$: { $only: true }`.
 
 ```ts
-import { $first, $last } from '@mszr/idb-vux'
+import { $only } from '@mszr/idb-vux'
 
-const { workspaces: workspace } = db.useQueryX({
-  workspaces: { $: { where: { inviteCode: code }, $first } },
-  // expands to { $first: true } — equivalent to $pick: 'first'
+const { todo } = db.useQueryX({ todos: { $: { where: { id: todoId }, $only } } })
+// auto-singularized: 'todos' → 'todo' (from schema's singular field or default algorithm)
+
+const { task } = db.useQueryX({
+  tasks: { $: { limit: 1, orderBy: { createdAt: 'desc' }, $at: -1 } },
 })
+// $at: -1 → last element; auto-singularized: 'tasks' → 'task'
 ```
 
-The `$:` object supports three mutually exclusive singularity keys: `$pick: 'first' | 'last'`, `$first?: boolean`, `$last?: boolean`. Setting either to `false` is a no-op — the exported constants are `true`, making `false` an unlikely accident.
+The three singularity controls in `$:` and their semantics:
+- `$only: true` — "I expect at most one result; this isn't picking from many"
+- `$at: 0` — "give me the element at position 0 (first)" — same runtime behavior as `$only`
+- `$at: -1` — "give me the last element"
+- `$at: number` — any integer index; negative counts from the end
 
-**Auto-singularized key names:**
+**Auto-singularized key names:** when `$only` or `$at` is set, the source of truth depends on depth:
 
-Manually aliasing `{ workspaces: workspace }` in every destructure is still ceremony. When a singularity key is set, Vux auto-singularizes the result key — removing a trailing `s` from the namespace name:
+- **Top-level namespace key** (`workspaces`, `tasks`, …): uses the namespace's `singular` field from `i.namespaceX()`, falling back to the default English algorithm
+- **Nested link label key** (`analyses`, `memberships`, …): uses the link label's `singular` field from `defineSchemaX` links, falling back to the default English algorithm
 
 ```ts
-// With auto-rename: schema name 'workspaces' → result key 'workspace'
-const { workspace } = db.useQueryX({
-  workspaces: { $: { where: { inviteCode: code }, $first } },
+// Irregular nested link — declare singular on the link definition:
+// reportAnalyses: {
+//   forward: { on: 'reports', has: 'many', label: 'analyses', singular: 'analysis' },
+// }
+const { report } = db.useQueryX({
+  reports: {
+    $: { where: { id: reportId }, $only }, // top-level: uses namespace singular
+    analyses: { $: { $at: 0 } }, // nested: uses link label's singular: 'analysis'
+  },
 })
-// workspace.value: Workspace | undefined — no manual alias needed
-
-const { todo } = db.useQueryX({ todos: { $: { where: { id: todoId }, $first } } })
-const { task } = db.useQueryX({ tasks: { $: { limit: 1, orderBy: { createdAt: 'desc' }, $last } } })
+// report.value: Report | undefined
+// report.value?.analysis: Analysis | undefined   — 'analyses' → 'analysis' from link definition
 ```
 
-The TypeScript return type uses the same `Singularize<NS>` template literal type (`todos` → `todo`, `$users` → `$user`, etc.). Both the runtime key and the TypeScript type match.
+The TypeScript return type and runtime key always match — they derive from the same schema source.
 
-For namespaces where the default singularization is wrong (e.g., `$users` → `user` rather than `$user`, or a completely different alias), use `$as`:
+**`$as` for explicit override:**
 
 ```ts
+// $users default singularization gives '$user'; use $as to get 'user'
 const { user } = db.useQueryX({
-  $users: { $: { where: { id: userId }, $first, $as: 'user' } },
-  //                                           ↑ explicit override — default would give '$user'
+  $users: { $: { where: { id: userId }, $only, $as: 'user' } },
 })
-// user.value: User | undefined
 
-// $as also works on nested link attrs:
+// $as works at any depth:
 const { user } = db.useQueryX({
   $users: {
-    $: { where: { id: userId }, $first, $as: 'user' },
-    todos: { $: { $last, $as: 'latestTodo' } },
-  }
+    $: { where: { id: userId }, $only, $as: 'user' },
+    todos: { $: { $at: -1, $as: 'latestTodo' } },
+  },
 })
 // user.value.latestTodo: Todo | undefined
 ```
 
-**Init transformer for custom naming:** `defineDb` (and `init`) accept a `singularize` callback for apps with non-standard naming conventions. This affects runtime key names only — TypeScript uses static `Singularize<NS>` logic at the type level. For exact type control in edge cases, `$as` is the escape hatch.
+**Why not auto-infer singularity from the query shape?** Explicit `$only`/`$at` is preferred over auto-inference because dynamic queries produce unstable types (e.g. `T[] | T | undefined` when `limit` is a computed value). Explicit signaling keeps the type predictable. Auto-inference for static patterns (filtering by `id`, unique attribute) remains a future spike — track in §11.
+
+#### Additional projections — `$m`
+
+`$m` creates new sibling keys in the query result without affecting the default scope key. The default data (`todos: Todo[]`) is always returned regardless of what `$m` contains.
+
+`$m` is object-keyed: the key is the output label, the value is the transform config. This prevents duplicate labels at the TypeScript level and makes naming explicit.
 
 ```ts
-export const useDb = defineDb({
-  schema,
-  getAppId: () => { /* ... */ },
-  singularize: ns => myPluralizationLib.singular(ns), // runtime only
-})
-```
-
-**Why not auto-infer singularity from the query shape?** Explicit `$pick`/`$first`/`$last` is preferred over auto-inference because dynamic queries produce unstable types (eg: `T[] | T | undefined` when `limit` is a computed value). Explicit signaling keeps the type predictable regardless of what filter values are at runtime. Auto-inference for static patterns (filtering by `id`, unique attribute) remains a future spike — track in §11.
-
-### 6.4 X-compatible type utilities
-
-`InstaQLEntity<Schema, 'tasks'>` already returns a single entity type — not an array. It already correctly infers link cardinality: `has: 'one'` links become `Entity | undefined`, `has: 'many'` links become `Entity[]`. So `InstaQLEntity` already conforms well to the X shape for most cases:
-
-```ts
-// Works as-is for typing X query results
-type Todo = InstaQLEntity<AppSchema, 'todos', { assignee: {} }>
-// Todo is: { id, title, isDone, ..., assignee: User | undefined }
-
-type Todos = Todo[] // matches todos.value from useQueryX
-
-function expectTodos(todos: Todo[]) {}
-const { todos } = db.useQueryX({ todos: { assignee: {} } })
-expectTodos(todos.value) // ✓
-```
-
-The two gaps worth addressing with a Vux type utility:
-
-**Gap 1 — Schema-bound binding.** Passing `AppSchema` at every call site is repetitive. A `DefineInstaQLEntity` pattern fixes this:
-
-```ts
-// Once, co-located with the schema
-type IdbEntity = DefineInstaQLEntity<AppSchema>
-
-// Everywhere else — no AppSchema repetition
-type Todo = IdbEntity<'todos'>
-type TodoWithAssignee = IdbEntity<'todos', { assignee: {} }>
-```
-
-**Gap 2 — Singularity coercion for linked attributes.** `IdbEntity<'$users'>` already returns a single user. The gap is when a `has: 'many'` link (like `todos`) should be typed as `Todo | undefined` because the data will have been picked via `$first`/`$last` in the query. Use `$one: true` in the link's `$:` to signal this:
-
-```ts
-type UserWithLatestTodo = IdbEntity<'$users', {
+const { todos, todosById, todosByStatus } = db.useQueryX({
   todos: {
-    $: { $one: true } // coerces Todo[] → Todo | undefined
-    assignee: {} // still nests; inferred as User | undefined (has: 'one')
+    $: { where: { workspace: workspaceId } },
+    $m: {
+      todosById: { indexBy: 'id' }, // id is unique → Record<string, Todo>
+      todosByStatus: { groupBy: 'isDone' }, // boolean attr → Record<string, Todo[]>
+    },
+  },
+})
+// todos.value: Todo[]                          — default, always present
+// todosById.value: Record<string, Todo>        — O(1) lookup by id
+// todosByStatus.value: Record<string, Todo[]>  — grouped by isDone value
+```
+
+`$m` also works on nested link traversals:
+
+```ts
+const { workspaces } = db.useQueryX({
+  workspaces: {
+    todos: {
+      $m: { todosByStatus: { groupBy: 'isDone' } },
+    },
+  },
+})
+// workspaces.value[0].todos: Todo[]
+// workspaces.value[0].todosByStatus: Record<string, Todo[]>
+```
+
+`$m` controls:
+- `indexBy: UniqueAttrKey` — attr must be marked `.unique()` in schema; returns `Record<AttrValue, Entity>`
+- `groupBy: PrimitiveAttrKey` — attr type must be `string | number | boolean`; returns `Record<AttrValue, Entity[]>`
+- `at: number` — same semantics as `$at` in `$:`, but creates a new labeled key; lets you expose both the full array and a pinned position simultaneously
+
+```ts
+// Expose both the full list and the latest item
+const { todos, latestTodo } = db.useQueryX({
+  todos: {
+    $: { where: { workspace: id } },
+    $m: { latestTodo: { at: -1 } },
+  },
+})
+// todos.value: Todo[] — full list
+// latestTodo.value: Todo | undefined — last element
+```
+
+`$m` keys cannot collide with the resolved scope label. TypeScript enforces this constraint.
+
+### 6.4 Type utilities
+
+Three gaps in official SDK type utilities are worth closing.
+
+**Gap 1 — Schema-bound binding.** `InstaQLEntity<AppSchema, 'tasks'>` requires passing `AppSchema` at every call site. A schema-bound alias eliminates repetition.
+
+**Gap 2 — `fields` narrowing.** `InstaQLEntity` does not accept `$: { fields: [...] }` in its subquery param — TypeScript actively rejects it (confirmed in `official-sdk-gaps.types.ts`). Narrowing currently requires an awkward 4th positional type param:
+
+```ts
+// Works but non-obvious — 4th positional param, inconsistent with query authoring style
+type NarrowTodo = InstaQLEntity<AppSchema, 'todos', {}, ['isDone']>
+```
+
+**Gap 3 — Query result types.** No official utility mirrors the output of a full `useQuery` call. There is no way to statically type a query result shape — including `$m` projections, renamed keys, or singularization — without writing the types by hand.
+
+#### `DefineIdbEntityX` — schema-bound entity type
+
+```ts
+import type { DefineIdbEntityX } from '@mszr/idb-vux'
+
+// Once, co-located with the schema — no AppSchema repetition elsewhere
+type IdbEntity = DefineIdbEntityX<AppSchema>
+
+// Simple entity type (like InstaQLEntity, but schema-bound)
+type Todo = IdbEntity<'todos'>
+// { id: string; title: string; isDone: boolean }
+
+// With nested link traversal
+type TodoWithAssignees = IdbEntity<'todos', {
+  assignees: {}
+}>
+// { id: string; title: string; isDone: boolean; assignees: User[] }
+
+// $: and $m work inside nested link scopes — they apply transformations on the linked entities
+type TodoWithTransformedAssignees = IdbEntity<'todos', {
+  assignees: {
+    $: { $one: true, fields: ['email'] } // $one coerces to singular; fields narrows attrs
+    $m: { assigneesById: { indexBy: 'id' } }
   }
 }>
-// user.todo: Todo | undefined   ← key auto-singularized (todos → todo)
-// user.todo?.assignee: User | undefined
+// { id: string; title: string; isDone: boolean;
+//   assignee: { id: string; email: string } | undefined,  ← $one + fields + auto-singularized
+//   assigneesById: Record<string, { id: string; email: string }> }  ← $m
 ```
 
-**Key auto-renaming in `IdbEntity`** mirrors the query behavior: when `$one: true` is set, the key is singularized by the same `Singularize<NS>` logic. Use `$as` for explicit control:
+`$:` and `$m` are only valid inside nested link scopes. At the top level, `IdbEntity` always returns the entity type directly — not wrapped in a namespace object. For top-level `$`/`$m` transformations, use `DefineIdbDataX`.
+
+Singularization of nested link keys (triggered by `$one: true`) follows `options.singularize` from the schema. `$as` always takes precedence.
+
+#### `DefineIdbDataX` — data shape type
+
+Models the `data.value` shape that is consistent across all query X APIs (`useQueryX`, `queryOnceX`, `useInfiniteQueryX`) and is also the same shape `defineQueryX`'s `q` accepts. Every `$`/`$m` option works at any depth.
 
 ```ts
-type UserWithTask = IdbEntity<'$users', {
-  tasks: { $: { $one: true, $as: 'latestTask' } }
+import type { DefineIdbDataX } from '@mszr/idb-vux'
+
+type IdbData = DefineIdbDataX<AppSchema>
+
+type MyData = IdbData<{
+  todos: {
+    $: { fields: ['isDone'], $as: 'minimalTodos' }
+    $m: { minimalTodosById: { indexBy: 'id' } }
+    assignees: { $: { $one: true } }
+  }
+  $users: {}
 }>
-// user.latestTask: Task | undefined
+// MyData['minimalTodos']: { id: string; isDone: boolean; assignee: User | undefined }[]
+// MyData['minimalTodosById']: Record<string, { id: string; isDone: boolean; assignee: User | undefined }>
+// MyData['$users']: User[]
 ```
 
-The exact API shape of `DefineInstaQLEntity` and `$one`/`$as` in subqueries is TBD. Goal: type definitions and runtime returns derivable from the same schema + query shape without duplication.
+`$one: true` is the type-level counterpart to runtime `$only`/`$at`. Position (`$at: 0` vs `$at: -1`) doesn't affect the type — it's always `Entity | undefined`. One flag, one pattern to remember.
+
+Singularization follows `options.singularize` from the schema (see §3). `$as` always takes precedence over auto-singularize.
+
+Both `DefineIdbEntityX` and `DefineIdbDataX` are type-only imports (`import type`) — no runtime footprint. TypeScript implementation TBD — see §11 Q2.
 
 ### 6.5 Pinia safety
 
@@ -706,17 +939,17 @@ This is better than the official SDK (which reports errors at the call site even
 
 ### 7.4 IntelliSense regression
 
-IntelliSense is currently broken in `useQuery`, `useQueryX`, and related hooks — completions do not appear on inline query objects. The `defineQuery`/`q` path is unaffected: completions work correctly there. This regression must be diagnosed and fixed before anything else.
+IntelliSense is currently broken in `useQuery`, `useQueryX`, and related hooks — completions do not appear on inline query objects. The `defineQueryX`/`q` path is unaffected: completions work correctly there. This regression must be diagnosed and fixed before anything else.
 
 The approach: write selenita intellisense tests to identify exactly which cursor positions are broken, fix the regression, then lock the behavior so it cannot regress again.
 
-### 7.5 `defineLookup<Schema>()` — typed lookups
+### 7.5 `defineLookupX<Schema>()` — typed lookups
 
-The official `lookup()` free function is completely untyped (`lookup(attribute: string, value: any)`). `defineLookup` fills that gap specifically for the **loose form** — `.link()` contexts where lookup is passed as a free function value.
+The official `lookup()` free function is completely untyped (`lookup(attribute: string, value: any)`). `defineLookupX` fills that gap specifically for the **loose form** — `.link()` contexts where lookup is passed as a free function value.
 
 ```ts
 // shared/utils/idb.ts
-export const lu = defineLookup<AppSchema>()
+export const lu = defineLookupX<AppSchema>()
 
 // Without lu — no validation whatsoever
 db.tx.memberships[id()].link({ workspace: lookup('inviteCode', inviteCode) })
@@ -745,178 +978,59 @@ db.txX.memberships[id()].link({
 
 Track as the `txX` future milestone.
 
+### 7.6 `defineSchemaX` — typed schema definition
+
+`defineSchemaX` provides the following end-to-end type safety improvements over the official `i.schema()`:
+
+- **`ruleParams` typed in tx chain:** `db.tx.workspaces[id()].ruleParams({})` autocompletes only the params declared in `workspaces.ruleParams`; unknown keys are TS errors
+- **`ruleParams` typed in perms:** `definePermsX(schema)` ctx's `rp('key')` autocompletes from the namespace's declared params; unknown param keys are TS errors
+- **`singular` as source of truth:** all auto-singularization in `useQueryX` and `adminDb.queryX` derives from the schema — no `singularOverrides` config objects needed anywhere
+- **`options` as behavioral config authority:** `singularize` mode declared once in the schema, inherited automatically by `defineDbX`, admin `init`, and all X APIs; no per-init repetition
+- **`namespaces` terminology:** consistent with IDB docs; `i.namespaceX()` replaces `i.entity()` in Vux codebases
+
+Confirmed gap from official SDK: `RuleParams = { [key: string]: any }` — `.ruleParams()` accepts any object with no validation. `defineSchemaX` closes this at the TypeScript level.
+
 ---
 
 ## 8. Permissions DX
 
-### 8.1 The problem
-
-Instant permissions are powerful, but day-to-day authoring is:
-- Raw CEL strings — no autocompletion, no refactoring support, typos silently wrong
-- Dot-path refs (`data.ref('memberships.user.id')`) are stringly-typed
-- Context availability (`newData` in a `view` rule) has no compile-time gating
-
-### 8.2 The fluent expression API
-
-Rather than purely functional (`p.in(a, b)`) or template literal forms, the permissions API should use **fluent expressions** — method chains where the left operand is the subject:
+The permissions layer lives in `@mszr/idb-vux/perms`. It compiles to the same `InstantRules<Schema>` the IDB dashboard and CLI accept — no backend changes.
 
 ```ts
-p.auth.id.in(p.data.ref('memberships.user.id'))
-// reads: "auth.id in data.ref(...)"
+import { definePermsX } from '@mszr/idb-vux/perms'
+import schema from './instant.schema'
 
-p.auth.id.neq(null)
-// reads: "auth.id not equal to null" — raw JS values accepted directly
-
-p.ruleParam('inviteCode').eq(p.data.field('inviteCode'))
-// reads: "ruleParam('inviteCode') equals data.field('inviteCode')"
+export default definePermsX(schema)
+  .attrs(a => a.allow({ create: false }))
+  .defaults(d => d
+    .bind(({ auth }) => ({ isSignedIn: auth.id.neq(null) }))
+    .allow({ $default: false }))
+  .namespaces({
+    workspaces: e => e
+      .stage(({ rp, d }) => ({
+        inviteCode: rp('inviteCode'),
+        inviteMatches: rp('inviteCode').eq(d.inviteCode),
+      }))
+      .bind(({ auth, dr, s }) => ({
+        isMember: dr('memberships.user.id').contains(auth.id),
+        hasInviteCode: s.inviteCode.neq(null).and(s.inviteMatches),
+      }))
+      .allow(({ b }) => ({
+        view: b.isMember.or(b.hasInviteCode),
+        create: b.isSignedIn,
+        update: b.isMember,
+        delete: b.isMember,
+      })),
+    // ... other namespaces
+  })
+  .toRules()
 ```
 
-For multi-operand logical combinations, both chained (binary) and free-function (n-ary) forms:
+Full API, expression reference, context object, build order, and validation rules: **`docs/notes/ideal-perms-spec-x.md`**.
 
-```ts
-// Chain — reads left to right
-p.var('isMember').or(p.var('hasInviteCode'))
-p.ruleParam('code').neq(null).and(p.ruleParam('code').eq(p.data.field('inviteCode')))
-
-// Free function — for 3+ operands or complex nesting
-p.and(p.var('a'), p.var('b'), p.var('c'))
-p.or(p.var('x'), p.var('y'), p.var('z'))
-```
-
-### 8.3 API comparison
-
-**Approach A: Purely functional (not recommended)**
-
-```ts
-workspaces: p.entity({
-  bind: {
-    isMember: p.in(p.auth.id, p.data.ref('memberships.user.id')),
-    hasInviteCode: p.and(
-      p.neq(p.ruleParam('inviteCode'), null),
-      p.eq(p.ruleParam('inviteCode'), p.data.field('inviteCode')),
-    ),
-  },
-  allow: {
-    view: p.or(p.var('isMember'), p.var('hasInviteCode')),
-    create: p.neq(p.auth.id, null),
-  },
-})
-```
-
-Reads inside-out — outer operation named first, operands come later. Hard to parse in complex expressions.
-
-**Approach B: Fluent (recommended)**
-
-```ts
-workspaces: p.entity({
-  bind: {
-    isMember: p.auth.id.in(p.data.ref('memberships.user.id')),
-    hasInviteCode: p.ruleParam('inviteCode').neq(null).and(p.ruleParam('inviteCode').eq(p.data.field('inviteCode'))),
-  },
-  allow: {
-    view: p.var('isMember').or(p.var('hasInviteCode')),
-    create: p.auth.id.neq(null),
-  },
-})
-```
-
-Reads left to right, subject-first. Familiar to anyone who has used query builders or assertion libraries. Type-safe: `.in()` is only available on list-compatible expression nodes. For n-ary logical grouping, free-function forms:
-
-```ts
-hasAccess: p.and(
-  p.auth.id.neq(null),
-  p.var('isMember').or(p.var('hasInviteCode')),
-  p.data.field('isActive').eq(true),
-)
-```
-
-**Approach C: Tagged template literals (escape hatch only)**
-
-```ts
-view: cel`${p.auth.id} in ${p.data.ref('memberships.user.id')}`
-```
-
-TypeScript template literal types can't validate interpolated expressions or gate context availability. Ruled out for the core API; could be offered as an unvalidated escape hatch.
-
-### 8.4 Helper reference
-
-No `$` prefix — everything is cleanly scoped under `p`. Methods on expressions are valid JavaScript property names even for reserved words (`p.auth.id.in(...)` is valid syntax).
-
-**Context values (return typed expression nodes):**
-
-| Expression | CEL equivalent |
-|---|---|
-| `p.auth.id` | `auth.id` |
-| `p.auth.email` | `auth.email` |
-| `p.auth.ref('path')` | `auth.ref('path')` |
-| `p.data.field('attr')` | `data.field('attr')` |
-| `p.data.ref('link.attr')` | `data.ref('link.attr')` |
-| `p.newData.field('attr')` | `newData.field('attr')` |
-| `p.linkedData.id` | `linkedData.id` |
-| `p.linkedData.field('attr')` | `linkedData.attr` |
-| `p.ruleParam('name')` | `ruleParams.name` |
-| `p.var('name')` | `name` (bind alias) |
-
-Methods accept raw JS values (`null`, `true`, `false`, strings, numbers) directly — no wrapper expressions needed. For standalone `allow` rules that are always true or always false, pass the raw string `'true'` or `'false'` which IDB already accepts.
-
-**Methods on expression nodes:**
-
-| Method | CEL equivalent |
-|---|---|
-| `.eq(b)` | `a == b` |
-| `.neq(b)` | `a != b` |
-| `.gt(b)` / `.lt(b)` / `.gte(b)` / `.lte(b)` | `a > b` etc. |
-| `.in(list)` | `a in list` |
-| `.and(b)` | `a && b` |
-| `.or(b)` | `a \|\| b` |
-
-**Free functions for logical composition:**
-
-| Function | CEL equivalent |
-|---|---|
-| `p.and(a, b, ...)` | `a && b && ...` |
-| `p.or(a, b, ...)` | `a \|\| b \|\| ...` |
-| `p.not(a)` | `!a` |
-
-### 8.5 Type safety scope and honest Phase 1 limitations
-
-**Phase 1 — what's validated:**
-- Logical operators are typed: `.in()` only on list-compatible subjects, `.and()`/`.or()` only on boolean expressions
-- `p.var('name')` is validated against declared bind keys
-- The overall shape (`p.rules`, `p.entity`, `bind`/`allow`/`link`/`unlink` keys) is structurally typed
-
-**Phase 1 — what is NOT validated:**
-- `p.data.ref('...')` paths — unvalidated strings, same as raw CEL today
-- `p.linkedData.field('...')` attribute names — unvalidated strings
-- Action-context gating (`p.newData` in a `view` rule should be a TS error — not enforced in Phase 1)
-
-**Why ref path validation is hard:** `p` is a global builder with no entity context. For `p.data.ref('memberships.user.id')` inside `workspaces` to validate the path against the workspaces schema, TypeScript needs to know the call site is inside `workspaces`. That context doesn't flow through a global `p` object.
-
-**Path to Phase 2 — callback form:**
-
-```ts
-// Phase 2 design: p.entity<'entity'>((ctx) => ...) provides entity-scoped context
-workspaces: p.entity<'workspaces'>(ctx => ({
-  bind: {
-    isMember: ctx.auth.id.in(ctx.data.ref('memberships.user.id')),
-    // ↑ ctx.data.ref() validates against 'workspaces' schema — suggests valid link paths
-  },
-  allow: {
-    link: {
-      user: ctx.linkedData('user').id.eq(ctx.auth.id),
-      // ↑ ctx.linkedData('user') knows 'user' links to '$users'; .field() suggests $users attrs
-    }
-  }
-}))
-```
-
-**On CEL library ecosystem:** existing TypeScript CEL packages ([`@marcbachmann/cel-js`](https://www.npmjs.com/package/@marcbachmann/cel-js), [`libcel-ts`](https://github.com/libdbm/libcel-ts/)) are *evaluators* — they run CEL against runtime data. None are CEL *builders* generating typed CEL strings from TypeScript DSLs. The `definePerms` builder is novel and built from scratch.
-
-### 8.6 Subpath rationale
+### Subpath rationale
 
 `@mszr/idb-vux/perms` belongs in its own subpath: no client runtime behavior (only helps author `instant.perms.ts`), should not be bundled into client JS, and its type machinery is substantial enough that it should not slow the main package's TS compilation.
-
-Output type remains `InstantRules<Schema>` — no backend or deploy changes needed.
 
 ---
 
@@ -930,7 +1044,7 @@ Output type remains `InstantRules<Schema>` — no backend or deploy changes need
 
 ### Intentional cookie difference
 
-Official `createInstantRouteHandler` stores full user JSON in `instant_user_<appId>`. Vux's `defineInstantAuthSyncHandler` stores only the `refresh_token` in `instant_token_<appId>`. This is intentional: smaller cookie, less user data. `createInstantRouteHandler` remains re-exported for apps that need the official shape.
+Official `createInstantRouteHandler` stores full user JSON in `instant_user_<appId>`. Vux's `defineInstantAuthSyncHandlerX` stores only the `refresh_token` in `instant_token_<appId>`. This is intentional: smaller cookie, less user data. `createInstantRouteHandler` remains re-exported for apps that need the official shape.
 
 ### Full SSR hydration (planned ceiling)
 
@@ -960,7 +1074,6 @@ Three distinct layers, each testing a different property.
 - Completions appear at specific cursor positions with specific entries
 - Inline `useQueryX({/* cursor */})` → namespace names
 - `q({ todos: { $: { where: { /* cursor */ } } } })` → attribute names, dot-paths
-- `p.auth.id./* cursor */` → `.eq`, `.neq`, `.in`, `.and`, `.or`
 - `lu('/* cursor */')` → namespace name completions; second arg narrows to unique attrs
 - This layer is currently missing and would have caught the regression
 
@@ -974,12 +1087,11 @@ Three distinct layers, each testing a different property.
 
 | # | Question | Current lean |
 |---|---|---|
-| Q1 | Auto-infer singularity from static patterns (`where: { id: ... }`, unique-field filter) without explicit `pick`? | Future spike; `pick` / `$first` / `$last` lands first — dynamic queries make full auto-inference impractical |
-| Q2 | `IdbEntity` / `DefineInstaQLEntity` — implementation of `$one`/`$as` in subquery `$:`, auto-singularize key remapping via mapped type `as` clause? | Design settled (see §6.4); TS implementation TBD |
-| Q3 | Typed tx chain (`db.txX`) — `.link({ 'namespace.attr': value })` dot-path form? | Future milestone; `defineLookup` ships first |
-| Q4 | Does the official chain `.lookup()` also suggest only unique attributes in real IDE completions (not just type-check)? | Needs IDE verification — if yes, custom chain `.lookupX` is unneeded |
-| Q5 | Permissions Phase 2 — callback form `p.entity<'ns'>((ctx) => ...)` for ref path + linkedData validation? | After Phase 1 ships |
-| Q6 | SSR query hydration Nuxt plugin? | After core SDK is stable |
+| Q1 | Auto-infer singularity from static patterns (`where: { id: ... }`, unique-field filter) without explicit `$only`/`$at`? | Future spike; `$only`/`$at` lands first — dynamic queries make full auto-inference impractical |
+| Q2 | `DefineIdbEntityX` + `DefineIdbDataX` TypeScript implementation — mapped types with `$as` clause for key remapping; `$one` coercion; `fields` narrowing; `$m` projection types at every depth; singularization via schema `options` | Design settled (see §6.4); TS implementation TBD |
+| Q3 | Typed tx chain (`db.txX`) — `.link({ 'namespace.attr': value })` dot-path form? | Future milestone; `defineLookupX` ships first |
+| Q4 | SSR query hydration Nuxt plugin? | After core SDK is stable |
+| Q5 | `options` expansion — what other settings belong in `defineSchemaX` `options` beyond `singularize`? Candidates: client auth strictness (e.g. `requireUser` default), server mode defaults | Deferred; add as needs arise |
 
 ---
 
@@ -989,18 +1101,24 @@ Three distinct layers, each testing a different property.
 |---|---|---|---|
 | Package structure | `@mszr/idb-vux` + `/admin` + `/nuxt` + `/perms` | `/admin` = framework-agnostic admin ergonomics; `/nuxt` = H3/Nuxt-specific layer wrapping `/admin`; `/perms` replaces `/permissions` for brevity | 2026-06-04 |
 | X APIs as primary | Yes — X APIs are the recommended path; baseline exists for compatibility and migration | DX goal | 2026-06-04 |
-| Single-entity normalization | `$pick: 'first' \| 'last'` in `$:` object; `$first`/`$last` boolean shorthand exports; `$as` string for explicit key override | One explicit mechanism covers all single-entity cases; avoids unstable types from dynamic limit values | 2026-06-04 |
-| Auto-singularize key names | When `$first`/`$last`/`$pick` is set, result key auto-singularizes (`todos` → `todo`, `$users` → `$user`) via `Singularize<NS>` TS type + runtime transformer; `$as` overrides explicitly; `singularize` callback in `init()` for runtime-only custom logic | Eliminates manual `{ todos: todo }` aliasing at every call site | 2026-06-05 |
-| `IdbEntity` singularity coercion | `$one: true` in link subquery `$:` coerces `has-many` link from `Entity[]` to `Entity \| undefined`; key auto-singularized by same `Singularize<NS>` logic; `$as` for explicit rename | Mirrors query behavior; `IdbEntity<'$users', { todos: { $: { $one: true } } }>` → `user.todo: Todo \| undefined` | 2026-06-05 |
-| Permissions naming | `definePerms` (not `definePermissions`), subpath `/perms` | Cleaner and consistent with the file name (`instant.perms.ts`) | 2026-06-04 |
-| Permissions API | Fluent expressions (method chains on expression nodes) with free-function n-ary logical ops; no `$` prefix needed under `p` | Reads left-to-right naturally; type-safe method availability by expression type | 2026-06-04 |
+| Naming convention | `X` suffix on all Vux-owned APIs, including those with no official counterpart (`defineSchemaX`, `definePermsX`, `i.namespaceX`, etc.) | Forward collision-proofing; `X` means "Vux-owned, unambiguous" | 2026-06-09 |
+| Single-entity normalization | `$only: true` and `$at: number` in `$:` object; `$only` exported as `true` constant (JS property shorthand); returns `Entity \| undefined` with auto-singularized key | One explicit mechanism covers all single-entity cases; avoids unstable types from dynamic limit values; `$only` conveys semantic intent better than `first`/`last` | 2026-06-09 |
+| Auto-singularize source of truth | Schema's `singular` field in `i.namespaceX()` — no `singularOverrides` in `defineDbX`; TypeScript reads schema type; runtime reads same schema object | Single declaration, zero sync issues | 2026-06-09 |
+| `$m` for additional projections | Object-keyed `$m`: keys are output labels, values are `{ at?, indexBy?, groupBy? }`; original data always returned; `$m` keys cannot collide with resolved scope label | Duplicate label prevention, forced naming, TS-friendly over array form | 2026-06-09 |
+| `indexBy` and `groupBy` constraints | `indexBy` requires unique attr (`.unique()` in schema); `groupBy` requires primitive attr (`string \| number \| boolean`) | `indexBy` on non-unique would silently drop records; `groupBy` on objects/JSON is non-serializable as record key | 2026-06-09 |
+| `defineSchemaX` | `defineSchemaX()` top-level function; `i.namespaceX()` namespace factory; `namespaces` key (not `entities`); `singular`/`attrs`/`ruleParams` collocated; links support `singular` on label definitions; `options` key for behavioral config | Schema as single source of truth for singulars, ruleParams typing, and behavioral config; terminology matches IDB docs | 2026-06-09 |
+| `namespaces` key (no X) | Config object keys inside `defineSchemaX` do not get the X suffix — `namespaces`, `links`, `rooms`, `options` stay without X | X applies to callable identifiers (functions, methods, constants), not to keys within config objects; `defineSchemaX` already signals full ownership of the input shape; X-ing `namespaces` but not `links`/`rooms` would be inconsistently asymmetric | 2026-06-09 |
+| `options` in `defineSchemaX` | `options.singularize: 'auto' \| 'off' \| 'explicit'` (default `'auto'`); schema is the config authority; all Vux inits inherit automatically | Single declaration, zero repetition across `defineDbX`, admin `init`, etc.; other behavioral defaults (auth strictness, etc.) tracked in Q7 | 2026-06-09 |
+| `ruleParams` typing gap | `defineSchemaX` closes: `db.tx.*.ruleParams({})` typed from schema; `definePermsX` ctx `rp()` typed from schema | `RuleParams = { [key: string]: any }` confirmed gap in official SDK | 2026-06-09 |
+| `DefineIdbEntityX` | Schema-bound entity type factory; `IdbEntity<'ns'>` returns entity directly; `$`/`$m` supported only in nested link scopes (not top level); `$one: true` in nested `$:` coerces `Entity[]` → `Entity \| undefined` with auto-singularize; `fields` narrows attrs; `$m` adds sibling projections on linked entities | `InstaQLEntity` requires AppSchema at every callsite and rejects `$: { fields }` entirely | 2026-06-09 |
+| `DefineIdbDataX` | Schema-bound data shape type factory; models `data.value` consistently across `useQueryX`, `queryOnceX`, `useInfiniteQueryX`, and `q`; `$`/`$m` at every depth; `$one: true` is the type-level counterpart to runtime `$only`/`$at`; singularization follows schema `options.singularize`; `$as` always wins | No official equivalent; required for statically typing full query data shapes including `$m` projections | 2026-06-09 |
+| Permissions naming | `definePermsX`, subpath `/perms` | Cleaner and consistent with the file name (`instant.perms.ts`) and X convention | 2026-06-04 |
+| Permissions API | Fluent expressions (method chains on expression nodes) with free-function n-ary logical ops; `.namespaces({})` object form; `.toRules()` as explicit compile point | Reads left-to-right naturally; object form consistent with `defineSchemaX`; chain syntax dropped (object literal keys provide equivalent IntelliSense) | 2026-06-09 |
+| `ruleParams` in CEL | `ruleParams.<key>` (plural) — confirmed from server-side test code; `rp('key')` method renamed to `ruleParams('key')` (shorthand `rp` unchanged) | CEL uses `ruleParams.handle`, `ruleParams.inviteCode` — plural, it's a map | 2026-06-09 |
 | `$isNull` restriction | Fix: any attribute, not just optional | Per official docs | 2026-06-04 |
 | `$like` restriction | Fix: require indexed string, not just string | Per official docs | 2026-06-04 |
-| `defineLookup` primary use case | Loose form (`.link()` context) — the official chain `.lookup()` already validates unique attrs + value types | Official chain form confirmed typed via `ETypeChunk` in instatx.ts | 2026-06-04 |
-| `defineLookup` syntax | Generic function form: `lu('workspaces', 'attr', value)` | generic function form is simpler to implement and handles dynamic namespaces | 2026-06-04 |
-| Typed tx chain | Future milestone (`db.txX`); `defineLookup` ships first | Non-trivial tx reimplementation; current `lu` covers the primary use case | 2026-06-04 |
-| `p.null()` / `p.true()` / `p.false()` | Removed — methods accept raw JS values directly; standalone allow rules use raw `'true'`/`'false'` strings | Cleaner API; no wrapping needed for scalars | 2026-06-04 |
-| `InstaQLEntity` correctness | Already returns a single entity and correctly infers link cardinality — no `InstaQLEntityX` needed; Vux adds `DefineInstaQLEntity` (schema-bound) and singularity coercion for `pick` | Confirmed from `queryTypes.ts` | 2026-06-04 |
-| `definePerms` Phase 1 scope | Typed logical operators + `p.var()` bind validation; ref paths (`p.data.ref()`, `p.linkedData.field()`) are unvalidated strings in Phase 1 | Entity context not available in global `p`; callback form needed for Phase 2 | 2026-06-04 |
+| `defineLookupX` primary use case | Loose form (`.link()` context) — the official chain `.lookup()` already validates unique attrs + value types | Official chain form confirmed typed via `ETypeChunk` in instatx.ts | 2026-06-04 |
+| `defineLookupX` syntax | Generic function form: `lu('workspaces', 'attr', value)` | Generic function form is simpler to implement and handles dynamic namespaces | 2026-06-04 |
+| Typed tx chain | Future milestone (`db.txX`); `defineLookupX` ships first | Non-trivial tx reimplementation; current `lu` covers the primary use case | 2026-06-04 |
 | Factory validation | Structural validation (namespace + link labels) without `q()`; deep where-clause validation requires `q()` in factory return | TypeScript limitation — confirmed via experiment | 2026-06-04 |
 | Suggestion depth | 3 hops; not configurable for now | Matches stated goal; YAGNI on configurability | 2026-06-04 |
