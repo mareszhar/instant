@@ -99,6 +99,7 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
     "@instantdb/admin": "workspace:*",
+    "@instantdb/vue": "workspace:*",
     "@vue/test-utils": "^2.4.10",
     "h3": "^1.15.3",
     "jsdom": "^29.1.1",
