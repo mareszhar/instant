@@ -3,20 +3,16 @@ status: proposed
 
 # Ideal Permissions Spec X
 
-This is a concrete proposal for a typed permissions authoring layer for
-`@mszr/idb-vux`.
+This is a concrete proposal for a typed permissions authoring layer for `@mszr/idb-vux`.
 
-The goal is not to replace InstantDB permissions. The goal is to write a nicer
-TypeScript authoring API that compiles to the same plain `InstantRules` object
-Instant already accepts.
+The goal is not to replace InstantDB permissions. The goal is to write a nicer TypeScript authoring API that compiles to the same plain `InstantRules` object Instant already accepts.
 
 ## Goals
 
 1. Compile to ordinary InstantDB permission rules.
 2. Keep the generated output inspectable: CEL strings in the final rules object.
 3. Make common permission rules feel like TypeScript, not string assembly.
-4. Provide schema-aware IntelliSense for namespaces, fields, link labels, and ref
-   paths.
+4. Provide schema-aware IntelliSense for namespaces, fields, link labels, and ref paths.
 5. Validate common CEL footguns at author time.
 6. Support escape hatches without making unsafety the default path.
 
@@ -28,8 +24,7 @@ Recommended subpath:
 import { definePermsX } from '@mszr/idb-vux/perms'
 ```
 
-The subpath should be authoring-only. It does not need to be bundled into client
-runtime code unless the user imports it from client modules by choice.
+The subpath should be authoring-only. It does not need to be bundled into client runtime code unless the user imports it from client modules by choice.
 
 ## Entrypoints
 
@@ -37,8 +32,7 @@ The API should support both a type-only route and a runtime-schema route.
 
 ### Type-Only Schema
 
-Use this when the schema value is not available or when the user only wants
-TypeScript validation.
+Use this when the schema value is not available or when the user only wants TypeScript validation.
 
 ```ts
 import type { AppSchema } from './instant.schema'
@@ -135,9 +129,7 @@ e
 
 ### `.stage(...)`
 
-`stage` creates authoring-local values. They are not emitted into the final
-rules object unless referenced by a bind, allow rule, field rule, or another
-emitted expression.
+`stage` creates authoring-local values. They are not emitted into the final rules object unless referenced by a bind, allow rule, field rule, or another emitted expression.
 
 ```ts
 workspaces: e => e
@@ -207,8 +199,7 @@ Rules:
 
 ### `.allow(...)`
 
-`allow` accepts booleans, expression nodes, action callbacks, or a callback that
-returns an allow object.
+`allow` accepts booleans, expression nodes, action callbacks, or a callback that returns an allow object.
 
 Compact object form:
 
@@ -256,14 +247,11 @@ Hybrid action-specific form:
 Design notes:
 
 - object and common callback forms are concise for normal rules
-- the outer `.allow((ctx) => ({ ... }))` callback provides one shared common
-  context for the whole allow block
+- the outer `.allow((ctx) => ({ ... }))` callback provides one shared common context for the whole allow block
 - nested action callbacks enable context-specific typing
 - nested action callbacks can close over values from the outer common context
-- prefer the common callback form unless a rule needs `newData`, `linkedData`,
-  or another action-only value
-- simple link/unlink rules can be plain expressions; nested callbacks are only
-  needed when that rule reads link-label-specific context
+- prefer the common callback form unless a rule needs `newData`, `linkedData`, or another action-only value
+- simple link/unlink rules can be plain expressions; nested callbacks are only needed when that rule reads link-label-specific context
 - `newData` / `nd` appears only in update contexts
 - `linkedData` / `ld` and linked ref helpers appear only in link/unlink contexts
 - `request.modifiedFields` appears only in create/update contexts
@@ -271,16 +259,13 @@ Design notes:
 Why link/unlink sometimes need a nested context:
 
 - `linkedData` is only meaningful for a specific link label
-- its type changes by link label, for example `tasks.link.assignee` may expose a
-  `$users` row while `tasks.link.workspace` exposes a `workspaces` row
+- its type changes by link label, for example `tasks.link.assignee` may expose a `$users` row while `tasks.link.workspace` exposes a `workspaces` row
 - the outer allow context cannot give `ld` one correct type for every link rule
-- therefore link/unlink rules accept either a plain expression or a nested
-  callback with the link-specific `ld`, `ldf`, and `ldr` helpers
+- therefore link/unlink rules accept either a plain expression or a nested callback with the link-specific `ld`, `ldf`, and `ldr` helpers
 
 ### `.fields(...)`
 
-Field-level rules should be a sibling builder step rather than hidden inside
-`allow`.
+Field-level rules should be a sibling builder step rather than hidden inside `allow`.
 
 ```ts
 $users: e => e
@@ -298,15 +283,13 @@ $users: e => e
   }))
 ```
 
-Field keys should autocomplete from entity attrs, excluding `id` if Instant keeps
-the current `InstantRules` behavior.
+Field keys should autocomplete from entity attrs, excluding `id` if Instant keeps the current `InstantRules` behavior.
 
 ## Special Builders
 
 ### `.attrs(...)`
 
-`attrs` is special. It controls whether new namespaces and attrs can be created
-on the fly.
+`attrs` is special. It controls whether new namespaces and attrs can be created on the fly.
 
 ```ts
 const rules = definePermsX(schema)
@@ -347,13 +330,11 @@ Design notes:
 - `$default.bind` is inherited by every entity namespace
 - staged defaults are authoring-only and inherited by entity contexts
 - schema-specific entity attrs are not known in default context
-- `dataField(string)` / `dataRef(string)` may be allowed as loose helpers, but
-  should not claim entity-specific autocomplete
+- `dataField(string)` / `dataRef(string)` may be allowed as loose helpers, but should not claim entity-specific autocomplete
 
 ## Context Object
 
-Every callback receives a context object. The long names are self-documenting.
-The short names are always available for high-density permission rules.
+Every callback receives a context object. The long names are self-documenting. The short names are always available for high-density permission rules.
 
 ### Common Context
 
@@ -385,8 +366,7 @@ There is no `newDataRef`. Instant documents `newData.ref(...)` as unsupported.
 
 ### Link And Unlink Context
 
-Only available in link/unlink callbacks and action-specific link/unlink
-binds/stages.
+Only available in link/unlink callbacks and action-specific link/unlink binds/stages.
 
 | Long name | Short name | Meaning |
 |---|---:|---|
@@ -426,8 +406,7 @@ Use this when:
 
 - the attr name is easier to pass as a string
 - the attr name collides with a JavaScript property concern
-- the attr name is dynamic enough that property access is awkward, but still a
-  string literal known to TypeScript
+- the attr name is dynamic enough that property access is awkward, but still a string literal known to TypeScript
 
 ### Linked Ref Access
 
@@ -494,8 +473,7 @@ String-like methods:
 
 ### List Methods
 
-`dataRef`, `authRef`, `linkedDataRef`, and list-like attrs return list
-expressions.
+`dataRef`, `authRef`, `linkedDataRef`, and list-like attrs return list expressions.
 
 ```ts
 dr('memberships.user.id').contains(auth.id)
@@ -527,9 +505,7 @@ This is intentionally different from:
 dr('ownedRole.types').contains('admin')
 ```
 
-If the terminal `types` attr is itself a JSON array, `data.ref('ownedRole.types')`
-returns a list of terminal JSON values, for example `[['admin', 'editor']]`. It
-does not flatten the inner array.
+If the terminal `types` attr is itself a JSON array, `data.ref('ownedRole.types')` returns a list of terminal JSON values, for example `[['admin', 'editor']]`. It does not flatten the inner array.
 
 ### Functional Helpers
 
@@ -593,9 +569,7 @@ Design notes:
 
 ## Action-Specific Stage And Bind
 
-Common `.stage(...)` and `.bind(...)` callbacks should receive only common
-context. That prevents `newData` and `linkedData` from leaking into rules where
-Instant cannot evaluate them.
+Common `.stage(...)` and `.bind(...)` callbacks should receive only common context. That prevents `newData` and `linkedData` from leaking into rules where Instant cannot evaluate them.
 
 When aliasing action-specific logic is needed, use action-specific forms.
 
@@ -642,18 +616,14 @@ memberships: e => e
 
 Rules:
 
-- action-specific stage names are authoring-only and only exposed in compatible
-  action callbacks
+- action-specific stage names are authoring-only and only exposed in compatible action callbacks
 - action-specific bind names still compile into the normal Instant `bind` block
 - they are only exposed in compatible action callbacks
-- nested action contexts include compatible common `stage`/`bind` values plus
-  action-specific `stageFor`/`bindFor` values
+- nested action contexts include compatible common `stage`/`bind` values plus action-specific `stageFor`/`bindFor` values
 - duplicate names across common and action-specific binds should be rejected
 - `.overrideBind(...)` may explicitly replace inherited names
 
-Implementation can defer `stageFor` / `bindFor` if phase 1 only targets common
-rules, but the ideal API should leave room for it because Instant's own docs use
-`newData` inside `bind`.
+Implementation can defer `stageFor` / `bindFor` if phase 1 only targets common rules, but the ideal API should leave room for it because Instant's own docs use `newData` inside `bind`.
 
 ## Output Rules
 
@@ -684,8 +654,7 @@ Output:
 Design notes:
 
 - boolean authoring values are accepted for ergonomics
-- output should prefer CEL strings for maximum compatibility with current
-  `InstantRules` types and existing tooling
+- output should prefer CEL strings for maximum compatibility with current `InstantRules` types and existing tooling
 - expression rendering should use deterministic parentheses
 - generated CEL should be easy to inspect in diffs
 
@@ -721,13 +690,10 @@ rateLimit.createTask.limit(auth.id)
 
 ### Namespace Validation
 
-- `.namespaces({})` keys autocomplete from schema namespaces plus special keys
-  (`$users`, `$default`, etc.)
+- `.namespaces({})` keys autocomplete from schema namespaces plus special keys (`$users`, `$default`, etc.)
 - unknown namespace keys are TypeScript errors
 - with `definePermsX(schema)`, unknown namespaces can also throw runtime errors
-- each namespace's `rp`/`ruleParams` context is typed against the `ruleParams`
-  declaration for that namespace in `defineSchemaX` — unknown param keys are
-  TypeScript errors
+- each namespace's `rp`/`ruleParams` context is typed against the `ruleParams` declaration for that namespace in `defineSchemaX` — unknown param keys are TypeScript errors
 
 ### Attr Validation
 
@@ -740,8 +706,7 @@ rateLimit.createTask.limit(auth.id)
 
 - `dataRef` starts from the current entity
 - `linkedDataRef` starts from the linked entity
-- `authRef` starts from `$users`; callers pass a `$user.`-prefixed path, matching
-  Instant's `auth.ref('$user...')` requirement
+- `authRef` starts from `$users`; callers pass a `$user.`-prefixed path, matching Instant's `auth.ref('$user...')` requirement
 - path traversal follows schema link labels
 - the final segment must be an attr
 - return type should be `ListExpr<TerminalAttrValue>`
@@ -768,13 +733,11 @@ allow({
 - duplicate bind names across inherited defaults and entity scope fail
 - duplicate stage names follow the same rule
 - `.overrideBind` and `.overrideStage` are explicit escape hatches
-- cyclic bind dependencies should be detected if practical, or left to Instant
-  validation with a clear error
+- cyclic bind dependencies should be detected if practical, or left to Instant validation with a clear error
 
 ## Full Example
 
-This example mirrors the current demo shape: users, workspaces, memberships, and
-tasks.
+This example mirrors the current demo shape: users, workspaces, memberships, and tasks.
 
 ```ts
 import { definePermsX } from '@mszr/idb-vux/perms'
@@ -899,8 +862,7 @@ interface Expr<T> {
 }
 ```
 
-In practice, `type` is phantom type information. Runtime nodes need enough
-metadata to render CEL and validate obvious local mistakes.
+In practice, `type` is phantom type information. Runtime nodes need enough metadata to render CEL and validate obvious local mistakes.
 
 ### Renderer
 
@@ -916,8 +878,7 @@ Renderer responsibilities:
 
 ### Type Depth
 
-Ref path autocomplete should be deep enough to be useful and shallow enough not
-to punish TypeScript.
+Ref path autocomplete should be deep enough to be useful and shallow enough not to punish TypeScript.
 
 Recommended starting point:
 
@@ -955,8 +916,7 @@ No backend changes should be required.
 4. `.stage`, `.bind`, `.allow`, `.fields`.
 5. Default inheritance and duplicate checking.
 6. Action callback form for `newData` and `linkedData`.
-7. List helpers: `.contains`, `.isEmpty`, `.isNonEmpty`, `.size`, `.some`,
-   `.every`.
+7. List helpers: `.contains`, `.isEmpty`, `.isNonEmpty`, `.size`, `.some`, `.every`.
 8. `ctx.f` / `ctx.ops` functional helpers.
 9. `.attrs`, `.defaults`, `$rateLimits`.
 10. Runtime schema validation diagnostics.
