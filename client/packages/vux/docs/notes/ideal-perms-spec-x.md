@@ -1,4 +1,4 @@
-updated: 2026-06-05
+updated: 2026-06-09
 status: proposed
 
 # Ideal Permissions Spec X
@@ -25,7 +25,7 @@ Instant already accepts.
 Recommended subpath:
 
 ```ts
-import { definePerms } from '@mszr/idb-vux/perms'
+import { definePermsX } from '@mszr/idb-vux/perms'
 ```
 
 The subpath should be authoring-only. It does not need to be bundled into client
@@ -42,15 +42,15 @@ TypeScript validation.
 
 ```ts
 import type { AppSchema } from './instant.schema'
-import { definePerms } from '@mszr/idb-vux/perms'
+import { definePermsX } from '@mszr/idb-vux/perms'
 
-const p = definePerms<AppSchema>()
-
-const rules = p.rules({
-  tasks: e => e.allow({
-    view: true,
-  }),
-})
+const rules = definePermsX<AppSchema>()
+  .namespaces({
+    tasks: e => e.allow({
+      view: true,
+    }),
+  })
+  .toRules()
 
 export default rules
 ```
@@ -59,22 +59,22 @@ Properties:
 
 - full TypeScript IntelliSense and validation
 - no runtime schema validation
-- can still support `.rules({ ... })`
-- can support `.ns.tasks(...)` through a proxy, but no runtime validation
 
 ### Runtime Schema
 
 Use this as the preferred route in app code.
 
 ```ts
-import { definePerms } from '@mszr/idb-vux/perms'
+import { definePermsX } from '@mszr/idb-vux/perms'
 import schema from './instant.schema'
 
-const rules = definePerms(schema).rules({
-  tasks: e => e.allow({
-    view: true,
-  }),
-})
+const rules = definePermsX(schema)
+  .namespaces({
+    tasks: e => e.allow({
+      view: true,
+    }),
+  })
+  .toRules()
 
 export default rules
 ```
@@ -84,91 +84,42 @@ Properties:
 - all type-only benefits
 - runtime validation for namespace names, field names, link labels, and ref paths
 - enables better diagnostics and potential dev-time assertions
-- works with both `.rules({ ... })` and `.ns.<namespace>(...)`
 
-## Two Authoring Shapes
-
-Both authoring shapes should produce the same final output.
-
-### Object Shape: `.rules({ ... })`
-
-This should be the first implementation target. It is closest to the final
-Instant rules object and returns plain rules immediately.
+## Authoring Shape
 
 ```ts
-const rules = definePerms(schema).rules({
-  workspaces: e => e
-    .stage(({ rp }) => ({
-      inviteCode: rp('inviteCode'),
-    }))
-    .bind(({ auth, dr, s }) => ({
-      isSignedIn: auth.id.neq(null),
-      isMember: dr('memberships.user.id').contains(auth.id),
-      hasInviteCode: s.inviteCode.neq(null),
-    }))
-    .allow(({ b }) => ({
-      view: b.isMember.or(b.hasInviteCode),
-      create: b.isSignedIn,
-      update: b.isMember,
-      delete: b.isMember,
-    })),
-})
-```
-
-Why this shape:
-
-- no finalizer needed
-- easy to compare mentally with the generated rules
-- top-level namespace keys are visible in one object
-- entity context can be inferred from the object key
-
-### Chain Shape: `.ns.<namespace>(...).toRules()`
-
-This should be added as sugar after `.rules({ ... })`.
-
-```ts
-const rules = definePerms(schema)
+const rules = definePermsX(schema)
   .attrs(a => a.allow({ create: false }))
   .defaults(d => d
     .bind(({ auth }) => ({
       isSignedIn: auth.id.neq(null),
     }))
     .allow({ $default: false }))
-  .ns
-  .workspaces(e => e
-    .bind(({ auth, dr }) => ({
-      isMember: dr('memberships.user.id').contains(auth.id),
-    }))
-    .allow(({ b }) => ({
-      view: b.isMember,
-      create: b.isSignedIn,
-      update: b.isMember,
-    })))
-  .ns
-  .tasks(e => e
-    .bind(({ auth, dr }) => ({
-      isMember: dr('workspace.memberships.user.id').contains(auth.id),
-    }))
-    .allow(({ b }) => ({
-      view: b.isMember,
-      create: b.isSignedIn.and(b.isMember),
-      update: b.isMember,
-      delete: b.isMember,
-    })))
+  .namespaces({
+    workspaces: e => e
+      .stage(({ rp, d }) => ({
+        inviteCode: rp('inviteCode'),
+        inviteMatches: rp('inviteCode').eq(d.inviteCode),
+      }))
+      .bind(({ auth, dr, s }) => ({
+        isMember: dr('memberships.user.id').contains(auth.id),
+        hasInviteCode: s.inviteCode.neq(null).and(s.inviteMatches),
+      }))
+      .allow(({ b }) => ({
+        view: b.isMember.or(b.hasInviteCode),
+        create: b.isSignedIn,
+        update: b.isMember,
+        delete: b.isMember,
+      })),
+  })
   .toRules()
 ```
 
-Why this shape:
+Design notes:
 
-- lower indentation for long permission files
-- feels like a staged builder timeline
-- inherited defaults are visually declared before namespaces
-
-Why `.toRules()` exists:
-
-- it is the explicit compile point
-- it returns the plain `InstantRules` object
-- it avoids pretending the builder object itself is the final data structure
+- `.attrs()` and `.defaults()` must come before `.namespaces()` in the chain; their accumulated type flows into each namespace callback's `ctx`
+- namespace keys in `.namespaces({})` autocomplete from schema and are validated
+- `.toRules()` is the explicit compile point — returns the plain `InstantRules<Schema>` object IDB accepts; makes the builder/output boundary explicit
 
 ## Core Entity Pipeline
 
@@ -358,7 +309,7 @@ the current `InstantRules` behavior.
 on the fly.
 
 ```ts
-const rules = definePerms(schema)
+const rules = definePermsX(schema)
   .attrs(attrs => attrs.allow({ create: false }))
   .toRules()
 ```
@@ -375,19 +326,18 @@ Design notes:
 `defaults` maps to the top-level `$default` namespace.
 
 ```ts
-const rules = definePerms(schema)
+const rules = definePermsX(schema)
   .defaults(d => d
-    .stage(({ auth }) => ({
-      signedIn: auth.id.neq(null),
-    }))
-    .bind(({ s }) => ({
-      isSignedIn: s.signedIn,
+    .bind(({ auth }) => ({
+      isSignedIn: auth.id.neq(null),
     }))
     .allow({ $default: false }))
-  .ns
-  .tasks(e => e.allow(({ b }) => ({
-    create: b.isSignedIn,
-  })))
+  .namespaces({
+    tasks: e => e
+      .allow(({ b }) => ({
+        create: b.isSignedIn,
+      })),
+  })
   .toRules()
 ```
 
@@ -416,7 +366,7 @@ The short names are always available for high-density permission rules.
 | `data` | `d` | current entity attrs by property access |
 | `dataField` | `df` | current entity attr by string key |
 | `dataRef` | `dr` | linked attrs from current entity, emits `data.ref(...)` |
-| `ruleParam` | `rp` | rule params by key, emits `ruleParams.<key>` |
+| `ruleParams` | `rp` | rule params by key, emits `ruleParams.<key>` in CEL; key autocompletes from the namespace's `ruleParams` declaration in `defineSchemaX` |
 | `request` | `req` | request metadata |
 | `rateLimit` | `rl` | rate limit buckets |
 | `ops` | `f` | functional expression helpers |
@@ -741,22 +691,23 @@ Design notes:
 
 ## Rate Limits
 
-The existing `InstantRules` shape supports `$rateLimits`. The authoring API
-should expose both configuration and usage.
+The existing `InstantRules` shape supports `$rateLimits`. The authoring API should expose both configuration and usage.
 
 Configuration:
 
 ```ts
-const rules = definePerms(schema)
+const rules = definePermsX(schema)
   .rateLimits({
     createTask: {
       limits: [{ capacity: 10, refill: { period: '1 minute' } }],
     },
   })
-  .ns
-  .tasks(e => e.allow(({ rl, auth }) => ({
-    create: rl.createTask.limit(auth.id),
-  })))
+  .namespaces({
+    tasks: e => e
+      .allow(({ rl, auth }) => ({
+        create: rl.createTask.limit(auth.id),
+      })),
+  })
   .toRules()
 ```
 
@@ -770,11 +721,13 @@ rateLimit.createTask.limit(auth.id)
 
 ### Namespace Validation
 
-- `.rules({ ... })` keys autocomplete from schema entities plus special
-  namespaces
-- `.ns.<namespace>(...)` properties autocomplete from schema entities
-- unknown namespaces are TypeScript errors
-- with `definePerms(schema)`, unknown namespaces can also throw runtime errors
+- `.namespaces({})` keys autocomplete from schema namespaces plus special keys
+  (`$users`, `$default`, etc.)
+- unknown namespace keys are TypeScript errors
+- with `definePermsX(schema)`, unknown namespaces can also throw runtime errors
+- each namespace's `rp`/`ruleParams` context is typed against the `ruleParams`
+  declaration for that namespace in `defineSchemaX` — unknown param keys are
+  TypeScript errors
 
 ### Attr Validation
 
@@ -824,90 +777,88 @@ This example mirrors the current demo shape: users, workspaces, memberships, and
 tasks.
 
 ```ts
-import { definePerms } from '@mszr/idb-vux/perms'
+import { definePermsX } from '@mszr/idb-vux/perms'
 import schema from './instant.schema'
 
-const rules = definePerms(schema)
+const rules = definePermsX(schema)
   .attrs(a => a.allow({ create: false }))
   .defaults(d => d
     .bind(({ auth }) => ({
       isSignedIn: auth.id.neq(null),
     }))
     .allow({ $default: false }))
-  .ns
-  .$users(e => e
-    .bind(({ auth, d, dr }) => ({
-      isSelf: auth.id.eq(d.id),
-      sharesWorkspace: dr('memberships.workspace.memberships.user.id').contains(auth.id),
-    }))
-    .allow(({ b }) => ({
-      view: b.isSelf.or(b.sharesWorkspace),
-      create: true,
-      update: b.isSelf,
-    }))
-    .fields(({ b }) => ({
-      email: b.isSelf.or(b.sharesWorkspace),
-    })))
-  .ns
-  .workspaces(e => e
-    .stage(({ rp, d }) => ({
-      inviteCode: rp('inviteCode'),
-      inviteMatches: rp('inviteCode').eq(d.inviteCode),
-    }))
-    .bind(({ auth, dr, s }) => ({
-      isMember: dr('memberships.user.id').contains(auth.id),
-      hasInviteCode: s.inviteCode.neq(null).and(s.inviteMatches),
-    }))
-    .allow(({ b }) => ({
-      view: b.isMember.or(b.hasInviteCode),
-      create: b.isSignedIn,
-      update: b.isMember,
-      delete: b.isMember,
-    })))
-  .ns
-  .memberships(e => e
-    .bind(({ auth, dr, rp }) => ({
-      isMember: dr('workspace.memberships.user.id').contains(auth.id),
-      isSelf: dr('user.id').contains(auth.id),
-      hasInviteCode: rp('inviteCode').neq(null).and(dr('workspace.inviteCode').contains(rp('inviteCode'))),
-    }))
-    .allow(({ b }) => ({
-      view: b.isMember,
-      create: b.isSignedIn,
-      update: b.isSelf,
-      delete: b.isSelf,
-      link: {
-        user: ({ auth, ld }) => ld.id.eq(auth.id),
-        workspace: ({ rp, ld }) => b.isMember.or(
-          rp('inviteCode').neq(null).and(ld.inviteCode.eq(rp('inviteCode'))),
-        ),
-      },
-      unlink: {
-        user: b.isSelf,
-        workspace: b.isSelf,
-      },
-    })))
-  .ns
-  .tasks(e => e
-    .bind(({ auth, dr }) => ({
-      isMember: dr('workspace.memberships.user.id').contains(auth.id),
-    }))
-    .allow(({ b }) => ({
-      view: b.isMember,
-      create: b.isSignedIn.and(b.isMember),
-      update: b.isMember,
-      delete: b.isMember,
-      link: {
-        workspace: b.isMember,
-        assignee: ({ ld, dr }) => b.isMember.and(
-          dr('workspace.memberships.user.id').contains(ld.id),
-        ),
-      },
-      unlink: {
-        workspace: false,
-        assignee: b.isMember,
-      },
-    })))
+  .namespaces({
+    $users: e => e
+      .bind(({ auth, d, dr }) => ({
+        isSelf: auth.id.eq(d.id),
+        sharesWorkspace: dr('memberships.workspace.memberships.user.id').contains(auth.id),
+      }))
+      .allow(({ b }) => ({
+        view: b.isSelf.or(b.sharesWorkspace),
+        create: true,
+        update: b.isSelf,
+      }))
+      .fields(({ b }) => ({
+        email: b.isSelf.or(b.sharesWorkspace),
+      })),
+    workspaces: e => e
+      .stage(({ rp, d }) => ({
+        inviteCode: rp('inviteCode'),
+        inviteMatches: rp('inviteCode').eq(d.inviteCode),
+      }))
+      .bind(({ auth, dr, s }) => ({
+        isMember: dr('memberships.user.id').contains(auth.id),
+        hasInviteCode: s.inviteCode.neq(null).and(s.inviteMatches),
+      }))
+      .allow(({ b }) => ({
+        view: b.isMember.or(b.hasInviteCode),
+        create: b.isSignedIn,
+        update: b.isMember,
+        delete: b.isMember,
+      })),
+    memberships: e => e
+      .bind(({ auth, dr, rp }) => ({
+        isMember: dr('workspace.memberships.user.id').contains(auth.id),
+        isSelf: dr('user.id').contains(auth.id),
+        hasInviteCode: rp('inviteCode').neq(null).and(dr('workspace.inviteCode').contains(rp('inviteCode'))),
+      }))
+      .allow(({ b }) => ({
+        view: b.isMember,
+        create: b.isSignedIn,
+        update: b.isSelf,
+        delete: b.isSelf,
+        link: {
+          user: ({ auth, ld }) => ld.id.eq(auth.id),
+          workspace: ({ rp, ld }) => b.isMember.or(
+            rp('inviteCode').neq(null).and(ld.inviteCode.eq(rp('inviteCode'))),
+          ),
+        },
+        unlink: {
+          user: b.isSelf,
+          workspace: b.isSelf,
+        },
+      })),
+    tasks: e => e
+      .bind(({ auth, dr }) => ({
+        isMember: dr('workspace.memberships.user.id').contains(auth.id),
+      }))
+      .allow(({ b }) => ({
+        view: b.isMember,
+        create: b.isSignedIn.and(b.isMember),
+        update: b.isMember,
+        delete: b.isMember,
+        link: {
+          workspace: b.isMember,
+          assignee: ({ ld, dr }) => b.isMember.and(
+            dr('workspace.memberships.user.id').contains(ld.id),
+          ),
+        },
+        unlink: {
+          workspace: false,
+          assignee: b.isMember,
+        },
+      })),
+  })
   .toRules()
 
 export default rules
@@ -976,7 +927,7 @@ Recommended starting point:
 
 ### Development Validation
 
-With `definePerms(schema)`, dev builds can validate:
+With `definePermsX(schema)`, dev builds can validate:
 
 - namespace exists
 - attr exists
@@ -999,8 +950,8 @@ No backend changes should be required.
 ## Proposed Build Order
 
 1. Expression AST and CEL renderer.
-2. `definePerms(schema).rules({ ... })`.
-3. Common context, direct attrs, `dataField`, `dataRef`, `authRef`, `ruleParam`.
+2. `definePermsX(schema).namespaces({}).toRules()`.
+3. Common context, direct attrs, `dataField`, `dataRef`, `authRef`, `ruleParams`.
 4. `.stage`, `.bind`, `.allow`, `.fields`.
 5. Default inheritance and duplicate checking.
 6. Action callback form for `newData` and `linkedData`.
@@ -1008,6 +959,5 @@ No backend changes should be required.
    `.every`.
 8. `ctx.f` / `ctx.ops` functional helpers.
 9. `.attrs`, `.defaults`, `$rateLimits`.
-10. `.ns.<namespace>(...).toRules()` chain syntax.
-11. Runtime schema validation diagnostics.
-12. Optional compat mode for direct raw strings.
+10. Runtime schema validation diagnostics.
+11. Optional compat mode for direct raw strings.
