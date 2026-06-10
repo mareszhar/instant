@@ -4,6 +4,7 @@ import type {
   CreateWriteStreamOpts,
   InstantReadableStream,
   InstantWritableStream,
+  Logger,
 } from '../index.js'
 import { setInstantWarningsEnabled } from '../index.js'
 
@@ -17,6 +18,7 @@ const writeOpts: CreateWriteStreamOpts = {
 
 declare const readStream: InstantReadableStream<string>
 declare const writeStream: InstantWritableStream<string>
+declare const logger: Logger
 
 setInstantWarningsEnabled(true)
 
@@ -24,3 +26,4 @@ void readOpts
 void writeOpts
 void readStream
 void writeStream
+void logger
