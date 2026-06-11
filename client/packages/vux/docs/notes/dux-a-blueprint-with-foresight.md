@@ -707,7 +707,7 @@ No open questions remain. Where something is deliberately deferred — singulari
 One hub, not two — a second hub splits orientation. When dux scaffolds, this set moves to `client/packages/dux/docs/` and the hub doubles as the package's front-door doc; until then, new docs are authored in `vux/docs/notes/`:
 
 ```
-dux-vision.md          ← THE hub: philosophy, architecture, the scope edge (§1.5),
+dux-vision.md          ← THE hub: philosophy, design principles, architecture, the scope edge (§1.5),
                           "how it stays alive" (this blueprint, renamed) + an index
                           over everything below
 dux-conventions.md     ← cross-cutting law: vocabulary (namespace/entity/attribute,
