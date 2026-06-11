@@ -1,4 +1,4 @@
-updated: 2026-06-10
+updated: 2026-06-11
 status: converged spec — aligned with `dux-a-blueprint-with-foresight.md` (the authority)
 
 # The dux Perms Spec
@@ -856,7 +856,7 @@ The generated object is `IdbPerms<AppSchema>`, structurally assignable to:
 InstantRules<AppSchema>
 ```
 
-No backend changes are required.
+No backend changes are required. The compiled object is also exactly what the push tooling consumes: `instant-cli push perms` *evaluates* `instant.perms.ts` (so a default export of `definePerms(...).compile()` pushes as-is), and the official platform SDK's `pushPerms` accepts it by construction. Both guarantees are locked by the compat-target tests (blueprint §1.5, §8.6).
 
 ## Proposed Build Order
 

@@ -1,5 +1,5 @@
-updated: 2026-06-10
-status: converged feature spec — aligned with `dux-a-blueprint-with-foresight.md` (the authority); to be distilled into the `dux-spec-*.md` set
+updated: 2026-06-11
+status: converged feature spec — aligned with `dux-a-blueprint-with-foresight.md` (the authority, incl. the §1.5 scope edge); to be distilled into the `dux-spec-*.md` set
 
 # The Ideal dux — feature spec
 
@@ -11,7 +11,7 @@ status: converged feature spec — aligned with `dux-a-blueprint-with-foresight.
 
 `@mszr/idb-dux` is the DX/UX-first reimagining of the InstantDB developer experience, with Vue and Nuxt as its first first-class clients.
 
-idb's surface splits into a *framework-agnostic plane* (schema, permissions, query authoring, transactions, admin) and a *framework-coupled plane* (reactive client bindings). The official SDKs polish the coupled plane per framework and leave the agnostic plane thin and stringly-typed. dux inverts the priority: make the agnostic plane excellent once, and let each client binding be a thin, delightful overlay on it.
+idb's surface splits into a *framework-agnostic plane* (schema, permissions, query authoring, transactions, admin, webhooks) and a *framework-coupled plane* (reactive client bindings). The official SDKs polish the coupled plane per framework and leave the agnostic plane thin and stringly-typed. dux inverts the priority: make the agnostic plane excellent once, and let each client binding be a thin, delightful overlay on it. The edge of that ambition is drawn explicitly — every official surface is ruled in, pass-through, compatibility target, or out with a trigger (blueprint §1.5).
 
 **Relationship with the official SDKs:**
 
@@ -37,7 +37,7 @@ Empathy is part of delight. Design for the moment of use, not just the moment of
 
 ### 2. Boilerplate is an active harm
 
-Every repetitive pattern in userland that the SDK could eliminate is a failure to deliver. Empty array normalization, manual `?? null` massaging, `data.value?.namespace` unwrapping — these accumulate. The SDK should eliminate ceremony, not just reduce it. If you find yourself writing the same shape of code twice, that's a signal.
+Every repetitive pattern in userland that the SDK could eliminate is a failure to deliver. Empty array normalization, manual `?? null` massaging, `data.value?.namespace` unwrapping — these accumulate. The SDK should eliminate ceremony, not just reduce it. If you find yourself writing the same shape of code twice, that's a signal. DRY runs both ways: the SDK erases repetition in userland *and* keeps one source of truth per concept in its own implementation, so a fix lands once and every surface inherits it (blueprint §7).
 
 ### 3. Errors at the cursor, not the console
 
@@ -49,7 +49,7 @@ Not a red underline over the whole call. The specific field. The specific operat
 
 Reading the SDK implementation without prior context should make intent clear. Names match mental models. Structure reflects intent. Types are as narrow as they can be without becoming hard to use. `any` is a last resort, not a convenience. Comments explain *why*, not *what* — the code explains the what.
 
-This applies equally to the API surface: an API whose name, shape, and types tell you what it does without needing to look it up is better than one that requires a mental glossary.
+This applies equally to the API surface: an API whose name, shape, and types tell you what it does without needing to look it up is better than one that requires a mental glossary. Clarity and consistency of naming is paramount across **all** dux surfaces — one term, one meaning, learn once, use everywhere. dux serves a single mental model and protects that simplicity over conformity to the official SDKs' varying conventions; official names map to dux names at the boundary (blueprint §11), and clear, meaningful language is treated as the backbone of a sustainable implementation.
 
 ### 5. Predictable contracts
 
@@ -65,11 +65,29 @@ Full SSR query hydration — server data → serialized → client hydrated with
 
 The internal baseline mirror stays diffable against `@instantdb/vue` with only marked deltas (SSR guards, tighter types, overlay wiring). The public surface composes the baseline and is free to be better — the parity audit applies to the mirror, not to the public API. This keeps upstream porting mechanical.
 
-### 8. Performance parity
+### 8. Performance parity — and performance in what we add
 
 Match all optimizations the official SDK implements. If core uses `weakHash` for query deduplication, so does dux. SSR resilience guards must not add meaningful overhead on the client path. Performance is not an afterthought.
 
-The blueprint adds two structural principles on top of these: *plane separation is load-bearing* and *the baseline is a mirror, not a fork* (blueprint §1.4).
+And dux-only behaviors are optimized as first-class features, not conveniences: when a query declares multiple `$m` projections, they're computed in a single pass over the data, not one reduce per key; `defineServerKit` caches per-event work so repeated calls in one request reuse already-computed values. Fast is good UX — DX matters, but the biggest value of a great library is the quality of the user experiences it enables.
+
+The four structural principles (blueprint §1.4) complete the canon — they rank how dux is *built*, where 1–8 rank what dux *is*:
+
+### 9. Plane separation is load-bearing
+
+The framework-agnostic layers never import a framework; only `/vue` may import `vue`, only `/nuxt` may import `h3`. Enforced by lint (blueprint §5.2), not discipline. The agnostic plane — authoring *and* the server surfaces — is most of the garden.
+
+### 10. The baseline is a mirror, not a fork
+
+Anything with an official counterpart is vendored-and-marked or wrapped-and-mapped (blueprint §6), never creatively reimplemented. Creativity lives in dux's own layer, where upstream churn can't reach it.
+
+### 11. Sustainability is part of the design
+
+Every surface declares how it tracks upstream before it ships: vendor tier, wrap tier, or tested compatibility target (blueprint §6.3, §6.4, §8.6). Drift is made visible by tooling, never discovered by users.
+
+### 12. Elegance is a requirement, not a flourish
+
+The implementation must read with the same clarity the API projects — deliberate, DRY, stable, in a constant fight against complexity, slowness, and obscurity. The greatest solutions turn entanglements into inspired simplicity; if a piece can't be explained simply, it isn't done.
 
 ---
 
@@ -433,6 +451,46 @@ db.tx.workspaces[id()].ruleParams({ inviteCode })
 
 Full semantics in §7.5. The typed chain makes a standalone loose-lookup utility unnecessary — there is no `defineLookup` in dux.
 
+### Webhooks — the same entities, delivered to your server
+
+```ts
+// Official — schema generics at every call site, helper ceremony to get typed handlers
+const { typedHandlers, combineHandlers } = Webhooks.helpers<typeof schema>()
+const handlers = combineHandlers(
+  typedHandlers('tasks', 'create', record => notifyAssignee(record.after)),
+  typedHandlers('$default', record => log(record)),
+)
+```
+
+```ts
+// dux — a plain object; every handler's change is fully narrowed
+// (no helpers, no generics — the schema is known via registration)
+import { defineWebhookHandlers } from '@mszr/idb-dux/webhooks'
+
+export const handlers = defineWebhookHandlers({
+  tasks: {
+    create: ({ after }) => notifyAssignee(after), // after: IdbEntity<'tasks'>
+    delete: ({ before }) => audit('task removed', before),
+  },
+  $default: change => log(change), // any namespace, any action
+})
+```
+
+```ts
+// server/api/webhooks.post.ts — one line in Nuxt
+export default defineWebhookHandler(handlers)
+```
+
+```ts
+// anywhere else (a worker, any Node/edge runtime) — /webhooks needs no admin token
+import { init } from '@mszr/idb-dux/webhooks'
+
+const webhooks = init()
+await webhooks.process(handlers, request) // verify signature → fetch payload → dispatch
+```
+
+A change's `before`/`after` is `IdbEntity<'ns'>` — the same entity type queries and tx speak. Management hangs off admin: `adminDb.webhooks.manager.create({ url, namespaces: ['tasks'], actions: ['create'] })`. Full surface: §5.6.
+
 ### Permissions — schema-aware, readable
 
 ```ts
@@ -468,12 +526,15 @@ export default definePerms(schema)
 The blueprint (§3–§5, §9) is the authority on structure. Summary:
 
 ```
-@mszr/idb-dux          framework-agnostic foundation: defineSchema, i, q (+ defineQuery),
-                       typed-tx machinery, Idb* type utilities + IdbRegister, id/lookup
-@mszr/idb-dux/vue      the Vue client: init, defineDb, the enhanced db, components
-@mszr/idb-dux/perms    typed CEL authoring (authoring-only, no client runtime)
-@mszr/idb-dux/admin    admin ergonomics; owns @instantdb/admin (optional peer)
-@mszr/idb-dux/nuxt     defineServerKit, defineAuthSyncHandler (optional peers admin + h3)
+@mszr/idb-dux           framework-agnostic foundation: defineSchema, i, q (+ defineQuery),
+                        typed-tx machinery, Idb* type utilities + IdbRegister, id/lookup
+@mszr/idb-dux/vue       the Vue client: init, defineDb, the enhanced db, components
+@mszr/idb-dux/perms     typed CEL authoring (authoring-only, no client runtime)
+@mszr/idb-dux/admin     the full admin surface; owns @instantdb/admin (optional peer)
+@mszr/idb-dux/webhooks  webhook handling + management; owns @instantdb/webhooks
+                        (optional peer); admin-free by design
+@mszr/idb-dux/nuxt      defineServerKit, defineAuthSyncHandler, defineWebhookHandler
+                        (optional peers admin + h3)
 ```
 
 One published package; layered source with lint-enforced boundaries; `sideEffects: false`; subpaths tree-shake to zero for unused planes; optional peers isolate dependencies.
@@ -483,6 +544,7 @@ What we do **not** do:
 - No public baseline/compat surface — the vendored mirror is internal-only
 - No separate npm packages until a forcing function appears (blueprint §5.4)
 - No framework-wide singletons — `defineDb` returns a factory; global state is the app's responsibility
+- No `/platform` subpath yet — deferred behind a named trigger; meanwhile the official platform SDK is a *tested* compatibility target against dux apps, and dux outputs are valid platform inputs by construction (blueprint §1.5, §8.6)
 
 ---
 
@@ -504,9 +566,10 @@ The enhanced behavior is the only public surface. All hooks are SSR-resilient; a
 | `db.room(type, id)` / `db.rooms.*` | reactive inputs; `usePresence`, `useSyncPresence`, `useTypingIndicator`, `useTopicEffect`, `usePublishTopic` — presence/typing hooks share the result pattern |
 | `db.transact(...)` | same as official |
 | `db.tx` | **typed**: schema-typed `ruleParams`, dot-path `.link` (§7.5) |
-| `db.auth.*` / `db.storage.*` / `db.streams` | same as official |
+| `db.auth.*` / `db.storage.*` / `db.streams` | **considered pass-throughs** (blueprint §1.5): official verbs kept verbatim — already precise — with exported types renamed per the naming contract (`IdbAuth*`, `IdbStorage*`, `IdbStream*`); the `devtool` and `apiURI` config options pass through `IdbConfig` |
 | `SignedIn`, `SignedOut`, `Cursors` | `.ts` render-function components (marked build delta — official ships `.vue` SFCs) |
-| `id`, `lookup`, `i`, `createInstantRouteHandler` | re-exports keep their official names |
+| `id`, `lookup`, `createInstantRouteHandler` | re-exports keep their official names |
+| `i` | dux-owned: `i.namespace` + the field builders (`i.string()`, …) — no `i.entity`/`i.schema`; one authoring dialect (blueprint §10.1) |
 
 Deprecated official type aliases (`InstantQuery`, `InstantQueryResult`, `InstantSchema`, `InstantEntity`, `InstantGraph`, …) are not re-exported.
 
@@ -534,7 +597,20 @@ adminDb.tx // typed like db.tx
 adminDb.transact(/* ... */)
 ```
 
-`/admin` owns `@instantdb/admin` as an optional peer — no init-injection workaround.
+`/admin` owns `@instantdb/admin` as an optional peer — no init-injection workaround. The **full official admin surface** is covered, each piece a decided treatment (blueprint §1.5, D9):
+
+| Surface | Treatment |
+|---|---|
+| `query(q, opts?)` | the dux data plane: `shapeResult`, `$only`/`$at`/`$as`/`$m`, typed `ruleParams` in `opts` |
+| `subscribeQuery(q, cb?, opts?)` | **same shaping per emission** — a subscription and a one-shot of the same query deliver the same shape; handle typed `IdbQuerySubscription`; official callback + async-iterator contracts preserved |
+| `tx` / `transact` | the typed tx chain (§7.5) |
+| `debugQuery` / `debugTransact` | pass-through with typed `ruleParams`; check-result types renamed (`IdbAdminCheckResult`) |
+| `asUser({ email \| token \| guest })` | returns the same dux admin db, permission-scoped — everything above stays dux-shaped by construction |
+| `auth.*` | pass-through: `createToken`, `verifyToken`, the magic-code quartet (`generateMagicCode` is the custom-email hook), `deleteUser`, `signOut`, `getUserFromRequest` keep official verbs. `getUserFromRequest` reads the official full-user cookie; the dux-native server-auth path is `/nuxt`'s kit (§9) |
+| `storage.*` / `streams.*` / `rooms.getPresence` | pass-through verbs, renamed types (`IdbStorage*`, `IdbStream*`, room presence via `IdbRoom*`). Official `@instantdb/resumable-stream` works with a dux `adminDb` — a tested compat target (blueprint §8.6) |
+| `webhooks` | the `/webhooks` surface (§5.6), admin-token wired |
+
+Admin returns plain shaped data — the `-Data/-State/-Refs` result pattern is a client-reactivity concept and deliberately does not apply to server one-shots (blueprint §11.2). The bare-name rule is also why admin's one-shot is `query` while the client's is `queryOnce`: the bare name goes to each surface's primary read.
 
 ### 5.5 Nuxt utilities (`@mszr/idb-dux/nuxt`)
 
@@ -542,6 +618,20 @@ adminDb.transact(/* ... */)
 |---|---|
 | `defineServerKit(config)` | per-request kit: `{ adminDb, user?, userDb?, … }` depending on mode; `event.context` caching for auth-token reads and verify promises; wraps `/admin` |
 | `defineAuthSyncHandler(config)` | H3 handler for Instant's `firstPartyPath` auth sync; writes/clears the token-only cookie (§9) |
+| `defineWebhookHandler(handlers, opts?)` | the one-line webhook route: reads the raw body the h3 way, delegates verify → fetch → dispatch to `/webhooks`, answers 2xx/4xx per official retry semantics |
+
+### 5.6 Webhooks utilities (`@mszr/idb-dux/webhooks`)
+
+| API | Notes |
+|---|---|
+| `init(config?)` | config is *optional*: handling needs no token — signature verification uses Instant's public JWKS, payload fetches use the token the webhook body carries. `appId` + `adminToken` unlock `manager`; `apiURI` for self-hosting. Payload/handler types flow from registration (registration supplies types, and webhooks' runtime needs no schema value) |
+| `defineWebhookHandlers(...maps)` | plain-object handler authoring with full per-change narrowing (contextual typing — no helpers, no generics); passing several maps merges them; resolution per change: `namespace.action` → `namespace.$default` → `$default` (official semantics) |
+| `webhooks.process(handlers, request, opts?)` | the one-liner: verify → fetch payload → dispatch (Web `Request`) |
+| `webhooks.processNode(handlers, req, opts?)` | Node `IncomingMessage` adapter (official raw-body rules preserved) |
+| `webhooks.verify` / `webhooks.fetchPayload` / `webhooks.dispatch` | the pipeline stepwise, for custom flows (blueprint §11.7 maps these to the official names) |
+| `webhooks.manager` | subscription CRUD + delivery-event inspection — official method names verbatim; also exposed token-wired as `adminDb.webhooks.manager` |
+
+A change's `before`/`after` is `IdbEntity<'ns'>` — the same entity type the rest of dux speaks (webhook payloads arrive as JSON, matching `IdbEntity`'s wire-format dates, §11). A failing handler rejects `process`, so the route returns non-2xx and Instant retries — official semantics preserved. A `defineWebhookHandlers` map is structurally a valid official `WebhookHandlers` (compat-tested).
 
 ---
 
@@ -832,7 +922,7 @@ The blueprint §8 is the authority. Summary: one runner (Vitest), three assertio
 | Type shapes | `*.test-d.ts` | Vitest `--typecheck` + `expectTypeOf` |
 | Editor DX (completions + diagnostic messages) | `*.dx.test.ts` | selenita on Vitest |
 
-Tests collocate beside the APIs they exercise; the canonical app, scenarios, and cursor-bearing snippets live once in `test-support/` (`@test`); the parity harness replays shared scenarios against both the official `@instantdb/vue` devDependency and the internal baseline mirror; `check-baseline-drift` flags upstream movement. Fewer tests, higher confidence: assert contracts, never implementation details.
+Tests collocate beside the APIs they exercise; the canonical app, scenarios, and cursor-bearing snippets live once in `test-support/` (`@test`); the parity harness replays shared scenarios against both the official `@instantdb/vue` devDependency and the internal baseline mirror; `check-baseline-drift` flags upstream movement; compat-target suites lock that dux outputs remain valid inputs to the official tools dux doesn't wrap — CLI push, platform push, resumable-stream (blueprint §8.6). Fewer tests, higher confidence: assert contracts, never implementation details.
 
 ---
 
@@ -848,3 +938,7 @@ No open questions remain. The following are decided intentions with explicit tri
 | Perms `stageFor`/`bindFor` | in spec; implementation may land after common rules | perms build order (spec) |
 | Dot-path `.link` depth | one hop by design — deeper traversal belongs to queries | not planned |
 | Validation/suggestion depth configurability | fixed at 3 hops | only if real schemas demand it |
+| `/platform` subpath (dux-typed platform API) | deferred; the official platform SDK is a tested compat target against dux apps, and dux outputs are valid platform inputs by construction (blueprint §1.5) | first external adopter with existing apps, or a dux tooling/CLI initiative — whichever lands first |
+| Adoption codegen (backend schema or official `i.schema` file → `defineSchema` file + registration block) | the first brick of the platform track; until then adoption is hand-translation via the rename table (blueprint §11.4) | same trigger as `/platform` |
+| Dates as `Date` objects (official `useDateObjects`) | v1 types `i.date()` fields as the wire format on every surface — client, admin, webhook payloads — matching official defaults (the flag is opt-in upstream and JSON payloads can't carry `Date`s anyway) | a schema-level `options` entry when a concrete need appears |
+| Migration-authoring sugar (e.g. rename annotations in `defineSchema`) | `instant-cli push`'s plan/diff/rename flow is the supported migration UX — it works with dux files today (push evaluates the file) | platform track |
