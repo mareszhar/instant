@@ -3,6 +3,9 @@ import type {
   CreateReadStreamOpts,
   CreateWriteStreamOpts,
   InstantReadableStream,
+  InstantRouteHandlerBody,
+  InstantRouteHandlerPayloadByType,
+  InstantRouteHandlerType,
   InstantWritableStream,
   Logger,
 } from '../index.js'
@@ -19,6 +22,9 @@ const writeOpts: CreateWriteStreamOpts = {
 declare const readStream: InstantReadableStream<string>
 declare const writeStream: InstantWritableStream<string>
 declare const logger: Logger
+declare const routeHandlerType: InstantRouteHandlerType
+declare const routeHandlerBody: InstantRouteHandlerBody<'sync-user'>
+declare const routeHandlerPayload: InstantRouteHandlerPayloadByType['sync-user']
 
 setInstantWarningsEnabled(true)
 
@@ -27,3 +33,6 @@ void writeOpts
 void readStream
 void writeStream
 void logger
+void routeHandlerType
+void routeHandlerBody
+void routeHandlerPayload

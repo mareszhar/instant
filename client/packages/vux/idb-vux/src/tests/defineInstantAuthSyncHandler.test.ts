@@ -181,6 +181,32 @@ describe('defineInstantAuthSyncHandler', () => {
     })
   })
 
+  it('validates the synced user token shape', async () => {
+    const handler = defineInstantAuthSyncHandler({
+      getAppId: () => 'app-1',
+    })
+
+    await expect(handler(createEvent({
+      type: 'sync-user',
+      appId: 'app-1',
+      user: 'not-a-user',
+    }).event)).rejects.toMatchObject({
+      statusCode: 400,
+      statusMessage: 'Invalid "user" field',
+    })
+
+    await expect(handler(createEvent({
+      type: 'sync-user',
+      appId: 'app-1',
+      user: {
+        refresh_token: 123,
+      },
+    }).event)).rejects.toMatchObject({
+      statusCode: 400,
+      statusMessage: 'Invalid "user.refresh_token" field',
+    })
+  })
+
   it('throws a setup error when the resolved app id is missing', async () => {
     const handler = defineInstantAuthSyncHandler({
       getAppId: () => '',

@@ -1,4 +1,7 @@
-import type { User } from '@instantdb/core'
+import type {
+  InstantRouteHandlerBody,
+  InstantRouteHandlerPayloadByType,
+} from '@instantdb/core'
 import type { EventHandler, EventHandlerRequest, H3Event } from 'h3'
 import {
   createError,
@@ -29,8 +32,13 @@ export function getDefaultServerIdbCookieName(appId: string) {
  * Instant sends the full current user to `firstPartyPath`, but Vux only stores
  * `refresh_token` in the server cookie by default.
  */
+type InstantAuthSyncRefreshToken
+  = NonNullable<
+    InstantRouteHandlerPayloadByType['sync-user']['user']
+  >['refresh_token']
+
 export interface InstantAuthSyncUser {
-  refresh_token: string | null | undefined
+  refresh_token: InstantAuthSyncRefreshToken | null | undefined
 }
 
 /**
@@ -40,11 +48,9 @@ export interface InstantAuthSyncUser {
  * Use `InstantAuthSyncBody<MyUser>` when authoring a custom endpoint that wants
  * to inspect more user fields than Vux's default handler needs.
  */
-export interface InstantAuthSyncBody<
-  UserLike extends InstantAuthSyncUser = User,
-> {
-  type: 'sync-user'
-  appId: string
+export type InstantAuthSyncBody<
+  UserLike extends InstantAuthSyncUser = InstantAuthSyncUser,
+> = Omit<InstantRouteHandlerBody<'sync-user'>, 'user'> & {
   user: UserLike | null
 }
 
@@ -128,6 +134,38 @@ function createDeleteCookieOptions(options: InstantAuthSyncCookieOptions) {
   return deleteOptions
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function getRefreshTokenFromUser(user: unknown) {
+  if (user === null || user === undefined) {
+    return undefined
+  }
+
+  if (!isRecord(user)) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Invalid "user" field',
+    })
+  }
+
+  const token = user.refresh_token
+
+  if (token === null || token === undefined || token === '') {
+    return undefined
+  }
+
+  if (typeof token !== 'string') {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Invalid "user.refresh_token" field',
+    })
+  }
+
+  return token
+}
+
 /**
  * Create a Nuxt/H3 event handler for Instant's `firstPartyPath` auth sync.
  *
@@ -148,7 +186,7 @@ function createDeleteCookieOptions(options: InstantAuthSyncCookieOptions) {
  */
 export function defineInstantAuthSyncHandler<
   Event extends H3Event = H3Event,
-  UserLike extends InstantAuthSyncUser = User,
+  UserLike extends InstantAuthSyncUser = InstantAuthSyncUser,
 >(
   config: DefineInstantAuthSyncHandlerOptions<Event>,
 ): EventHandler<EventHandlerRequest, Promise<null>> {
@@ -188,7 +226,7 @@ export function defineInstantAuthSyncHandler<
 
     const name = getCookieName(appId, typedEvent)
     const options = createCookieOptions(typedEvent, appId, cookieOptions)
-    const token = body.user?.refresh_token
+    const token = getRefreshTokenFromUser(body.user)
 
     if (token) {
       setCookie(typedEvent, name, token, options)
