@@ -14,12 +14,18 @@ import antfu from '@antfu/eslint-config'
 
 const frameworks = ['vue', 'vue/*', '@vue/*', 'h3', 'h3/*']
 
-/** Ban every @instantdb package except the listed ones. */
+/**
+ * Ban every @instantdb package except the listed ones.
+ * @param {...string} allowed
+ */
 function official(...allowed) {
   return ['@instantdb/*', ...allowed.map(name => `!${name}`)]
 }
 
-/** Ban the listed src layers as import-path segments. */
+/**
+ * Ban the listed src layers as import-path segments.
+ * @param {...string} names
+ */
 function layers(...names) {
   return names.flatMap(name => [`**/${name}`, `**/${name}/**`])
 }
@@ -103,7 +109,7 @@ export default await antfu(
   ...Object.entries(boundaries).map(([layer, patterns]) => ({
     files: [`idb-dux/src/${layer}/**`],
     rules: {
-      'no-restricted-imports': ['error', { patterns }],
+      'no-restricted-imports': /** @type {['error', { patterns: Array<{ group: string[], message: string }> }]} */ (['error', { patterns }]),
     },
   })),
   {
