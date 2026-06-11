@@ -1,0 +1,156 @@
+{
+  "name": "@mszr/idb-dux",
+  "type": "module",
+  "version": "0.0.0",
+  "description": "A DX/UX-first reimagining of the InstantDB developer experience",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/mareszhar/idb-dux",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mareszhar/idb-dux.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mareszhar/idb-dux/issues"
+  },
+  "sideEffects": false,
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/index.d.ts",
+        "default": "./dist/commonjs/index.js"
+      }
+    },
+    "./vue": {
+      "import": {
+        "types": "./dist/esm/vue/index.d.ts",
+        "default": "./dist/esm/vue/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/vue/index.d.ts",
+        "default": "./dist/commonjs/vue/index.js"
+      }
+    },
+    "./perms": {
+      "import": {
+        "types": "./dist/esm/perms/index.d.ts",
+        "default": "./dist/esm/perms/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/perms/index.d.ts",
+        "default": "./dist/commonjs/perms/index.js"
+      }
+    },
+    "./admin": {
+      "import": {
+        "types": "./dist/esm/admin/index.d.ts",
+        "default": "./dist/esm/admin/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/admin/index.d.ts",
+        "default": "./dist/commonjs/admin/index.js"
+      }
+    },
+    "./webhooks": {
+      "import": {
+        "types": "./dist/esm/webhooks/index.d.ts",
+        "default": "./dist/esm/webhooks/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/webhooks/index.d.ts",
+        "default": "./dist/commonjs/webhooks/index.js"
+      }
+    },
+    "./nuxt": {
+      "import": {
+        "types": "./dist/esm/nuxt/index.d.ts",
+        "default": "./dist/esm/nuxt/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/nuxt/index.d.ts",
+        "default": "./dist/commonjs/nuxt/index.js"
+      }
+    }
+  },
+  "main": "./dist/commonjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/commonjs/index.d.ts",
+  "tshy": {
+    "selfLink": false,
+    "main": true,
+    "module": true,
+    "project": "./tsconfig.build.json",
+    "exclude": [
+      "src/**/*.test.ts",
+      "src/**/*.test-d.ts",
+      "src/test-support/**"
+    ],
+    "exports": {
+      "./package.json": "./package.json",
+      ".": "./src/index.ts",
+      "./vue": "./src/vue/index.ts",
+      "./perms": "./src/perms/index.ts",
+      "./admin": "./src/admin/index.ts",
+      "./webhooks": "./src/webhooks/index.ts",
+      "./nuxt": "./src/nuxt/index.ts"
+    }
+  },
+  "files": [
+    "!dist/**/*.test-d.*",
+    "!dist/**/*.test.*",
+    "!dist/**/test-support/**",
+    "dist"
+  ],
+  "scripts": {
+    "upi": "pnpm up -i",
+    "dev": "tsc --watch --preserveWatchOutput -p tsconfig.dev.json",
+    "typecheck": "tsc --noEmit",
+    "check-exports": "npm_config_cache=.npm-cache attw --profile node16 --pack .",
+    "test": "vitest run --typecheck",
+    "test:watch": "vitest --typecheck",
+    "test:ci": "vitest run --typecheck",
+    "build:tshy": "tshy",
+    "build": "rm -rf dist && pnpm run build:tshy && pnpm run check-exports"
+  },
+  "peerDependencies": {
+    "@instantdb/admin": "workspace:*",
+    "@instantdb/webhooks": "workspace:*",
+    "h3": "^1.15.0",
+    "vue": "^3.5.0"
+  },
+  "peerDependenciesMeta": {
+    "@instantdb/admin": {
+      "optional": true
+    },
+    "@instantdb/webhooks": {
+      "optional": true
+    },
+    "h3": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@instantdb/core": "workspace:*",
+    "@instantdb/version": "workspace:*"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
+    "@instantdb/admin": "workspace:*",
+    "@instantdb/vue": "workspace:*",
+    "@instantdb/webhooks": "workspace:*",
+    "@vue/test-utils": "^2.4.10",
+    "h3": "^1.15.3",
+    "jsdom": "^29.1.1",
+    "tshy": "^4.1.2",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6",
+    "vue": "^3.5.34"
+  }
+}

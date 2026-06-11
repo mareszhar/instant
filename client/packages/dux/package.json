@@ -1,0 +1,31 @@
+{
+  "name": "idb-dux-workspace",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Maintainer workspace for @mszr/idb-dux",
+  "scripts": {
+    "upi": "pnpm up -i",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "sdk:upi": "pnpm --dir idb-dux run upi",
+    "sdk:dev": "pnpm --dir idb-dux run dev",
+    "sdk:lint": "eslint ./idb-dux/src",
+    "sdk:lint:fix": "eslint ./idb-dux/src --fix",
+    "sdk:typecheck": "pnpm --dir idb-dux run typecheck",
+    "sdk:test": "pnpm --dir idb-dux run test",
+    "sdk:test:watch": "pnpm --dir idb-dux run test:watch",
+    "sdk:build:version": "npm_config_cache=.npm-cache npm_config_loglevel=error pnpm --dir ../.. --filter @instantdb/version build",
+    "sdk:build:core": "npm_config_cache=.npm-cache npm_config_loglevel=error pnpm --dir ../.. --filter @instantdb/core build",
+    "sdk:build:vue": "npm_config_cache=.npm-cache npm_config_loglevel=error pnpm --dir ../.. --filter @instantdb/vue build",
+    "sdk:build:webhooks": "npm_config_cache=.npm-cache npm_config_loglevel=error pnpm --dir ../.. --filter @instantdb/webhooks build",
+    "sdk:build:admin": "npm_config_cache=.npm-cache npm_config_loglevel=error pnpm --dir ../.. --filter @instantdb/admin build",
+    "sdk:build:ours": "pnpm --dir idb-dux run build",
+    "sdk:build:all": "pnpm run sdk:build:version && pnpm run sdk:build:core && pnpm run sdk:build:vue && pnpm run sdk:build:webhooks && pnpm run sdk:build:admin && pnpm run sdk:build:ours"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^8.3.0",
+    "eslint": "^10.3.0",
+    "eslint-plugin-format": "^2.0.1"
+  }
+}
