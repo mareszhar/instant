@@ -13,7 +13,7 @@ This note is the **authority** on vision, structure, and conventions. [`ideal-vu
 
 1. **Yes, start fresh in `client/packages/dux`.** Not a blank page — a clean-room re-derivation that uses `idb-vux` as a *parts bin*. The current vux is wedged precisely because it *reimplemented* the official baseline divergently (1100-line `InstantVuxDatabase.ts` vs the official 400-line one), and that divergence is the most likely cause of the IntelliSense regression. You can't reach the ideal by editing your way out of that — edits stay biased by what's already there.
 
-2. **Reframe the vision.** dux is not "an alternative Vue wrapper." It is a **DX/UX-first reimagining of InstantDB's developer experience**, organized around one structural insight: idb's surface splits into a *framework-agnostic plane* (schema, permissions, query authoring, admin) and a *framework-coupled plane* (reactive client bindings). dux separates the planes and makes each delightful on its own terms. **Vue and Nuxt are dux's first first-class clients, not its definition.**
+2. **Reframe the vision.** dux is not "an alternative Vue wrapper." It is a **DX/UX-first reimagining of InstantDB's developer experience**, organized around one structural insight: idb's surface splits into a *framework-agnostic plane* (schema, permissions, query authoring, admin/server reads, webhooks) and a *framework-coupled plane* (reactive client bindings). dux separates the planes and makes each delightful on its own terms. **Vue and Nuxt are dux's first first-class clients, not its definition.**
 
 3. **The implementation model is "vendored baseline + additive overlay."** Copy the official Vue SDK's implementation near-verbatim into an internal baseline layer, mark every delta, and build the enhanced ergonomics *on top of it by composition* — never by forking its internals. This is the single most important correction to how vux was built, and it directly answers "should we copy the vue sdk first?": **yes, and keep it diffable against upstream forever.**
 
@@ -115,7 +115,7 @@ dux is a walled garden, and a garden's wall is a promise: **opting in must never
 
 The platform SDK serves *builders of tools that manage Instant apps* — dashboards, CMS builders, agents, scaffolders: N apps, schemas fetched at runtime, codegen, migration diffing. That is a different product loop from the app-developer loop dux v1 serves, and it inverts dux's central bet: a multi-app tool has no "one registered schema." The audiences are disjoint *by design* — registration serves the app loop; platform-style tools use explicit schemas (the `defineQuery<OtherSchema>()` / trailing-type-param escape hatch is the supported mode there, and it costs them nothing). Deferring is therefore a considered call, not a gap:
 
-- **It already works.** The official `@instantdb/platform` runs against dux-managed apps unchanged (same backend), and dux outputs are valid platform inputs *by construction*: `defineSchema(...)` output is structurally the schema `schemaPush` accepts; `definePerms().compile()` is structurally what `pushPerms` accepts. This is the behavioral-compatibility principle made executable — assignability assertions and a push fixture live in the compat-target tests ([§8.6](#86-compatibility-target-tests)).
+- **It already works.** The official `@instantdb/platform` runs against dux-managed apps unchanged (same backend), and dux outputs are valid platform inputs *by construction*: `defineSchema(...)` returns an actual `InstantSchemaDef` instance whose enumerable schema projection is the shape `schemaPush` accepts; `definePerms().compile()` is structurally what `pushPerms` accepts. This is the behavioral-compatibility principle made executable — assignability assertions, the CLI constructor invariant (`constructor.name === 'InstantSchemaDef'`), and a push fixture live in the compat-target tests ([§8.6](#86-compatibility-target-tests)).
 - **The round-trip position (a correctness stance, stated once).** The backend stores less than a dux schema file expresses — `singular`, `ruleParams`, `options`, and the registration block live nowhere server-side. Therefore: **the dux schema file is canonical; the backend schema is its projection; push is the only sync direction.** `instant-cli pull` and platform codegen regenerate official-dialect files and would overwrite dux authoring — dux declares pull a *recovery/adoption* tool, never a sync mechanism. No sidecar metadata files, no lossy merge dance: a one-way contract is simpler and honest about what the backend can hold.
 - **The trigger, and the first brick.** The headline value of a dux platform story is not wrapping HTTP verbs — it is codegen that emits *dux-dialect* files. That same generator is the **adoption path** for existing Instant apps: point it at an app (or an official `i.schema` file) and get a `defineSchema` file plus registration block. So the deferred track has a name and an order — (1) adoption codegen, (2) `IdbPlatform*`-typed API wrap, (3) migration-authoring sugar — triggered by the first external adopter arriving with existing apps, or a dux tooling/CLI initiative, whichever lands first. Until then, hand-translation via the rename table ([§11.4](#114-the-rename-table)) is the documented adoption path, and schema migration UX is `instant-cli push`'s plan/diff/rename flow, which works with dux files today.
 - **The `i` collision** (dux's `i.namespace` vs platform's re-exported `i.entity`) is the standard mixing rule ([§10.1](#101-no-x-enhanced-as-default)): alias at import. dux's `i` carries only the dux dialect, so the two are never half-interchangeable lookalikes.
@@ -166,7 +166,8 @@ The proposed subpaths were close. Two refinements:
 @mszr/idb-dux/admin     ← admin-SDK ergonomics (framework-agnostic; optional peer @instantdb/admin)
 @mszr/idb-dux/webhooks  ← webhook handling + management (framework-agnostic server;
                            optional peer @instantdb/webhooks; admin-free by design — §1.5)
-@mszr/idb-dux/nuxt      ← h3/nitro/nuxt server glue (optional peers @instantdb/admin + h3;
+@mszr/idb-dux/nuxt      ← h3/nitro/nuxt server glue (optional peers @instantdb/admin
+                           + @instantdb/webhooks + h3;
                            wraps /admin and /webhooks)
 ```
 
@@ -180,7 +181,7 @@ The proposed subpaths were close. Two refinements:
 
 This is the question you were most unsure about, so here is the precise answer.
 
-**For client bundle size, subpaths are entirely sufficient — a Vue-only user pays zero bytes for admin/nuxt.** Three mechanisms stack:
+**For client bundle size, subpaths are entirely sufficient — a Vue-only user pays zero bytes for admin/webhooks/nuxt, and a webhook-only user pays zero bytes for Vue/admin/nuxt.** Three mechanisms stack:
 
 1. **Disjoint module graphs.** `@mszr/idb-dux/admin` and `/nuxt` are separate entry points. If a client module never imports them, their code never enters the graph. Tree-shaking doesn't even have to "remove" it — it's never pulled in.
 2. **`sideEffects: false`.** Set this in `package.json`. *Neither vux nor any upstream idb package sets it today* — a real, free improvement. It lets bundlers drop any imported-but-unused module instead of conservatively keeping it.
@@ -188,10 +189,10 @@ This is the question you were most unsure about, so here is the precise answer.
 
 **What subpaths do *not* solve, and what does:**
 
-- **Peer dependencies are package-level, not subpath-level.** If `/admin` needs `@instantdb/admin` and `/nuxt` needs `h3`, a single-package design makes those peers of the *whole* package. **Solution: optional `peerDependencies` + `peerDependenciesMeta.optional`.** This is already the proven pattern in `idb-vux` (it marks `@instantdb/admin` and `h3` optional). A Vue-only user simply never installs them and is never blocked.
+- **Peer dependencies are package-level, not subpath-level.** If `/vue` needs `vue`, `/admin` needs `@instantdb/admin`, `/webhooks` needs `@instantdb/webhooks`, and `/nuxt` needs `h3`, a single-package design makes those peers of the *whole* package. **Solution: optional `peerDependencies` + `peerDependenciesMeta.optional` for every subpath-only peer.** This extends the proven pattern in `idb-vux` (it already marks `@instantdb/admin` and `h3` optional). A root-only user is never asked for Vue; a webhook-only worker installs `@instantdb/webhooks` and nothing from the Vue/admin/Nuxt stack.
 - **TypeScript checking cost is `.d.ts`-graph-level.** Heavy type machinery (perms, query validation) that sits in the same package *can* be loaded by the editor when adjacent. **Mitigations:** keep perms behind its own subpath (its type machinery is the heaviest — `ideal-vux` §8 already argues this), and keep each layer's public `.d.ts` from transitively re-exporting the others' internals. If TS server cost ever becomes measurable, that's the forcing function to split perms into its own package ([§5.4](#54-when-to-split-into-real-packages)).
 
-**Verdict:** subpaths + `sideEffects: false` + optional peers fully address "heavy for people who only need vue + perms." You do not need separate packages for bundle-size reasons. You might want them later for *dependency-isolation* or *independent-versioning* reasons — covered next.
+**Verdict:** subpaths + `sideEffects: false` + optional peers fully address "heavy for people who only need one slice" — root, Vue, perms, webhooks, admin, or Nuxt. You do not need separate packages for bundle-size reasons. You might want them later for *dependency-isolation* or *independent-versioning* reasons — covered next.
 
 ---
 
@@ -259,7 +260,7 @@ Build with **tshy** (already the vux toolchain — dual ESM/CJS, the subpath→s
 }
 ```
 
-`peerDependencies`: `vue` (the only non-optional peer, since `/vue` is the headline surface). `@instantdb/admin`, `@instantdb/webhooks`, and `h3` as **optional** peers. `dependencies`: `@instantdb/core`, `@instantdb/version`. `sideEffects: false`. The peer rule, stated once: **needed by every dux user → dependency (`core`); needed only by a subpath → optional peer.**
+`peerDependencies`: `vue`, `@instantdb/admin`, `@instantdb/webhooks`, and `h3` as **optional** peers. `dependencies`: `@instantdb/core`, `@instantdb/version`. `sideEffects: false`. The peer rule, stated once: **needed by every dux user → dependency (`core`); needed only by a subpath → optional peer.**
 
 ### 5.4 When to split into real packages
 
@@ -413,7 +414,7 @@ Tests live **next to the code they exercise** — `query/defineQuery.dx.test.ts`
 
 The [§1.5](#15-the-scope-edge--every-official-surface-ruled-in-or-out-on-purpose) matrix's "compatibility target" rows are promises, and promises here are tests, not prose. Small suites — collocated with the surface whose *output* they guard, like every other test (§8.4) — assert, type-level and (where cheap) runtime-against-fixtures:
 
-- `defineSchema(...)` output satisfies what `instant-cli` push and `platformApi.schemaPush` consume (`schema/defineSchema` suite);
+- `defineSchema(...)` output is an actual `InstantSchemaDef` instance and satisfies what `instant-cli` push and `platformApi.schemaPush` consume (`schema/defineSchema` suite);
 - `definePerms(...).compile()` is assignable to `InstantRules` and accepted by `pushPerms` (`perms/definePerms` suite);
 - a dux `adminDb` satisfies what official `@instantdb/resumable-stream` consumes (`admin/init` suite);
 - a `defineWebhookHandlers(...)` map satisfies the official `WebhookHandlers` shape (`webhooks` suite).
@@ -536,7 +537,7 @@ The vux-era spec parked several of its best DX ideas as future footnotes. With n
 
 - **Typed `db.tx` replaces `defineLookup`.** The vux-era Q3 deferred the typed tx chain and shipped `lu` as a stopgap for the untyped loose-lookup form. dux inverts this: `db.tx` (and `adminDb.tx`) are typed from the schema. `.ruleParams({...})` completes and validates the namespace's declared params, closing core's `RuleParams = { [key: string]: any }` hole. `.link()` accepts dot-path keys — `{ 'workspace.inviteCode': code }` — that complete on the link label, narrow to *unique* attributes of the linked namespace, type the value, and compile to the official `lookup()` form under the hood. (Verified in core: `LinkParams` types the link *labels* and id values, but a `lookup()` is smuggled through as an untyped string — the dot-path form is where all the missing safety lives.) With the chain typed end-to-end, the standalone `defineLookup`/`lu` utility is redundant and is dropped.
 - **Schema registration solves the type-utility DX (the vux-era Q2).** The curried form originally sketched — `type IdbEntity = DefineIdbEntityX<AppSchema>` then `IdbEntity<'todos'>` — is not expressible in TypeScript (generic type aliases cannot be partially applied), which is *why* Q2 stayed open. The mechanism that actually delivers the no-repetition DX is module-augmentation registration (the TanStack-style `Register` pattern): declare the schema once in a `declare module` block, and every dux type utility *and* schema-generic authoring factory defaults to it. Details in [§11.3](#113-schema-registration--tell-dux-your-schema-once).
-- **SSR hydration is a named milestone, not a maybe.** The floor/ceiling framing stays, but the ceiling gets a roadmap row (phase 9) instead of living only in an open-questions table.
+- **SSR hydration is a named milestone, not a maybe.** The floor/ceiling framing stays, but the ceiling gets a roadmap row (phase 10) instead of living only in an open-questions table.
 
 Everything else — `$only`/`$at`/`$as`/`$m`, the `singularize` options, the type utilities, the perms builder pipeline, the SSR-resilience floor — carried over intact, and both docs now reflect the dux names and decisions. They describe *what the surface does*; this note describes *where the code lives and how it stays alive*.
 
@@ -737,7 +738,7 @@ Six sub-specs mirror the six entrypoints — when an entrypoint changes, exactly
 
 For the record, mapped one-to-one:
 
-- **Would the subpath structure work / make it heavy?** Works; not heavy. Subpaths + `sideEffects:false` + optional peers = zero bytes and zero forced installs for vue-only users ([§4](#4-will-subpaths-make-it-heavy--the-bundle-size-answer)).
+- **Would the subpath structure work / make it heavy?** Works; not heavy. Subpaths + `sideEffects:false` + optional peers = zero bytes and zero forced installs beyond the subpath a user actually imports ([§4](#4-will-subpaths-make-it-heavy--the-bundle-size-answer)).
 - **Better structure?** Root = agnostic foundation (not empty); `/vue` `/perms` `/admin` `/webhooks` `/nuxt` as overlays; layered source with lint-enforced boundaries ([§3](#3-the-shape-the-user-proposed-refined), [§5](#5-architecture--layered-source-flexible-packaging), [§9](#9-directory-structure)).
 - **Dir structure for `client/packages/dux`?** [§9](#9-directory-structure).
 - **Sustainable / easy to port upstream?** Vendored-baseline + drift check ([§6](#6-the-vendored-baseline--additive-overlay-model)); the overlay is insulated from upstream churn.

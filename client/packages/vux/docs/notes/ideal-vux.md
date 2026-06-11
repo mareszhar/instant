@@ -178,7 +178,7 @@ export const schema = defineSchema({
 export type AppSchema = typeof schema
 ```
 
-`defineSchema` output is structurally compatible with the IDB CLI — the same entity/link shape it expects, with dux metadata stored non-enumerable. `i.namespace` replaces `i.entity` and accepts `singular`, `fields`, and `ruleParams`. The `singular` field is the single source of truth for auto-singularization — no separate config anywhere else.
+`defineSchema` returns an actual official `InstantSchemaDef` instance — not merely a lookalike — whose enumerable schema projection is compatible with the IDB CLI and platform `schemaPush`. dux metadata is stored non-enumerably, so push tooling sees the entity/link shape it expects while dux keeps its own `singular`, `ruleParams`, and `options` metadata. This constructor invariant matters because current CLI push verifies the exported schema as an `InstantSchemaDef`. `i.namespace` replaces `i.entity` and accepts `singular`, `fields`, and `ruleParams`. The `singular` field is the single source of truth for auto-singularization — no separate config anywhere else.
 
 A **link** relates *entities*, declared between two namespaces — which may be the same namespace (self-links such as `tasks → parentTask/subtasks` are legal). Link labels support an optional `singular` for irregular plurals:
 
@@ -534,7 +534,7 @@ The blueprint (§3–§5, §9) is the authority on structure. Summary:
 @mszr/idb-dux/webhooks  webhook handling + management; owns @instantdb/webhooks
                         (optional peer); admin-free by design
 @mszr/idb-dux/nuxt      defineServerKit, defineAuthSyncHandler, defineWebhookHandler
-                        (optional peers admin + h3)
+                        (optional peers admin + webhooks + h3)
 ```
 
 One published package; layered source with lint-enforced boundaries; `sideEffects: false`; subpaths tree-shake to zero for unused planes; optional peers isolate dependencies.
@@ -908,7 +908,7 @@ Official `createInstantRouteHandler` stores full user JSON in `instant_user_<app
 
 ### The ceiling (deferred by decision)
 
-Full hydration — server runs queries → results serialized into HTML → client hydrates the cache → renders without a loading flash → live subscriptions take over. Upstream's only full-SSR surface (`@instantdb/react` `./nextjs`) is **experimental**; dux adopts the ceiling when idb marks SSR support stable, and not before. The resilience guards are forward-compatible with hydration (inert server state simply gets replaced by hydrated state), so no API redesign will be needed — the door stays open by construction (blueprint roadmap phase 9).
+Full hydration — server runs queries → results serialized into HTML → client hydrates the cache → renders without a loading flash → live subscriptions take over. Upstream's only full-SSR surface (`@instantdb/react` `./nextjs`) is **experimental**; dux adopts the ceiling when idb marks SSR support stable, and not before. The resilience guards are forward-compatible with hydration (inert server state simply gets replaced by hydrated state), so no API redesign will be needed — the door stays open by construction (blueprint roadmap phase 10).
 
 ---
 
