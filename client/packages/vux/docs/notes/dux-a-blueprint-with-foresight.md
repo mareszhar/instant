@@ -445,7 +445,7 @@ The official surface fails all three at once — three brand prefixes (`Instant*
 | **namespace** | a named set of entities (`workspaces`, `$users`) |
 | **entity** | one record in a namespace |
 | **attribute** | umbrella: any property of an entity — a field or a link |
-| **field** | a *local scalar* attribute — the same word in schema (`fields:`), queries (`$: { fields }`), and perms (`entityField`) |
+| **field** | a *local data* attribute (string, number, boolean, date, or json — including arrays and objects) — the same word in schema (`fields:`), queries (`$: { fields }`), and perms (`entityField`) |
 | **link** | a relationship between **entities**, declared between two namespaces — which may be the same namespace (self-links are legal; verified against core's `LinkDef`) |
 | **ref** | a traversal across links (`entityRef('memberships.user.id')`, nested query keys) |
 
