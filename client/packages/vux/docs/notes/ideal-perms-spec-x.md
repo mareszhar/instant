@@ -1,52 +1,48 @@
-updated: 2026-06-09
-status: proposed
+updated: 2026-06-10
+status: converged spec — aligned with `dux-a-blueprint-with-foresight.md` (the authority)
 
-# Ideal Permissions Spec X
+# The dux Perms Spec
 
-This is a concrete proposal for a typed permissions authoring layer for `@mszr/idb-vux`.
+> **Historical note.** Formerly "Ideal Permissions Spec X" for `@mszr/idb-vux/perms`. Converged to the dux blueprint: `definePerms` (no `X`), `.compile()` instead of `.toRules()`, output type `IdbPerms` (structurally assignable to `InstantRules`), and the entity-rooted context — CEL's `data`/`newData`/`linkedData` are compile targets only, never authoring surface. The filename keeps `ideal-perms-spec-x.md` for link stability until the docs plan (blueprint §14) supersedes it with `dux-spec-perms.md`.
 
-The goal is not to replace InstantDB permissions. The goal is to write a nicer TypeScript authoring API that compiles to the same plain `InstantRules` object Instant already accepts.
+This is the concrete spec for the typed permissions authoring layer of `@mszr/idb-dux`.
+
+The goal is not to replace InstantDB permissions. The goal is a nicer TypeScript authoring API that compiles to the same plain rules object Instant already accepts.
 
 ## Goals
 
 1. Compile to ordinary InstantDB permission rules.
-2. Keep the generated output inspectable: CEL strings in the final rules object.
-3. Make common permission rules feel like TypeScript, not string assembly.
+2. Keep the generated output inspectable: CEL strings in the final object.
+3. Make common perms feel like TypeScript, not string assembly.
 4. Provide schema-aware IntelliSense for namespaces, fields, link labels, and ref paths.
 5. Validate common CEL footguns at author time.
 6. Support escape hatches without making unsafety the default path.
+7. One mental model: the same `namespace`/`entity`/`field`/`ref` vocabulary as schema and queries — users never juggle a CEL dialect.
 
 ## Package Surface
 
-Recommended subpath:
-
 ```ts
-import { definePermsX } from '@mszr/idb-vux/perms'
+import { definePerms } from '@mszr/idb-dux/perms'
 ```
 
-The subpath should be authoring-only. It does not need to be bundled into client runtime code unless the user imports it from client modules by choice.
+The subpath is authoring-only. It is never bundled into client runtime code unless the user imports it from client modules by choice.
 
 ## Entrypoints
 
-The API should support both a type-only route and a runtime-schema route.
+### Type-Only (via registration)
 
-### Type-Only Schema
-
-Use this when the schema value is not available or when the user only wants TypeScript validation.
+Use this when the schema value is not available or only TypeScript validation is wanted. With the schema registered (blueprint §11.3), no generic is needed:
 
 ```ts
-import type { AppSchema } from './instant.schema'
-import { definePermsX } from '@mszr/idb-vux/perms'
+import { definePerms } from '@mszr/idb-dux/perms'
 
-const rules = definePermsX<AppSchema>()
+export default definePerms() // registered schema; definePerms<OtherSchema>() for explicit
   .namespaces({
-    tasks: e => e.allow({
+    tasks: ns => ns.allow({
       view: true,
     }),
   })
-  .toRules()
-
-export default rules
+  .compile()
 ```
 
 Properties:
@@ -54,35 +50,31 @@ Properties:
 - full TypeScript IntelliSense and validation
 - no runtime schema validation
 
-### Runtime Schema
-
-Use this as the preferred route in app code.
+### Runtime Schema (preferred)
 
 ```ts
-import { definePermsX } from '@mszr/idb-vux/perms'
-import schema from './instant.schema'
+import { definePerms } from '@mszr/idb-dux/perms'
+import { schema } from './instant.schema'
 
-const rules = definePermsX(schema)
+export default definePerms(schema)
   .namespaces({
-    tasks: e => e.allow({
+    tasks: ns => ns.allow({
       view: true,
     }),
   })
-  .toRules()
-
-export default rules
+  .compile()
 ```
 
 Properties:
 
 - all type-only benefits
 - runtime validation for namespace names, field names, link labels, and ref paths
-- enables better diagnostics and potential dev-time assertions
+- better diagnostics and dev-time assertions
 
 ## Authoring Shape
 
 ```ts
-const rules = definePermsX(schema)
+export default definePerms(schema)
   .attrs(a => a.allow({ create: false }))
   .defaults(d => d
     .bind(({ auth }) => ({
@@ -90,13 +82,13 @@ const rules = definePermsX(schema)
     }))
     .allow({ $default: false }))
   .namespaces({
-    workspaces: e => e
-      .stage(({ rp, d }) => ({
+    workspaces: ns => ns
+      .stage(({ rp, e }) => ({
         inviteCode: rp('inviteCode'),
-        inviteMatches: rp('inviteCode').eq(d.inviteCode),
+        inviteMatches: rp('inviteCode').eq(e.inviteCode),
       }))
-      .bind(({ auth, dr, s }) => ({
-        isMember: dr('memberships.user.id').contains(auth.id),
+      .bind(({ auth, er, s }) => ({
+        isMember: er('memberships.user.id').contains(auth.id),
         hasInviteCode: s.inviteCode.neq(null).and(s.inviteMatches),
       }))
       .allow(({ b }) => ({
@@ -106,21 +98,22 @@ const rules = definePermsX(schema)
         delete: b.isMember,
       })),
   })
-  .toRules()
+  .compile()
 ```
 
 Design notes:
 
-- `.attrs()` and `.defaults()` must come before `.namespaces()` in the chain; their accumulated type flows into each namespace callback's `ctx`
+- `.attrs()` and `.defaults()` must come before `.namespaces()` in the chain; their accumulated type flows into each namespace callback's ctx
 - namespace keys in `.namespaces({})` autocomplete from schema and are validated
-- `.toRules()` is the explicit compile point — returns the plain `InstantRules<Schema>` object IDB accepts; makes the builder/output boundary explicit
+- the namespace builder parameter is conventionally named **`ns`**, keeping `e` free for the `entity` shorthand in destructured contexts
+- **`.compile()`** is the explicit compile point — it renders the authoring AST to CEL and returns the plain `IdbPerms<Schema>` object (structurally assignable to `InstantRules<Schema>`); it makes the builder/output boundary explicit
 
-## Core Entity Pipeline
+## Core Namespace Pipeline
 
-An entity builder should support this timeline:
+A namespace builder supports this timeline:
 
 ```TS
-e
+ns
   .stage(...)
   .bind(...)
   .allow(...)
@@ -129,16 +122,16 @@ e
 
 ### `.stage(...)`
 
-`stage` creates authoring-local values. They are not emitted into the final rules object unless referenced by a bind, allow rule, field rule, or another emitted expression.
+`stage` creates authoring-local values. They are not emitted into the final object unless referenced by a bind, allow rule, field rule, or another emitted expression.
 
 ```ts
-workspaces: e => e
-  .stage(({ rp, d }) => ({
+workspaces: ns => ns
+  .stage(({ rp, e }) => ({
     inviteCode: rp('inviteCode'),
-    inviteMatches: rp('inviteCode').eq(d.inviteCode),
+    inviteMatches: rp('inviteCode').eq(e.inviteCode),
   }))
-  .bind(({ auth, dr, s }) => ({
-    isMember: dr('memberships.user.id').contains(auth.id),
+  .bind(({ auth, er, s }) => ({
+    isMember: er('memberships.user.id').contains(auth.id),
     hasInviteCode: s.inviteCode.neq(null).and(s.inviteMatches),
   }))
 ```
@@ -147,7 +140,7 @@ Design notes:
 
 - staged values are available as `ctx.staged` and `ctx.s`
 - staged values inherit from `.defaults(...)`
-- duplicate stage names across inherited and local scopes should be rejected
+- duplicate stage names across inherited and local scopes are rejected
 - explicit override is possible with `.overrideStage(...)`
 
 ### `.bind(...)`
@@ -155,10 +148,10 @@ Design notes:
 `bind` creates emitted InstantDB bind aliases.
 
 ```ts
-tasks: e => e
-  .bind(({ auth, dr }) => ({
+tasks: ns => ns
+  .bind(({ auth, er }) => ({
     isSignedIn: auth.id.neq(null),
-    isMember: dr('workspace.memberships.user.id').contains(auth.id),
+    isMember: er('workspace.memberships.user.id').contains(auth.id),
   }))
   .allow(({ b }) => ({
     view: b.isMember,
@@ -171,7 +164,7 @@ Design notes:
 - bind values are emitted under the namespace `bind` block
 - bind values are available as `ctx.bindings` and `ctx.b`
 - top-level `$default.bind` values are inherited by every namespace
-- duplicate bind names across inherited and local scopes should be rejected
+- duplicate bind names across inherited and local scopes are rejected
 - explicit override is possible with `.overrideBind(...)`
 
 ### `.overrideStage(...)` And `.overrideBind(...)`
@@ -179,14 +172,14 @@ Design notes:
 Overrides should be rare and loud.
 
 ```TS
-defaults: (d) => d
+defaults: d => d
   .bind(({ auth }) => ({
     canWrite: auth.id.neq(null),
   })),
 
-workspaces: (e) => e
-  .overrideBind(({ auth, dr }) => ({
-    canWrite: dr('memberships.user.id').contains(auth.id),
+workspaces: ns => ns
+  .overrideBind(({ auth, er }) => ({
+    canWrite: er('memberships.user.id').contains(auth.id),
   }))
 ```
 
@@ -194,8 +187,8 @@ Rules:
 
 - `.stage(...)` and `.bind(...)` reject duplicates
 - `.overrideStage(...)` and `.overrideBind(...)` allow replacing inherited names
-- overriding should still reject duplicate names within the same override block
-- overrides should be visible in later `ctx.s` / `ctx.b`
+- overriding still rejects duplicate names within the same override block
+- overrides are visible in later `ctx.s` / `ctx.b`
 
 ### `.allow(...)`
 
@@ -227,14 +220,14 @@ Hybrid action-specific form:
 .allow(({ b }) => ({
   view: b.isMember,
   create: ({ req }) => b.isSignedIn.and(
-    req.modifiedFields.all((field) => field.in(['title', 'createdAt'])),
+    req.modifiedFields.all(field => field.in(['title', 'createdAt'])),
   ),
-  update: ({ d, nd }) => b.isMember.and(
-    nd.title.neq(d.title),
+  update: ({ e, eu }) => b.isMember.and(
+    eu.title.neq(e.title),
   ),
   link: {
-    assignee: ({ ld, dr }) => b.isMember.and(
-      dr('workspace.memberships.user.id').contains(ld.id),
+    assignee: ({ el, er }) => b.isMember.and(
+      er('workspace.memberships.user.id').contains(el.id),
     ),
   },
   unlink: {
@@ -247,31 +240,30 @@ Hybrid action-specific form:
 Design notes:
 
 - object and common callback forms are concise for normal rules
-- the outer `.allow((ctx) => ({ ... }))` callback provides one shared common context for the whole allow block
-- nested action callbacks enable context-specific typing
-- nested action callbacks can close over values from the outer common context
-- prefer the common callback form unless a rule needs `newData`, `linkedData`, or another action-only value
-- simple link/unlink rules can be plain expressions; nested callbacks are only needed when that rule reads link-label-specific context
-- `newData` / `nd` appears only in update contexts
-- `linkedData` / `ld` and linked ref helpers appear only in link/unlink contexts
+- the outer `.allow(ctx => ({ ... }))` callback provides one shared common context for the whole allow block
+- nested action callbacks enable context-specific typing and can close over the outer context
+- prefer the common callback form unless a rule needs `entityUpdated`, `entityLinked`, or another action-only value
+- simple link/unlink rules can be plain expressions; nested callbacks are only needed when the rule reads link-label-specific context
+- `entityUpdated` / `eu` appears only in update contexts
+- `entityLinked` / `el` and the linked ref helpers appear only in link/unlink contexts
 - `request.modifiedFields` appears only in create/update contexts
 
 Why link/unlink sometimes need a nested context:
 
-- `linkedData` is only meaningful for a specific link label
-- its type changes by link label, for example `tasks.link.assignee` may expose a `$users` row while `tasks.link.workspace` exposes a `workspaces` row
-- the outer allow context cannot give `ld` one correct type for every link rule
-- therefore link/unlink rules accept either a plain expression or a nested callback with the link-specific `ld`, `ldf`, and `ldr` helpers
+- `entityLinked` is only meaningful for a specific link label
+- its type changes by link label — `tasks.link.assignee` exposes a `$users` entity while `tasks.link.workspace` exposes a `workspaces` entity
+- the outer allow context cannot give `el` one correct type for every link rule
+- therefore link/unlink rules accept either a plain expression or a nested callback with the link-specific `el`, `elf`, and `elr` helpers
 
 ### `.fields(...)`
 
-Field-level rules should be a sibling builder step rather than hidden inside `allow`.
+Field-level rules are a sibling builder step rather than hidden inside `allow`.
 
 ```ts
-$users: e => e
-  .bind(({ auth, d, dr }) => ({
-    isSelf: auth.id.eq(d.id),
-    sharesWorkspace: dr('memberships.workspace.memberships.user.id').contains(auth.id),
+$users: ns => ns
+  .bind(({ auth, e, er }) => ({
+    isSelf: auth.id.eq(e.id),
+    sharesWorkspace: er('memberships.workspace.memberships.user.id').contains(auth.id),
   }))
   .allow(({ b }) => ({
     view: b.isSelf.or(b.sharesWorkspace),
@@ -283,25 +275,24 @@ $users: e => e
   }))
 ```
 
-Field keys should autocomplete from entity attrs, excluding `id` if Instant keeps the current `InstantRules` behavior.
+Field keys autocomplete from the namespace's fields, excluding `id` if Instant keeps the current behavior.
 
 ## Special Builders
 
 ### `.attrs(...)`
 
-`attrs` is special. It controls whether new namespaces and attrs can be created on the fly.
+`attrs` is special. It controls whether new namespaces and attributes can be created on the fly.
 
 ```ts
-const rules = definePermsX(schema)
+definePerms(schema)
   .attrs(attrs => attrs.allow({ create: false }))
-  .toRules()
+  .compile()
 ```
 
 Design notes:
 
 - only `create` is supported
-- no schema entity context exists
-- no `dataRef` exists
+- no namespace context exists — no `entity`, no `entityRef`
 - stage and bind can exist if useful, but the context is intentionally narrow
 
 ### `.defaults(...)`
@@ -309,60 +300,62 @@ Design notes:
 `defaults` maps to the top-level `$default` namespace.
 
 ```ts
-const rules = definePermsX(schema)
+definePerms(schema)
   .defaults(d => d
     .bind(({ auth }) => ({
       isSignedIn: auth.id.neq(null),
     }))
     .allow({ $default: false }))
   .namespaces({
-    tasks: e => e
+    tasks: ns => ns
       .allow(({ b }) => ({
         create: b.isSignedIn,
       })),
   })
-  .toRules()
+  .compile()
 ```
 
 Design notes:
 
 - `$default.allow` compiles to Instant's top-level `$default.allow`
-- `$default.bind` is inherited by every entity namespace
-- staged defaults are authoring-only and inherited by entity contexts
-- schema-specific entity attrs are not known in default context
-- `dataField(string)` / `dataRef(string)` may be allowed as loose helpers, but should not claim entity-specific autocomplete
+- `$default.bind` is inherited by every namespace
+- staged defaults are authoring-only and inherited by namespace contexts
+- namespace-specific fields are not known in the default context
+- `entityField(string)` / `entityRef(string)` may be allowed as loose helpers, but must not claim namespace-specific autocomplete
 
 ## Context Object
 
-Every callback receives a context object. The long names are self-documenting. The short names are always available for high-density permission rules.
+Every callback receives a context object. Long names are self-documenting; short names are always available for high-density rules.
+
+The context is **entity-rooted with current unmarked**: the current entity is *the* entity, so it carries no marker; only the *updated* and *linked* states do. Every `e*` shorthand is entity-family — the second letter says *which* entity (none = current, `u` = updated, `l` = linked), the suffix says *how you read it* (`f` = field by string key, `r` = ref traversal). CEL's `data`/`newData`/`linkedData` are what these compile to; they never appear in the authoring surface.
 
 ### Common Context
 
-| Long name | Short name | Meaning |
-|---|---:|---|
-| `staged` | `s` | authoring-local staged values |
-| `bindings` | `b` | emitted bind aliases available in this scope |
-| `auth` | - | current authenticated user object |
-| `authRef` | `ar` | linked attrs from `$users`, emits `auth.ref(...)` |
-| `data` | `d` | current entity attrs by property access |
-| `dataField` | `df` | current entity attr by string key |
-| `dataRef` | `dr` | linked attrs from current entity, emits `data.ref(...)` |
-| `ruleParams` | `rp` | rule params by key, emits `ruleParams.<key>` in CEL; key autocompletes from the namespace's `ruleParams` declaration in `defineSchemaX` |
-| `request` | `req` | request metadata |
-| `rateLimit` | `rl` | rate limit buckets |
-| `ops` | `f` | functional expression helpers |
-| `raw` | - | explicit raw CEL escape hatch |
+| Long name | Short name | Meaning | Emits |
+|---|---:|---|---|
+| `staged` | `s` | authoring-local staged values | — |
+| `bindings` | `b` | emitted bind aliases in scope | bare identifiers |
+| `auth` | - | current authenticated user | `auth.<key>` |
+| `authRef` | `ar` | linked attrs from `$users` | `auth.ref('$user...')` |
+| `entity` | `e` | current entity fields by property access | `data.<field>` |
+| `entityField` | `ef` | current entity field by string key | `data.<field>` |
+| `entityRef` | `er` | linked attrs from the current entity | `data.ref('...')` |
+| `ruleParams` | `rp` | rule params by key; keys autocomplete from the namespace's `ruleParams` declaration in `defineSchema` | `ruleParams.<key>` |
+| `request` | `req` | request metadata | `request.*` |
+| `rateLimit` | `rl` | rate limit buckets | `rateLimit.*` |
+| `ops` | `f` | functional expression helpers | — |
+| `raw` | - | explicit raw CEL escape hatch | as written |
 
 ### Update Context
 
 Only available in update callbacks and action-specific update binds/stages.
 
-| Long name | Short name | Meaning |
-|---|---:|---|
-| `newData` | `nd` | updated entity attrs by property access |
-| `newDataField` | `ndf` | updated entity attr by string key |
+| Long name | Short name | Meaning | Emits |
+|---|---:|---|---|
+| `entityUpdated` | `eu` | updated entity fields by property access | `newData.<field>` |
+| `entityUpdatedField` | `euf` | updated entity field by string key | `newData.<field>` |
 
-There is no `newDataRef`. Instant documents `newData.ref(...)` as unsupported.
+There is no `entityUpdatedRef`. Instant documents `newData.ref(...)` as unsupported.
 
 ### Link And Unlink Context
 
@@ -370,51 +363,51 @@ Only available in link/unlink callbacks and action-specific link/unlink binds/st
 
 | Long name | Short name | Meaning |
 |---|---:|---|
-| `linkedData` | `ld` | attrs from the linked entity |
-| `linkedDataField` | `ldf` | linked entity attr by string key |
-| `linkedDataRef` | `ldr` | linked attrs from the linked entity |
+| `entityLinked` | `el` | fields of the linked entity |
+| `entityLinkedField` | `elf` | linked entity field by string key |
+| `entityLinkedRef` | `elr` | linked attrs from the linked entity |
 
-## Data And Ref API
+## Entity And Ref API
 
-The API should avoid collisions between attrs and helper methods.
+The API avoids collisions between fields and helper methods.
 
-### Direct Attr Access
+### Direct Field Access
 
 ```ts
-ctx.data.title.eq('hello')
-ctx.d.title.eq('hello')
-ctx.newData.title.neq(ctx.data.title)
-ctx.nd.title.neq(ctx.d.title)
-ctx.linkedData.id.eq(ctx.auth.id)
-ctx.ld.id.eq(ctx.auth.id)
+ctx.entity.title.eq('hello')
+ctx.e.title.eq('hello')
+ctx.entityUpdated.title.neq(ctx.entity.title)
+ctx.eu.title.neq(ctx.e.title)
+ctx.entityLinked.id.eq(ctx.auth.id)
+ctx.el.id.eq(ctx.auth.id)
 ```
 
-Direct attr access should autocomplete from the relevant entity.
+Direct access autocompletes from the relevant namespace's fields.
 
-### String Attr Access
+### String Field Access
 
 ```ts
-ctx.dataField('title')
-ctx.df('title')
-ctx.newDataField('title')
-ctx.ndf('title')
-ctx.linkedDataField('email')
-ctx.ldf('email')
+ctx.entityField('title')
+ctx.ef('title')
+ctx.entityUpdatedField('title')
+ctx.euf('title')
+ctx.entityLinkedField('email')
+ctx.elf('email')
 ```
 
 Use this when:
 
-- the attr name is easier to pass as a string
-- the attr name collides with a JavaScript property concern
-- the attr name is dynamic enough that property access is awkward, but still a string literal known to TypeScript
+- the field name is easier to pass as a string
+- the field name collides with a JavaScript property concern
+- the field name is dynamic enough that property access is awkward, but still a string literal known to TypeScript
 
 ### Linked Ref Access
 
 ```ts
-ctx.dataRef('workspace.memberships.user.id')
-ctx.dr('workspace.memberships.user.id')
-ctx.linkedDataRef('profile.id')
-ctx.ldr('profile.id')
+ctx.entityRef('workspace.memberships.user.id')
+ctx.er('workspace.memberships.user.id')
+ctx.entityLinkedRef('profile.id')
+ctx.elr('profile.id')
 ctx.authRef('$user.roles.type')
 ctx.ar('$user.roles.type')
 ```
@@ -422,133 +415,96 @@ ctx.ar('$user.roles.type')
 Rules:
 
 - ref path args must be string literals
-- terminal segment must be an attr, not just a link label
+- the terminal segment must be an attribute, not just a link label
 - return type is always `ListExpr<T>`
-- ref paths should autocomplete across links up to a practical depth
+- ref paths autocomplete across links up to a practical depth
 - recommended depth cap: 4 hops
 - JSON terminal attrs produce `ListExpr<JsonValue>`, not flattened lists
 
-This avoids the `data.ref` attr collision:
+This avoids the field-named-`ref` collision:
 
 ```ts
-ctx.data.ref.eq('abc') // attr named "ref"
-ctx.dataRef('owner.id') // CEL data.ref('owner.id')
+ctx.entity.ref.eq('abc') // a field literally named "ref"
+ctx.entityRef('owner.id') // CEL data.ref('owner.id')
 ```
 
 ## Expression API
 
-Expressions should support both fluent and functional composition.
+Expressions support both fluent and functional composition.
 
 ### Fluent Methods
 
-Methods on expression nodes:
-
 ```ts
 auth.id.neq(null)
-d.title.eq('hello')
-d.createdAt.lt(req.time)
+e.title.eq('hello')
+e.createdAt.lt(req.time)
 b.isMember.and(b.isSignedIn)
 b.isOwner.or(b.isAdmin)
 ```
 
-Core methods:
+Core methods: `.eq(value)` `.neq(value)` `.gt(value)` `.gte(value)` `.lt(value)` `.lte(value)` `.in(list)` `.and(expr)` `.or(expr)` `.not()`
 
-- `.eq(value)`
-- `.neq(value)`
-- `.gt(value)`
-- `.gte(value)`
-- `.lt(value)`
-- `.lte(value)`
-- `.in(list)`
-- `.and(expr)`
-- `.or(expr)`
-- `.not()`
-
-String-like methods:
-
-- `.startsWith(value)`
-- `.endsWith(value)`
-- `.includes(value)`
-- `.matches(value)` if CEL/runtime support is confirmed
+String-like methods: `.startsWith(value)` `.endsWith(value)` `.includes(value)` `.matches(value)` (if CEL/runtime support is confirmed)
 
 ### List Methods
 
-`dataRef`, `authRef`, `linkedDataRef`, and list-like attrs return list expressions.
+`entityRef`, `authRef`, `entityLinkedRef`, and list-like attrs return list expressions.
 
 ```ts
-dr('memberships.user.id').contains(auth.id)
-dr('memberships.user.id').isEmpty()
-dr('memberships.user.id').isNonEmpty()
-dr('memberships.user.id').size().lte(2)
+er('memberships.user.id').contains(auth.id)
+er('memberships.user.id').isEmpty()
+er('memberships.user.id').isNonEmpty()
+er('memberships.user.id').size().lte(2)
 ar('$user.roles.type').contains('admin')
 ```
 
 List methods:
 
-- `.contains(value)` -> emits `value in list`
-- `.isEmpty()` -> emits `list == []`
-- `.isNonEmpty()` -> emits `list != []`
-- `.size()` -> emits `size(list)`
-- `.at(index)` -> emits `list[index]`
-- `.some((item) => expr)` -> emits CEL `.exists(...)`
-- `.every((item) => expr)` -> emits CEL `.all(...)`
+- `.contains(value)` → emits `value in list`
+- `.isEmpty()` → emits `list == []`
+- `.isNonEmpty()` → emits `list != []`
+- `.size()` → emits `size(list)`
+- `.at(index)` → emits `list[index]`
+- `.some(item => expr)` → emits CEL `.exists(...)`
+- `.every(item => expr)` → emits CEL `.all(...)`
 
-Example with a JSON-array terminal attr:
+Example with a JSON-array terminal attribute:
 
 ```ts
-dr('ownedRole.types').some(types => types.contains('admin'))
+er('ownedRole.types').some(types => types.contains('admin'))
 ```
 
 This is intentionally different from:
 
 ```ts
-dr('ownedRole.types').contains('admin')
+er('ownedRole.types').contains('admin')
 ```
 
-If the terminal `types` attr is itself a JSON array, `data.ref('ownedRole.types')` returns a list of terminal JSON values, for example `[['admin', 'editor']]`. It does not flatten the inner array.
+If the terminal `types` attribute is itself a JSON array, `data.ref('ownedRole.types')` returns a list of terminal JSON values, for example `[['admin', 'editor']]`. It does not flatten the inner array.
 
 ### Functional Helpers
 
 Functional composition lives under `ctx.ops` and shorthand `ctx.f`.
 
 ```TS
-.allow(({ f, b, d, rp }) => ({
+.allow(({ f, b, e, rp }) => ({
   view: f.or(
     b.isAdmin,
     f.and(
       b.isMember,
-      d.inviteCode.eq(rp('inviteCode')),
+      e.inviteCode.eq(rp('inviteCode')),
     ),
   ),
 }))
 ```
 
-Recommended helpers:
-
-- `f.and(...exprs)`
-- `f.or(...exprs)`
-- `f.not(expr)`
-- `f.eq(a, b)`
-- `f.neq(a, b)`
-- `f.gt(a, b)`
-- `f.gte(a, b)`
-- `f.lt(a, b)`
-- `f.lte(a, b)`
-- `f.in(item, list)`
-- `f.contains(list, item)`
-- `f.size(value)`
-- `f.list(...values)`
-- `f.str(value)`
-- `f.num(value)`
-- `f.bool(value)`
-- `f.null()`
+Recommended helpers: `f.and(...exprs)` `f.or(...exprs)` `f.not(expr)` `f.eq(a, b)` `f.neq(a, b)` `f.gt(a, b)` `f.gte(a, b)` `f.lt(a, b)` `f.lte(a, b)` `f.in(item, list)` `f.contains(list, item)` `f.size(value)` `f.list(...values)` `f.str(value)` `f.num(value)` `f.bool(value)` `f.null()`
 
 Rationale:
 
 - fluent is best for subject-first rules
 - functional is best for nested or n-ary composition
-- `f` keeps destructured contexts compact
-- `ops` gives the same surface a readable long name
+- `f` keeps destructured contexts compact; `ops` gives the same surface a readable long name
 
 ### Raw Escape Hatch
 
@@ -562,23 +518,23 @@ Raw CEL should be explicit.
 
 Design notes:
 
-- arbitrary strings should not be accepted as ordinary expressions by default
+- arbitrary strings are not accepted as ordinary expressions
 - `raw(...)` marks the unsafety at the call site
-- a migration/compat mode may allow direct strings, but it should be opt-in
-- raw expressions should still be parsed if a CEL parser is available in dev/test
+- a migration/compat mode may allow direct strings, but it is opt-in
+- raw expressions are still parsed if a CEL parser is available in dev/test
 
 ## Action-Specific Stage And Bind
 
-Common `.stage(...)` and `.bind(...)` callbacks should receive only common context. That prevents `newData` and `linkedData` from leaking into rules where Instant cannot evaluate them.
+Common `.stage(...)` and `.bind(...)` callbacks receive only common context. That prevents `entityUpdated` and `entityLinked` from leaking into rules where Instant cannot evaluate them.
 
 When aliasing action-specific logic is needed, use action-specific forms.
 
 Action-specific staged values:
 
 ```ts
-posts: e => e
-  .stageFor('update', ({ d, nd }) => ({
-    titleChanged: nd.title.neq(d.title),
+posts: ns => ns
+  .stageFor('update', ({ e, eu }) => ({
+    titleChanged: eu.title.neq(e.title),
   }))
   .allow(() => ({
     update: ({ s }) => s.titleChanged,
@@ -588,12 +544,12 @@ posts: e => e
 Action-specific binds:
 
 ```ts
-posts: e => e
-  .bind(({ auth, d }) => ({
-    isOwner: auth.id.eq(d.ownerId),
+posts: ns => ns
+  .bind(({ auth, e }) => ({
+    isOwner: auth.id.eq(e.ownerId),
   }))
-  .bindFor('update', ({ auth, nd }) => ({
-    isStillOwner: auth.id.eq(nd.ownerId),
+  .bindFor('update', ({ auth, eu }) => ({
+    isStillOwner: auth.id.eq(eu.ownerId),
   }))
   .allow(() => ({
     update: ({ b }) => b.isOwner.and(b.isStillOwner),
@@ -603,9 +559,9 @@ posts: e => e
 For link/unlink:
 
 ```ts
-memberships: e => e
-  .bindFor('link', 'user', ({ auth, ld }) => ({
-    linksSelf: ld.id.eq(auth.id),
+memberships: ns => ns
+  .bindFor('link', 'user', ({ auth, el }) => ({
+    linksSelf: el.id.eq(auth.id),
   }))
   .allow(() => ({
     link: {
@@ -617,17 +573,16 @@ memberships: e => e
 Rules:
 
 - action-specific stage names are authoring-only and only exposed in compatible action callbacks
-- action-specific bind names still compile into the normal Instant `bind` block
-- they are only exposed in compatible action callbacks
-- nested action contexts include compatible common `stage`/`bind` values plus action-specific `stageFor`/`bindFor` values
-- duplicate names across common and action-specific binds should be rejected
+- action-specific bind names still compile into the normal Instant `bind` block, and are only exposed in compatible action callbacks
+- nested action contexts include compatible common stage/bind values plus the action-specific ones
+- duplicate names across common and action-specific binds are rejected
 - `.overrideBind(...)` may explicitly replace inherited names
 
-Implementation can defer `stageFor` / `bindFor` if phase 1 only targets common rules, but the ideal API should leave room for it because Instant's own docs use `newData` inside `bind`.
+Implementation can defer `stageFor` / `bindFor` if phase 1 only targets common rules (a settled intention — see `ideal-vux.md` §11), but the API leaves room for it because Instant's own docs use `newData` inside `bind`.
 
-## Output Rules
+## Output
 
-The builder should emit plain `InstantRules<Schema>`.
+The builder emits `IdbPerms<Schema>` — structurally assignable to the official `InstantRules<Schema>`.
 
 Authoring:
 
@@ -654,96 +609,96 @@ Output:
 Design notes:
 
 - boolean authoring values are accepted for ergonomics
-- output should prefer CEL strings for maximum compatibility with current `InstantRules` types and existing tooling
-- expression rendering should use deterministic parentheses
+- output uses CEL strings for maximum compatibility with current tooling
+- expression rendering uses deterministic parentheses
 - generated CEL should be easy to inspect in diffs
 
 ## Rate Limits
 
-The existing `InstantRules` shape supports `$rateLimits`. The authoring API should expose both configuration and usage.
+The official rules shape supports `$rateLimits`. The authoring API exposes both configuration and usage.
 
 Configuration:
 
 ```ts
-const rules = definePermsX(schema)
+definePerms(schema)
   .rateLimits({
     createTask: {
       limits: [{ capacity: 10, refill: { period: '1 minute' } }],
     },
   })
   .namespaces({
-    tasks: e => e
+    tasks: ns => ns
       .allow(({ rl, auth }) => ({
         create: rl.createTask.limit(auth.id),
       })),
   })
-  .toRules()
+  .compile()
 ```
 
-Usage should render to CEL:
+Usage renders to CEL:
 
 ```cel
 rateLimit.createTask.limit(auth.id)
 ```
 
-## Validation Rules
+## Validation
 
 ### Namespace Validation
 
 - `.namespaces({})` keys autocomplete from schema namespaces plus special keys (`$users`, `$default`, etc.)
 - unknown namespace keys are TypeScript errors
-- with `definePermsX(schema)`, unknown namespaces can also throw runtime errors
-- each namespace's `rp`/`ruleParams` context is typed against the `ruleParams` declaration for that namespace in `defineSchemaX` — unknown param keys are TypeScript errors
+- with `definePerms(schema)`, unknown namespaces also throw runtime errors
+- each namespace's `rp`/`ruleParams` context is typed against the `ruleParams` declaration for that namespace in `defineSchema` — unknown param keys are TypeScript errors
 
-### Attr Validation
+### Field Validation
 
-- `ctx.data.<attr>` autocompletes attrs for the current entity
-- `ctx.dataField('<attr>')` validates string literals against current entity
-- `ctx.newData` is only available in update context
-- `ctx.linkedData` is only available in link/unlink context
+- `ctx.entity.<field>` autocompletes fields for the current namespace
+- `ctx.entityField('<field>')` validates string literals against the current namespace
+- `ctx.entityUpdated` is only available in update context
+- `ctx.entityLinked` is only available in link/unlink context
 
 ### Ref Path Validation
 
-- `dataRef` starts from the current entity
-- `linkedDataRef` starts from the linked entity
+- `entityRef` starts from the current namespace
+- `entityLinkedRef` starts from the linked namespace
 - `authRef` starts from `$users`; callers pass a `$user.`-prefixed path, matching Instant's `auth.ref('$user...')` requirement
 - path traversal follows schema link labels
-- the final segment must be an attr
-- return type should be `ListExpr<TerminalAttrValue>`
+- the final segment must be an attribute
+- return type is `ListExpr<TerminalAttrValue>`
 
 ### Context Validation
 
-Invalid examples should fail at the cursor:
+Invalid usage fails at the cursor:
 
 ```ts
 allow({
-  view: ({ nd }) => nd.title.eq('x'),
-  //      ^^ newData is not available in view
+  view: ({ eu }) => eu.title.eq('x'),
+  //      ^^ entityUpdated is not available in view
 })
 
 allow({
-  update: ({ ld }) => ld.id.eq('x'),
-  //        ^^ linkedData is not available in update
+  update: ({ el }) => el.id.eq('x'),
+  //        ^^ entityLinked is not available in update
 })
 ```
 
 ### Bind Validation
 
 - duplicate bind names in the same scope fail
-- duplicate bind names across inherited defaults and entity scope fail
+- duplicate bind names across inherited defaults and namespace scope fail
 - duplicate stage names follow the same rule
-- `.overrideBind` and `.overrideStage` are explicit escape hatches
-- cyclic bind dependencies should be detected if practical, or left to Instant validation with a clear error
+- `.overrideBind` and `.overrideStage` are the explicit escape hatches
+- cyclic bind dependencies are detected if practical, or left to Instant validation with a clear error
 
 ## Full Example
 
-This example mirrors the current demo shape: users, workspaces, memberships, and tasks.
+This example mirrors the demo shape: users, workspaces, memberships, and tasks.
 
 ```ts
-import { definePermsX } from '@mszr/idb-vux/perms'
-import schema from './instant.schema'
+import { definePerms } from '@mszr/idb-dux/perms'
+import { schema } from './instant.schema'
 
-const rules = definePermsX(schema)
+export default definePerms(schema)
   .attrs(a => a.allow({ create: false }))
   .defaults(d => d
     .bind(({ auth }) => ({
@@ -751,10 +706,10 @@ const rules = definePermsX(schema)
     }))
     .allow({ $default: false }))
   .namespaces({
-    $users: e => e
-      .bind(({ auth, d, dr }) => ({
-        isSelf: auth.id.eq(d.id),
-        sharesWorkspace: dr('memberships.workspace.memberships.user.id').contains(auth.id),
+    $users: ns => ns
+      .bind(({ auth, e, er }) => ({
+        isSelf: auth.id.eq(e.id),
+        sharesWorkspace: er('memberships.workspace.memberships.user.id').contains(auth.id),
       }))
       .allow(({ b }) => ({
         view: b.isSelf.or(b.sharesWorkspace),
@@ -764,13 +719,13 @@ const rules = definePermsX(schema)
       .fields(({ b }) => ({
         email: b.isSelf.or(b.sharesWorkspace),
       })),
-    workspaces: e => e
-      .stage(({ rp, d }) => ({
+    workspaces: ns => ns
+      .stage(({ rp, e }) => ({
         inviteCode: rp('inviteCode'),
-        inviteMatches: rp('inviteCode').eq(d.inviteCode),
+        inviteMatches: rp('inviteCode').eq(e.inviteCode),
       }))
-      .bind(({ auth, dr, s }) => ({
-        isMember: dr('memberships.user.id').contains(auth.id),
+      .bind(({ auth, er, s }) => ({
+        isMember: er('memberships.user.id').contains(auth.id),
         hasInviteCode: s.inviteCode.neq(null).and(s.inviteMatches),
       }))
       .allow(({ b }) => ({
@@ -779,11 +734,11 @@ const rules = definePermsX(schema)
         update: b.isMember,
         delete: b.isMember,
       })),
-    memberships: e => e
-      .bind(({ auth, dr, rp }) => ({
-        isMember: dr('workspace.memberships.user.id').contains(auth.id),
-        isSelf: dr('user.id').contains(auth.id),
-        hasInviteCode: rp('inviteCode').neq(null).and(dr('workspace.inviteCode').contains(rp('inviteCode'))),
+    memberships: ns => ns
+      .bind(({ auth, er, rp }) => ({
+        isMember: er('workspace.memberships.user.id').contains(auth.id),
+        isSelf: er('user.id').contains(auth.id),
+        hasInviteCode: rp('inviteCode').neq(null).and(er('workspace.inviteCode').contains(rp('inviteCode'))),
       }))
       .allow(({ b }) => ({
         view: b.isMember,
@@ -791,9 +746,9 @@ const rules = definePermsX(schema)
         update: b.isSelf,
         delete: b.isSelf,
         link: {
-          user: ({ auth, ld }) => ld.id.eq(auth.id),
-          workspace: ({ rp, ld }) => b.isMember.or(
-            rp('inviteCode').neq(null).and(ld.inviteCode.eq(rp('inviteCode'))),
+          user: ({ auth, el }) => el.id.eq(auth.id),
+          workspace: ({ rp, el }) => b.isMember.or(
+            rp('inviteCode').neq(null).and(el.inviteCode.eq(rp('inviteCode'))),
           ),
         },
         unlink: {
@@ -801,9 +756,9 @@ const rules = definePermsX(schema)
           workspace: b.isSelf,
         },
       })),
-    tasks: e => e
-      .bind(({ auth, dr }) => ({
-        isMember: dr('workspace.memberships.user.id').contains(auth.id),
+    tasks: ns => ns
+      .bind(({ auth, er }) => ({
+        isMember: er('workspace.memberships.user.id').contains(auth.id),
       }))
       .allow(({ b }) => ({
         view: b.isMember,
@@ -812,8 +767,8 @@ const rules = definePermsX(schema)
         delete: b.isMember,
         link: {
           workspace: b.isMember,
-          assignee: ({ ld, dr }) => b.isMember.and(
-            dr('workspace.memberships.user.id').contains(ld.id),
+          assignee: ({ el, er }) => b.isMember.and(
+            er('workspace.memberships.user.id').contains(el.id),
           ),
         },
         unlink: {
@@ -822,9 +777,7 @@ const rules = definePermsX(schema)
         },
       })),
   })
-  .toRules()
-
-export default rules
+  .compile()
 ```
 
 Expected output shape:
@@ -844,7 +797,7 @@ Expected output shape:
       $default: 'false',
     },
   },
-  // ...ordinary Instant namespace rules...
+  // ...ordinary Instant namespace rules with CEL strings...
 }
 ```
 
@@ -852,7 +805,7 @@ Expected output shape:
 
 ### Expression Nodes
 
-Each helper should return a small immutable expression node:
+Each helper returns a small immutable expression node:
 
 ```ts
 interface Expr<T> {
@@ -870,7 +823,7 @@ Renderer responsibilities:
 
 - escape string literals
 - render booleans and null
-- render property access
+- render property access (`entity.title` → `data.title`, `entityUpdated.title` → `newData.title`)
 - render function calls
 - render binary operators with deterministic parentheses
 - render CEL list macros for `.some` and `.every`
@@ -878,44 +831,41 @@ Renderer responsibilities:
 
 ### Type Depth
 
-Ref path autocomplete should be deep enough to be useful and shallow enough not to punish TypeScript.
+Ref path autocomplete should be deep enough to be useful and shallow enough not to punish TypeScript:
 
-Recommended starting point:
-
-- direct attrs: all attrs
-- ref paths: up to 4 link hops plus terminal attr
-- escape hatch: `dataRef.raw(path)` or `raw(...)` for paths beyond TS limits
+- direct fields: all fields
+- ref paths: up to 4 link hops plus terminal attribute
+- escape hatch: `raw(...)` for paths beyond TS limits
 
 ### Development Validation
 
-With `definePermsX(schema)`, dev builds can validate:
+With `definePerms(schema)`, dev builds validate:
 
 - namespace exists
-- attr exists
-- ref path exists
-- ref path terminal is an attr
-- linkedData ref path starts from the linked namespace
+- field exists
+- ref path exists and its terminal is an attribute
+- `entityLinkedRef` paths start from the linked namespace
 - duplicate stage/bind keys
 - action-specific context misuse if runtime metadata is present
 
 ### Compatibility
 
-The generated object should be assignable to:
+The generated object is `IdbPerms<AppSchema>`, structurally assignable to:
 
 ```ts
 InstantRules<AppSchema>
 ```
 
-No backend changes should be required.
+No backend changes are required.
 
 ## Proposed Build Order
 
 1. Expression AST and CEL renderer.
-2. `definePermsX(schema).namespaces({}).toRules()`.
-3. Common context, direct attrs, `dataField`, `dataRef`, `authRef`, `ruleParams`.
+2. `definePerms(schema).namespaces({}).compile()`.
+3. Common context: direct fields, `entityField`, `entityRef`, `authRef`, `ruleParams`.
 4. `.stage`, `.bind`, `.allow`, `.fields`.
 5. Default inheritance and duplicate checking.
-6. Action callback form for `newData` and `linkedData`.
+6. Action callback form for `entityUpdated` and `entityLinked`.
 7. List helpers: `.contains`, `.isEmpty`, `.isNonEmpty`, `.size`, `.some`, `.every`.
 8. `ctx.f` / `ctx.ops` functional helpers.
 9. `.attrs`, `.defaults`, `$rateLimits`.

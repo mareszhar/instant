@@ -1,11 +1,11 @@
-updated: 2026-06-09
+updated: 2026-06-10
 status: draft — exploratory blueprint, supersedes the "vux as a vue wrapper" framing
 
 # dux — a blueprint with foresight
 
 A proposal for `@mszr/idb-dux`: what it is, why it should be born fresh rather than refactored out of `idb-vux`, and how to structure it so it stays delightful *and* maintainable as the SDKs we track keep moving.
 
-This note builds on [`ideal-vux.md`](./ideal-vux.md) and [`ideal-perms-spec-x.md`](./ideal-perms-spec-x.md). Where it diverges from them, it says so explicitly in [§10](#10-what-id-change-from-ideal-vux). Treat `ideal-vux` as the *feature* spec and this note as the *structural and strategic* spec.
+This note is the **authority** on vision, structure, and conventions. [`ideal-vux.md`](./ideal-vux.md) (the feature spec) and [`ideal-perms-spec-x.md`](./ideal-perms-spec-x.md) (the perms spec) have been converged to its decisions; [§10](#10-what-changed-from-the-vux-era-exploration) records what changed from their vux-era originals.
 
 ---
 
@@ -68,7 +68,7 @@ The user's instinct is correct, and the codebase backs it up.
 | Symptom | Evidence in repo |
 |---|---|
 | The baseline was reimplemented, not mirrored | `idb-vux/src/InstantVuxDatabase.ts` is **1100 lines** with bespoke generics (`QueryAuthoringInput`, `QueryAuthoringFactory`, `QueryMaybeRefOrGetterSource`, `QueryRuntimeQuery`…). The official `vue/src/InstantVueDatabase.ts` is **~400 lines**. |
-| That divergence likely broke IntelliSense | `ideal-vux` §7.4 reports completions are dead on `useQuery` inline objects but fine via `q()`. The custom contextual-typing machinery on the db methods is the prime suspect. |
+| That divergence likely broke IntelliSense | the vux audit found completions dead on inline `useQuery` objects but fine via `q()`. The custom contextual-typing machinery on the db methods is the prime suspect. |
 | No safety net to refactor against | `src/tests/intellisense/` exists but is **empty** — the one test layer that would catch the regression was never populated. |
 | The "signal vs noise" problem is real | ~37 test files + a working Nuxt demo. Mid-refactor, a failing test could mean "expected, API not ported yet," "real break," or "shouldn't have existed" — and nothing tells them apart. |
 
@@ -94,15 +94,15 @@ The proposed subpaths were close. Two refinements:
 
 ```
 @mszr/idb-dux          ← NOT empty. The framework-agnostic foundation:
-                          defineSchema, i (+ i.namespace), defineQuery/q,
-                          defineLookup, the type utilities, id/tx/lookup.
+                          defineSchema, i (+ i.namespace), q (+ defineQuery),
+                          the typed-tx machinery, the Idb* type utilities, id/lookup.
 @mszr/idb-dux/vue      ← the Vue client (enhanced db, components, rooms, SSR-resilient)
 @mszr/idb-dux/perms    ← typed CEL authoring (authoring-only, no client runtime)
 @mszr/idb-dux/admin    ← admin-SDK ergonomics (framework-agnostic; optional peer @instantdb/admin)
 @mszr/idb-dux/nuxt     ← h3/nitro/nuxt server glue (optional peers @instantdb/admin + h3; wraps /admin)
 ```
 
-**Why the root is not empty** — and this is grounded, not stylistic: the demo's `shared/utils/idb.ts` already imports `defineQuery` and `InstaQLEntity` from the *main* entry and is consumed by **both** client stores and server routes. The schema file, the shared `q`, the shared `lu`, the entity type utilities — these are framework-neutral and cross the client/server boundary. They belong at the root so neither side has to reach into `/vue` or `/admin` to get them. The root *is* the framework-agnostic plane. Your guess of "minimal exports to power schema init" undersells it: it's schema **plus** the whole authoring foundation.
+**Why the root is not empty** — and this is grounded, not stylistic: the demo's `shared/utils/idb.ts` already imports `defineQuery` and `InstaQLEntity` from the *main* entry and is consumed by **both** client stores and server routes. The schema file, the shared `q`, the entity type utilities — these are framework-neutral and cross the client/server boundary. They belong at the root so neither side has to reach into `/vue` or `/admin` to get them. The root *is* the framework-agnostic plane. Your guess of "minimal exports to power schema init" undersells it: it's schema **plus** the whole authoring foundation.
 
 **Why `/query` is not its own subpath:** `q`/`defineQuery` and the type utilities are the shared authoring foundation — they live at the root with schema, not in a separate subpath. Keep the subpath count minimal; every subpath is a maintenance and docs surface.
 
@@ -140,10 +140,10 @@ Everything flows outward from schema. Inner layers never import outer layers; on
         ┌────────────────  schema  ────────────────┐   defineSchema, i.namespace,
         │            (pure types + tiny runtime)     │   singularize<>  ← source of truth
         ▼                                            ▼
-      query                                        perms                 ┐
-  q / defineQuery,                          definePerms,               │  framework-agnostic
-  result shapers ($only/$at/$m),             CEL emitter,               │  plane
-  DefineIdbEntity / DefineIdbData          schema-aware ctx            ┘
+      query · tx                                   perms                 ┐
+  q / defineQuery, result shapers            definePerms,                │  framework-agnostic
+  ($only/$at/$m), type utilities;            CEL emitter,                │  plane
+  typed tx (ruleParams, dot-path link)       schema-aware ctx            ┘
         │           │
         │           └──────────────────────────┐
         ▼                                       ▼
@@ -155,7 +155,7 @@ Everything flows outward from schema. Inner layers never import outer layers; on
                                             nuxt   ← h3/nitro glue, wraps admin (peers: admin + h3)
 ```
 
-Read it as: **schema is consumed by everything; query is consumed by vue and admin; perms stands alone; vue and admin are sibling overlays; nuxt wraps admin.** The DRY wins ([§7](#7-dry-in-practice)) all come from query and schema being shared, not re-derived per surface.
+Read it as: **schema is consumed by everything; query and tx are consumed by vue and admin; perms stands alone; vue and admin are sibling overlays; nuxt wraps admin.** The DRY wins ([§7](#7-dry-in-practice)) all come from query and schema being shared, not re-derived per surface.
 
 ### 5.2 Enforce the boundaries mechanically
 
@@ -177,11 +177,11 @@ Build with **tshy** (already the vux toolchain — dual ESM/CJS, the subpath→s
 // tshy.exports in package.json
 {
   "./package.json": "./package.json",
-  ".":       "./src/index.ts",      // framework-agnostic foundation
-  "./vue":   "./src/vue/index.ts",
+  ".": "./src/index.ts", // framework-agnostic foundation
+  "./vue": "./src/vue/index.ts",
   "./perms": "./src/perms/index.ts",
   "./admin": "./src/admin/index.ts",
-  "./nuxt":  "./src/nuxt/index.ts"
+  "./nuxt": "./src/nuxt/index.ts"
 }
 ```
 
@@ -225,7 +225,8 @@ src/vue/
 
   ```ts
   // DUX-DELTA(ssr): inert guard so the hook doesn't crash on server.
-  if (!isClient()) return inertQueryState()
+  if (!isClient())
+    return inertQueryState()
   // END DUX-DELTA
   ```
 
@@ -256,6 +257,7 @@ The layering isn't DRY for its own sake — here's where it concretely removes d
 - **One result-shaper, two clients.** The `$only`/`$at`/`$as`/`$m` logic and array-normalization live as a **pure function** `shapeResult(rawData, querySpec)` + its type-level mirror in `src/query/`. `/vue`'s `useQuery` wraps it in `computed`; `/admin`'s `query` `await`s then applies the same function. vux can't share this today because the logic is welded into the Vue database class — which is exactly why the admin ergonomics in `ideal-vux` §5.4 are still aspirational.
 - **One schema, one source of truth.** `defineSchema` output (singulars, ruleParams, link metadata) is imported by query (for inference), perms (for ctx typing), and both clients (for runtime singularization). No `singularOverrides` duplicated across `defineDb`/admin `init` — `ideal-vux` already wants this; the layering is what makes it real instead of copied.
 - **One validation surface.** The where-clause/operator validation types (the `$ilike`-only-on-indexed-strings rules, the 3-hop traversal) live once in `src/query/` and are consumed by `q`, `useQuery`, `queryOnce`, and `adminDb.query`. Write the hard type once; every entry inherits it.
+- **One typed-tx surface, two runtimes.** The schema-derived `ruleParams` typing and dot-path `.link` machinery ([§10.5](#105-foreground-the-buried-milestones)) live once in `src/tx/` and are applied to both the client `db.tx` and the admin `adminDb.tx` proxies.
 - **One refs+state primitive.** `result.ts` (`refs + state`) is shared by every enhanced hook in `/vue`. Lifted from vux's `xResult.ts` — keep it.
 
 The test: if a fix to singularization or result-shaping requires editing more than one file outside `src/schema` or `src/query`, the layering has a leak.
@@ -264,36 +266,53 @@ The test: if a fix to singularization or result-shaping requires editing more th
 
 ## 8. Testing for parity and IntelliSense
 
-Three layers, plus two new harnesses that make your two hardest goals — *feature parity* and *IntelliSense parity* — into automated checks instead of prose promises.
+One runner, three assertion planes, one fixture library. **selenita** ([github.com/mareszhar/selenita](https://github.com/mareszhar/selenita)) runs on Vitest and asserts both *completions* (`project.query`) and *diagnostics with their messages* (`project.check`); Vitest's `--typecheck` mode runs `expectTypeOf` assertions in `*.test-d.ts` files. So runtime behavior, type shapes, error-message quality, and editor DX are all locked from a single `vitest run` — no bespoke `tsc --noEmit` harness, no separate tooling per layer.
+
+| Plane | File suffix | Asserts | Tool |
+|---|---|---|---|
+| Runtime | `*.test.ts` | reactive flows, SSR-inert state, auth-sync cookies, server-db modes | Vitest |
+| Type shapes | `*.test-d.ts` | return/data shapes match the spec | Vitest `--typecheck` + `expectTypeOf` |
+| Editor DX | `*.dx.test.ts` | completions appear at the intended cursor; diagnostics carry the *intended message* on the *intended field* | selenita (`query`, `check`, `queryGroup`) on Vitest |
+
+`.dx.test.ts` rather than `.intellisense.test.ts`: the suffix names the plane (editor DX — completions *and* diagnostics), it's shorter, and it's literally the brand.
 
 ### 8.1 The parity harness (new)
 
 `ideal-vux`'s principle #7 ("additive, never divergent") is currently audited by hand in `feature-parity-audit.md` — a prose matrix that goes stale. Make it executable:
 
-- `@instantdb/vue` is *already a devDependency* of the package. Write one set of canonical scenarios (a fixed schema, a set of queries, auth transitions, room ops) and run them against **both** the official `@instantdb/vue` db **and** dux's `baseline` surface, asserting identical reactive output (same emitted values, same loading/error transitions).
-- This converts "additive never divergent" from a promise into a red/green test. When upstream changes behavior, the parity test fails and tells you what to re-vendor.
+- `@instantdb/vue` is *already a devDependency* of the package. Write one set of canonical scenarios (a fixed schema, a set of queries, auth transitions, room ops) and run them against **both** the official `@instantdb/vue` db **and** dux's internal `baseline` surface, asserting identical reactive output (same emitted values, same loading/error transitions).
+- selenita's `queryGroup` covers the *editor-DX side* of parity: the same snippet asserted against multiple implementations, so "our baseline completes exactly what official completes" is also a red/green test.
+- This converts "additive never divergent" from a promise into a failing test. When upstream changes behavior, the parity suite fails and tells you what to re-vendor.
 
-### 8.2 The IntelliSense suites (new — the gap that bit you)
+### 8.2 Editor-DX suites — completions *and* diagnostics (the gap that bit you)
 
-`src/tests/intellisense/` is empty today; that's why the regression shipped silently. Use **selenita** ([github.com/mareszhar/selenita](https://github.com/mareszhar/selenita)) and make this a *gating discipline*:
+`src/tests/intellisense/` is empty in vux today; that's why the regression shipped silently. Make it a *gating discipline*:
 
-> **No enhanced API is "done" until it ships with a selenita suite that locks its completions and diagnostics.**
+> **No enhanced API is "done" until it ships with a `.dx.test.ts` suite that locks its completions and diagnostics.**
 
-Co-locate `*.intellisense.ts` per layer:
-- `query`: `q({ todos: { $: { where: { /*⌶*/ } } } })` → attribute names + dot-paths; the inline `useQuery({/*⌶*/})` positions that regressed.
-- `schema`: `i.namespace({ /*⌶*/ })` → `singular`/`attrs`/`ruleParams`.
-- `perms`: `ctx.dataRef('/*⌶*/')` → link-path completions; `b./*⌶*/` → bound names.
-- `lookup`: `lu('/*⌶*/')` → namespace names; second arg narrows to unique attrs.
+selenita's `check` also replaces the old `*.types.ts` + `@ts-expect-error` pattern for error assertions, and it's strictly better: a literal `@ts-expect-error` is pinned to one hand-written call site and can only assert *that* an error exists, while a reusable `snippet` with an embedded `cursor` asserts the exact diagnostic ("Operator $ilike is only available for indexed string attributes") at the exact position — once — and `queryGroup` replays it across `useQuery`, `queryOnce`, `useInfiniteQuery`, and `adminDb.query`. One bad-input fixture, every entry point locked.
 
-Diagnose the *existing* regression first by writing the failing suite, fix it in the clean codebase, then it's locked forever.
+Positions to lock first:
+- `query`: `q({ todos: { $: { where: { ⌶ } } } })` → attribute names + dot-paths; the inline `useQuery({ ⌶ })` positions that regressed in vux.
+- `schema`: `i.namespace({ ⌶ })` → `singular`/`fields`/`ruleParams`.
+- `tx`: `db.tx.memberships[id()].link({ ⌶ })` → link labels + dot-path unique attrs; `.ruleParams({ ⌶ })` → schema-declared params.
+- `perms`: ref-path strings → link-path completions; bindings scope → bound names.
 
-### 8.3 Type-level tests (keep, reorganize)
+Diagnose the *existing* vux regression first by writing the failing suite against vux, fix it in the clean dux codebase, then it's locked forever.
 
-vux already has `*.types.ts` with `@ts-expect-error` (e.g. `queryAuthoring.contract.types.ts`, `official-sdk-gaps.types.ts`). Keep the pattern; co-locate per layer; assert the *good* error messages from `ideal-vux` §7 (the "$ilike is only available for indexed string attributes" class), not just that *an* error occurs.
+### 8.3 Fixtures — one canonical app, DRY by construction
 
-### 8.4 Runtime tests (keep, trim)
+All three planes draw from a single `test-support/` directory (aliased `@test`):
 
-Vitest for reactive flows, SSR-inert behavior, auth-sync cookie logic, server-db modes. `ideal-vux` §10's "fewer tests, higher confidence" applies — but in a *fresh* tree you get this for free by writing only the tests that assert contracts, never implementation details.
+- **The canonical app**: one fixed schema, seed data, and scripted reactor scenarios (auth transitions, query emissions, presence events). Every runtime and parity test replays these scenarios; change the canonical schema once and every plane updates.
+- **The snippet library**: selenita `snippet`s with embedded `cursor`s — the canonical good queries, the canonical *bad* queries (one per validation rule), schema-authoring fragments, tx fragments. DX tests compose these instead of restating code.
+- **Typed expectations**: shared `expectTypeOf` helpers for the data shapes the spec promises.
+
+The only test code that is irreducibly per-API is the one-line wrapper feeding a shared scenario or snippet into a specific entry point — exactly the duplication you *want*, because it's the thing under test.
+
+### 8.4 Collocation policy
+
+Tests live **next to the code they exercise** — `query/defineQuery.dx.test.ts` beside `query/defineQuery.ts`, parity suites under `vue/baseline/` — never in a top-level `tests/` mirror of `src/`. The collocated trio means an API ships with its three planes in the same folder and the same PR; the boundary lint (§5.2) applies to test files too, so a query-layer test can import `@test` and `query/**` but never `vue`. The only centralized test code is `test-support/` itself.
 
 ### 8.5 The drift check (from §6.3)
 
@@ -328,11 +347,13 @@ client/packages/dux/                    # orchestrator workspace (mirrors packag
         singularize.ts                  # runtime algo + Singularize<> type util
         index.ts
       query/                            # ── framework-agnostic ──
-        defineQuery.ts                 # q
-        defineLookup.ts                # lu
+        defineQuery.ts                  # q
         shapeResult.ts                  # pure $only/$at/$as/$m + normalization (shared by vue+admin)
         validation/                     # where/operator/traversal types (the one validation surface)
-        types/                          # DefineIdbEntity, DefineIdbData
+        types/                          # IdbEntity, IdbEntityWithLinks, IdbQueryEntity, IdbQueryData, IdbRegister
+        index.ts
+      tx/                               # ── framework-agnostic ──
+        typedTx.ts                      # schema-typed tx chain: ruleParams + dot-path .link → compiles to lookup()
         index.ts
       perms/                            # ── framework-agnostic, authoring-only ──
         definePerms.ts
@@ -345,7 +366,7 @@ client/packages/dux/                    # orchestrator workspace (mirrors packag
           InstantDuxDatabase.ts
           InstantDuxRoom.ts
           useInfiniteQuery.ts
-          components/                   # SignedIn, SignedOut, Cursors
+          components/                   # SignedIn/SignedOut/Cursors — .ts render fns (official ships .vue SFCs; marked build delta)
         overlay/                        # ergonomics by composition
           useQuery.ts  useAuth.ts  useUser.ts  ...
           rooms/
@@ -357,14 +378,11 @@ client/packages/dux/                    # orchestrator workspace (mirrors packag
         query.ts                       # uses shapeResult from ../query
         index.ts
       nuxt/                             # ── h3/nitro glue ──
-        defineServerIdb.ts             # wraps /admin + event.context caching
-        defineInstantAuthSyncHandler.ts
+        defineServerKit.ts              # request-scoped kit ({ adminDb, user?, … }) — wraps /admin + event.context caching
+        defineAuthSyncHandler.ts        # firstPartyPath auth sync (token-only cookie)
         index.ts
-      tests/
-        parity/                         # §8.1 — vs @instantdb/vue
-        intellisense/                   # §8.2 — selenita, per layer
-        *.types.ts                      # §8.3
-        *.test.ts                       # §8.4
+      test-support/                     # the @test fixture library (§8.3): canonical app, scenarios, snippets
+      # tests collocate beside the APIs they exercise (§8.4): *.test.ts / *.test-d.ts / *.dx.test.ts
     demo/                               # one Nuxt demo exercising every entrypoint
 ```
 
@@ -372,9 +390,9 @@ Workspace wiring: `packages/*` already globs the orchestrator dir; add `packages
 
 ---
 
-## 10. What I'd change from ideal-vux
+## 10. What changed from the vux-era exploration
 
-`ideal-vux` is a strong feature spec and most of it carries over unchanged. Four deliberate divergences:
+The vux-era spec was strong and most of it carried over unchanged. Five deliberate divergences founded dux — recorded here for the record, with `ideal-vux.md` and `ideal-perms-spec-x.md` since updated to match:
 
 ### 10.1 No X, enhanced as default
 
@@ -388,25 +406,123 @@ What settled it:
   2. *Keys inside idb-native objects* (the query `$` clause, tx params) — collision-proofed by **convention**: every dux-introduced key inside an idb object is `$`-prefixed (`$only`, `$at`, `$as`, `$m`). idb uses bare keys inside `$` (`where`, `order`, `limit`, `offset`, `fields`), so the `$`-namespace is ours; a future collision is a codemod, not a redesign.
 - **Purpose-overlap makes name-collisions mergeable, not breaking.** If idb ever ships an API whose name collides with ours, its purpose almost certainly overlaps ours (a future `defineSchema` would… define a schema). Since our default surface already reimagines those same concepts, we'd absorb the new capability into ours and keep shipping ours. Only a name-collision with *zero* purpose overlap forces a rename — rare, and a find-and-replace when it happens.
 
-**The rule, stated once:** dux's *top-level exports are unprefixed*; dux's *keys inside an idb-native object are `$`-prefixed*; the *vendored baseline is internal-only*. That trio replaces the `X` suffix with something principled. The full vocabulary + type-prefix policy (e.g. `Idb`-prefixed type names) is being settled separately and will live in `dux-conventions.md`.
+**The rule, stated once:** dux's *top-level exports are unprefixed*; dux's *keys inside an idb-native object are `$`-prefixed*; the *vendored baseline is internal-only*. That trio replaces the `X` suffix with something principled. The full vocabulary and type policy is codified in [§11](#11-the-naming-contract).
 
 ### 10.2 "Vendor-and-mark," not "reimplement"
 
-`ideal-vux` §1 says *"Vux reimplements the baseline rather than re-exporting it."* Re-exporting is correctly rejected (you need SSR guards + tighter types). But "reimplement" is what *produced* the 1100-line divergence and the IntelliSense regression. Replace it with **vendor-and-mark** ([§6](#6-the-vendored-baseline--additive-overlay-model)): copy upstream, fence the deltas, never creatively rewrite. Same end (we own the code, with guards and tight types); opposite discipline (mirror, don't fork).
+The vux-era spec said *"Vux reimplements the baseline rather than re-exporting it."* Re-exporting is correctly rejected (you need SSR guards + tighter types). But "reimplement" is what *produced* the 1100-line divergence and the IntelliSense regression. Replace it with **vendor-and-mark** ([§6](#6-the-vendored-baseline--additive-overlay-model)): copy upstream, fence the deltas, never creatively rewrite. Same end (we own the code, with guards and tight types); opposite discipline (mirror, don't fork).
 
 ### 10.3 The root entry is the framework-agnostic plane, stated as such
 
-`ideal-vux` §4 frames the root as the Vue client and hangs `/admin`, `/nuxt`, `/perms` off it. dux inverts the center of gravity: the **root is the agnostic foundation** (schema + query + type utils + `id`/`tx`/`lookup`), and `/vue` is *a* client overlay hanging off it — peer to `/admin`. This matches how the demo actually imports (`shared/utils/idb.ts` pulls authoring from root and is consumed by both planes) and makes the "Vue is the first client, not the definition" vision structural rather than aspirational.
+The vux-era spec framed the root as the Vue client and hung `/admin`, `/nuxt`, `/perms` off it. dux inverts the center of gravity: the **root is the agnostic foundation** (schema + query + type utils + `id`/`tx`/`lookup`), and `/vue` is *a* client overlay hanging off it — peer to `/admin`. This matches how the demo actually imports (`shared/utils/idb.ts` pulls authoring from root and is consumed by both planes) and makes the "Vue is the first client, not the definition" vision structural rather than aspirational.
 
 ### 10.4 Layering and boundary-enforcement are first-class
 
-`ideal-vux` treats the agnostic-vs-coupled split as a packaging detail (subpaths). dux makes it the **primary architectural axis** ([§5.1](#51-the-dependency-graph)) and *enforces it with lint rules* ([§5.2](#52-enforce-the-boundaries-mechanically)). This is the structural antibody against vux's failure mode.
+The vux-era spec treated the agnostic-vs-coupled split as a packaging detail (subpaths). dux makes it the **primary architectural axis** ([§5.1](#51-the-dependency-graph)) and *enforces it with lint rules* ([§5.2](#52-enforce-the-boundaries-mechanically)). This is the structural antibody against vux's failure mode.
 
-Everything else in `ideal-vux` and all of `ideal-perms-spec-x` — `$only`/`$at`/`$as`/`$m`, the `singularize` options, `DefineIdbEntity`/`DefineIdbData`, the perms builder pipeline, the SSR ceiling — carries over intact. Those specs describe *what the surface does*; this note describes *where the code lives and how it stays alive*.
+### 10.5 Foreground the buried milestones
+
+The vux-era spec parked several of its best DX ideas as future footnotes. With no public baseline to stay compatible with, dux promotes them into the core value proposition:
+
+- **Typed `db.tx` replaces `defineLookup`.** The vux-era Q3 deferred the typed tx chain and shipped `lu` as a stopgap for the untyped loose-lookup form. dux inverts this: `db.tx` (and `adminDb.tx`) are typed from the schema. `.ruleParams({...})` completes and validates the namespace's declared params, closing core's `RuleParams = { [key: string]: any }` hole. `.link()` accepts dot-path keys — `{ 'workspace.inviteCode': code }` — that complete on the link label, narrow to *unique* attributes of the linked namespace, type the value, and compile to the official `lookup()` form under the hood. (Verified in core: `LinkParams` types the link *labels* and id values, but a `lookup()` is smuggled through as an untyped string — the dot-path form is where all the missing safety lives.) With the chain typed end-to-end, the standalone `defineLookup`/`lu` utility is redundant and is dropped.
+- **Schema registration solves the type-utility DX (the vux-era Q2).** The curried form originally sketched — `type IdbEntity = DefineIdbEntityX<AppSchema>` then `IdbEntity<'todos'>` — is not expressible in TypeScript (generic type aliases cannot be partially applied), which is *why* Q2 stayed open. The mechanism that actually delivers the no-repetition DX is module-augmentation registration (the TanStack-style `Register` pattern): declare the schema once in a `declare module` block, and every dux type utility *and* schema-generic authoring factory defaults to it. Details in [§11.3](#113-schema-registration--tell-dux-your-schema-once).
+- **SSR hydration is a named milestone, not a maybe.** The floor/ceiling framing stays, but the ceiling gets a roadmap row (phase 9) instead of living only in an open-questions table.
+
+Everything else — `$only`/`$at`/`$as`/`$m`, the `singularize` options, the type utilities, the perms builder pipeline, the SSR-resilience floor — carried over intact, and both docs now reflect the dux names and decisions. They describe *what the surface does*; this note describes *where the code lives and how it stays alive*.
 
 ---
 
-## 11. Implementation roadmap
+## 11. The naming contract
+
+The settled law — the seed of `dux-conventions.md`, recorded here so no naming question stays open. Every name must pass three questions: **which domain does it belong to** (and does the name place it there)? **Is it technically accurate** — does it describe what the thing *is*, not what an ancestor happened to call it? **Is the term reused consistently** everywhere the concept appears?
+
+The official surface fails all three at once — three brand prefixes (`Instant*`, `Insta*`, `InstantDB*`), `InstaQLParams` naming the query object "params", `InstaQLResult` and `InstaQLResponse` naming the *same shape* twice, `User` meaning "authenticated user", and schema API vs docs disagreeing on entity-vs-namespace. dux replaces the lot.
+
+### 11.1 Vocabulary
+
+| Term | Means |
+|---|---|
+| **namespace** | a named set of entities (`workspaces`, `$users`) |
+| **entity** | one record in a namespace |
+| **attribute** | umbrella: any property of an entity — a field or a link |
+| **field** | a *local scalar* attribute — the same word in schema (`fields:`), queries (`$: { fields }`), and perms (`entityField`) |
+| **link** | a relationship between **entities**, declared between two namespaces — which may be the same namespace (self-links are legal; verified against core's `LinkDef`) |
+| **ref** | a traversal across links (`entityRef('memberships.user.id')`, nested query keys) |
+
+Native keys are kept verbatim wherever dux doesn't change their meaning — `where`, `order` (not `orderBy`), `limit`, `offset`, `fields` — and a key is renamed only when dux genuinely widens its semantics, always mapping back to the native key under the hood.
+
+### 11.2 Values vs types
+
+- **Values are unprefixed:** `init`, `defineSchema`, `q`, `definePerms`, `defineDb`, `defineServerKit`, `defineAuthSyncHandler`, `id`, `lookup`. The package specifier already namespaces them; a userland clash is one `import { init as idbInit }` away. No brand words inside dux-owned value names (re-exported official values keep their official names). One exception: error classes (`IdbError`) keep the brand — `e instanceof IdbError` must read branded next to other libraries' errors.
+- **Types are `Idb`-prefixed and domain-scoped:** `Idb<Domain><Thing>`, with domains `Query`, `Tx`, `Perms`, `Auth`, `Room`, `Storage`, `Admin` — and **schema as the unmarked root domain**: a type read directly off the schema goes unmarked (`IdbEntity`, `IdbSchema`); a type derived through other machinery says which (`IdbQueryEntity`, `IdbTxUpdate`). Anything unmarked = "straight from your schema."
+- **Result objects follow one pattern:** every hook returns `Idb<Domain>Result` with `-Data`/`-State`/`-Refs` subparts (`IdbQueryResult`, `IdbAuthResult`, `IdbRoomPresenceResult`). Learn one, know all.
+
+### 11.3 Schema registration — tell dux your schema once
+
+Generic type aliases cannot be partially applied in TypeScript, so the curried `type IdbEntity = DefineIdbEntity<AppSchema>` form is impossible. The mechanism that delivers the no-repetition DX is module-augmentation registration (the TanStack-style `Register` pattern), declared once next to the schema:
+
+```ts
+// instant.schema.ts
+export const schema = defineSchema({ /* ... */ })
+
+declare module '@mszr/idb-dux' {
+  interface IdbRegister { schema: typeof schema }
+}
+```
+
+From then on, project-wide:
+
+```ts
+import { q } from '@mszr/idb-dux' // q ships ready-made — no defineQuery<AppSchema>() step
+
+type Todo = IdbEntity<'todos'>
+type TodoCard = IdbQueryEntity<'todos', { assignee: {} }>
+
+const query = q({ todos: { $: { where: { isDone: false } } } })
+```
+
+The boundary rule: **registration supplies types, not values.** Everything type-only defaults to the registered schema — all `Idb*` type utilities, and the exported `q` (whose runtime is schema-independent; its validation is type-level). Anything that needs the schema *value* still receives it explicitly — `defineDb`, `init`, `definePerms(schema)` — because runtime singularization and runtime validation cannot come from a type. Multi-schema escape hatch: an explicit trailing type param (`IdbEntity<'todos', OtherSchema>`) and `defineQuery<OtherSchema>()`.
+
+### 11.4 The rename table
+
+| Official | What it actually is (verified in core) | dux |
+|---|---|---|
+| `InstaQLParams<S>` | the query object shape | `IdbQuery` |
+| `InstaQLOptions` | per-call options (`{ ruleParams }`) | `IdbQueryOptions` |
+| `InstaQLResult` / `InstaQLResponse` | the same data shape, twice | `IdbQueryData<Q>` |
+| `InstaQLEntity` | entity shaped by a subquery | `IdbQueryEntity` |
+| `InstaQLEntitySubquery` | the subquery shape | `IdbQuerySubquery<'ns'>` |
+| `InstaQLFields` | the `fields` array type | `IdbQueryFields<'ns'>` |
+| `PageInfoResponse` | pagination cursors | `IdbQueryPageInfo` |
+| — | entity, `id` + fields only | `IdbEntity<'ns'>` |
+| — | entity + every link label, one hop | `IdbEntityWithLinks<'ns'>` |
+| `User` | the **authenticated** user | `IdbAuthUser` |
+| `AuthState` | `{ isLoading, user, error }` | `IdbAuthState` |
+| `Config` / `InstantConfig` | init config, duplicated | `IdbConfig` |
+| `InstantSchemaDef` | the schema type | `IdbSchema` |
+| `InstantRules` | compiled permissions | `IdbPerms` (assignable to `InstantRules`) |
+| `RuleParams` | `{ [k: string]: any }` | `IdbTxRuleParams<'ns'>` / `IdbPermsRuleParams<'ns'>`, schema-typed |
+| `TransactionChunk` | one tx step | `IdbTxChunk` |
+| `UpdateParams` / `CreateParams` / `LinkParams` | op payload shapes | `IdbTxUpdate<'ns'>` / `IdbTxCreate<'ns'>` / `IdbTxLink<'ns'>` |
+| `RoomsOf` / `PresenceOf` / `TopicsOf` | room shape extractors | `IdbRooms` / `IdbRoomPresence<'room'>` / `IdbRoomTopics<'room'>` |
+| `InstantAPIError` / `InstantError` / `InstantIssue` | error classes | `IdbError` family |
+| `ConnectionStatus` | status union | `IdbConnectionStatus` |
+| `InstantObject`, deprecated aliases (`InstantQuery`, `InstantEntity`, `InstantGraph`, …) | legacy | **dropped** — baseline-internal only |
+
+### 11.5 Perms naming
+
+The domain term is **perms**, everywhere: `definePerms`, `/perms`, `instant.perms.ts` (CLI-fixed anyway), output type `IdbPerms`. "Rules" was CEL/dashboard leakage; the word survives only in prose for a single allow entry. The compile point is **`.compile()`** (not `.toRules()`) — it says what happens (authoring AST → CEL strings) and its return type says what you get.
+
+The perms context is **entity-rooted with current unmarked** — the current entity is *the* entity, so it carries no marker; only the *updated* and *linked* states do: `entity`/`e`, `entityField`/`ef`, `entityRef`/`er`; `entityUpdated`/`eu`, `entityUpdatedField`/`euf` (no updated-ref — Instant doesn't support `newData.ref`); `entityLinked`/`el`, `entityLinkedField`/`elf`, `entityLinkedRef`/`elr`. Every `e*` shorthand is entity-family: the second letter says *which* entity, the suffix says *how you read it*. CEL's `data`/`newData`/`linkedData` remain compile targets and never appear in the authoring surface. Full table: [`ideal-perms-spec-x.md`](./ideal-perms-spec-x.md).
+
+### 11.6 Value renames applied
+
+- `defineInstantAuthSyncHandler` → **`defineAuthSyncHandler`** — no brand words inside value names.
+- `defineServerIdb` → **`defineServerKit`** — *not* `defineServerDb`: unlike client-side `defineDb`, it does not return a db. It returns a request-scoped *kit* whose keys vary by mode (`{ adminDb, user?, userDb?, … }`); naming it like a db would lie about the contract, and "kit" says exactly what it is — a small bundle of related tools.
+
+---
+
+## 12. Implementation roadmap
 
 Sequenced so each step is independently testable and nothing depends on a surface that doesn't exist yet. The order follows the dependency graph inward-out, so you're always building on something already locked.
 
@@ -414,19 +530,20 @@ Sequenced so each step is independently testable and nothing depends on a surfac
 |---|---|---|
 | 0. Scaffold | `packages/dux/idb-dux` in the workspace; tshy exports; `sideEffects:false`; optional peers; lint boundary rules; empty subpath entries that typecheck | `pnpm -F @mszr/idb-dux build` produces all 5 entrypoints; boundary lint passes |
 | 1. Schema layer | `defineSchema`, `i.namespace`, `singularize` (runtime + type) | schema type tests + selenita suite green |
-| 2. Query layer | `q`/`defineQuery`, `shapeResult` (pure), validation types, `DefineIdbEntity`/`DefineIdbData`, `defineLookup` | the IntelliSense regression is *reproduced then fixed* under selenita; validation type tests green |
+| 2. Query + tx layer | `q` (ready-made via registration) + `defineQuery`, `shapeResult` (pure), validation types, the `Idb*` type utilities + `IdbRegister`, typed-tx machinery (`src/tx/`: `ruleParams`, dot-path `.link`) | the IntelliSense regression is *reproduced then fixed* under selenita; validation + tx dx tests green |
 | 3. Vue baseline | vendor `@instantdb/vue` into `vue/baseline/`, mark SSR + type deltas, stamp `UPSTREAM.md`, wire `check-baseline-drift` | parity harness (§8.1) green vs official `@instantdb/vue` |
 | 4. Vue overlay | `useQuery` & friends composing the baseline via `shapeResult`; `result` (refs+state); `defineDb`; components | overlay intellisense + runtime tests green; demo's client stores compile against `/vue` |
-| 5. Admin | owned `init`, `query` reusing `shapeResult` | admin types + runtime tests green; demo server reads via `/admin` (no `init` injection) |
-| 6. Nuxt | `defineServerIdb`, auth-sync handler wrapping `/admin` | demo server routes + auth sync green |
-| 7. Perms | the `definePerms` pipeline (its own build order is `ideal-perms-spec-x` §"Proposed Build Order") | demo `instant.perms.ts` compiles to valid `InstantRules`; perms intellisense + type tests green |
-| 8. Demo + lock | one Nuxt demo exercising all 5 entrypoints; trim tests to contract-only | demo builds + runs SSR; parity/intellisense/drift checks wired into CI |
+| 5. Admin | owned `init`, `query` reusing `shapeResult`, typed tx on `adminDb.tx` | admin types + runtime tests green; demo server reads via `/admin` (no `init` injection) |
+| 6. Nuxt | `defineServerKit`, `defineAuthSyncHandler` wrapping `/admin` | demo server routes + auth sync green |
+| 7. Perms | the `definePerms` pipeline (its own build order is `ideal-perms-spec-x` §"Proposed Build Order") | demo `instant.perms.ts` compiles to valid `InstantRules`; perms dx + type tests green |
+| 8. Demo + lock | one Nuxt demo exercising all 5 entrypoints; trim tests to contract-only | demo builds + runs SSR; parity/dx/drift checks wired into CI |
+| 9. SSR hydration (gated on upstream) | Nuxt plugin: server query results serialized into HTML → client cache hydrated before subscriptions start | **by decision, starts only when idb marks SSR support stable** (today it's experimental, Next-only); until then the resilience floor is the contract |
 
 Perms (7) is sequenced late only because it's independent — it can actually be built in parallel any time after schema (1), since nothing else depends on it.
 
 ---
 
-## 12. Decisions (resolved in this thread)
+## 13. Decisions (resolved in this thread)
 
 The forks flagged earlier — identity and roadmap calls — are now settled:
 
@@ -436,12 +553,38 @@ The forks flagged earlier — identity and roadmap calls — are now settled:
 | D2 | Expose a public baseline/compat surface? | **No.** The vendored baseline is purely the internal test/port anchor, never exported — exposing it would force a second `db` instance (methods bind to `init`). Fewer public promises = more freedom. |
 | D3 | Repo home & publishing | **Develop in this fork forever** (ideal for the §6.3 drift check — official source sits right beside ours). Publish via **`git subtree`** to a separate public `mareszhar/idb-dux` repo, pushing only milestone/release commits; all dev stays in the fork. Adapts [`workflow-publish-idb-vux.md`](../workflow-publish-idb-vux.md). |
 | D4 | Brand line in user docs | **Named at dux's creation.** dux READMEs/docs lead with "a DX/UX-first reimagining of InstantDB"; vux docs stay untouched as historical reference. |
+| D5 | Naming & vocabulary conventions | **Settled** — codified as the naming contract ([§11](#11-the-naming-contract)): vocabulary, value-vs-type policy, the rename table, schema registration, perms naming and entity-rooted ctx, `defineServerKit`/`defineAuthSyncHandler`. `dux-conventions.md` will distill it without changing it. |
+| D6 | Typed tx in core; `defineLookup` dropped | `db.tx`/`adminDb.tx` typed from schema (`ruleParams`, dot-path `.link`); the loose-lookup utility is redundant. See [§10.5](#105-foreground-the-buried-milestones). |
+| D7 | Testing stack | **All-Vitest**: runtime (`*.test.ts`), type shapes (`*.test-d.ts` via `--typecheck`), editor DX (`*.dx.test.ts` via selenita). Tests collocate beside their APIs; one `test-support/` fixture library; vitest globals on; no auto-import codegen. See [§8](#8-testing-for-parity-and-intellisense). |
 
-One cross-cutting decision remains in flight — the **naming & vocabulary conventions** (a unified `namespace`/`entity`/`attribute`/`field`/`link`/`ref` lingo; the `Idb` type-prefix policy; native-key preservation). It's being worked in chat and will land as `dux-conventions.md`; until then, API names in this note use settled-but-provisional base words.
+No open questions remain. Where something is deliberately deferred — singularity auto-inference, SSR hydration — it is a documented intention with an explicit trigger (`ideal-vux.md` §11), not an open decision.
 
 ---
 
-## 13. Direct answers to your questions
+## 14. Documentation plan
+
+One hub, not two — a second hub splits orientation. When dux scaffolds, this set moves to `client/packages/dux/docs/` and the hub doubles as the package's front-door doc; until then, new docs are authored in `vux/docs/notes/`:
+
+```
+dux-vision.md          ← THE hub: philosophy, architecture, "how it stays alive"
+                          (this blueprint, renamed) + an index over everything below
+dux-conventions.md     ← cross-cutting law: vocabulary (namespace/entity/attribute,
+                          field/link/ref), value-vs-type naming policy, native-key rule,
+                          $-prefix rule, schema registration. Referenced by every spec.
+dux-spec-root.md       ← @mszr/idb-dux: schema, query authoring, typed tx, type utilities
+dux-spec-vue.md        ← /vue: db, hooks, rooms, components, SSR, refs+state, defineDb
+dux-spec-perms.md      ← /perms: the definePerms pipeline (successor to ideal-perms-spec-x)
+dux-spec-admin.md      ← /admin: server ergonomics
+dux-spec-nuxt.md       ← /nuxt: server db, auth sync
+dux-spec-workspace.md  ← maintainer manual: testing methodology (§8), vendor-and-mark,
+                          drift check, subtree publishing, fork-rebase
+```
+
+Five sub-specs mirror the five entrypoints — when an entrypoint changes, exactly one spec changes with it. Two cross-cutting docs hold what spans subpaths. `ideal-vux.md` and `ideal-perms-spec-x.md` stay where they are as historical reference; the sub-specs supersede them (the perms spec ports `ideal-perms-spec-x` largely verbatim, de-X'd and re-termed per conventions). Writing order: conventions → root → vue → workspace → perms → admin → nuxt — matching the roadmap, so each spec lands just before its implementation phase.
+
+---
+
+## 15. Direct answers to your questions
 
 For the record, mapped one-to-one:
 
@@ -458,6 +601,6 @@ For the record, mapped one-to-one:
 
 ---
 
-## 14. Next step
+## 16. Next step
 
-This note is the plan, not the build. The natural first action is **Phase 0** ([§11](#11-implementation-roadmap)): scaffold `client/packages/dux/idb-dux` with the five entrypoints, tshy config, `sideEffects:false`, optional peers, and the boundary lint rules — an empty-but-typechecking skeleton that makes the architecture real and gives every later phase a home. Say the word and I'll scaffold it.
+This note is the plan, not the build. Convergence is complete — `ideal-vux.md` and `ideal-perms-spec-x.md` now match this blueprint. Next: execute the documentation plan ([§14](#14-documentation-plan)) — distill `dux-conventions.md` and the `dux-spec-*.md` set — then **Phase 0** of the roadmap ([§12](#12-implementation-roadmap)): scaffold `client/packages/dux/idb-dux` with the five entrypoints, tshy config, `sideEffects:false`, optional peers, and the boundary lint rules.
