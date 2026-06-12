@@ -359,7 +359,7 @@ Sequenced so each step is independently testable and nothing depends on a surfac
 | 2. Query + tx layer | `q`/`defineQuery`, `shapeResult`, validation types, `Idb*` utilities, typed tx | [root](./dux-spec-root.md) | ☑ complete |
 | 3. Vue baseline | vendor `@instantdb/vue`, mark deltas, `UPSTREAM.md`, drift check, parity harness | [vue](./dux-spec-vue.md) | ☑ complete |
 | 4. Vue overlay | `useQuery` & friends via `shapeResult`; refs+state; `defineDb`; components | [vue](./dux-spec-vue.md) | ☑ complete |
-| 5. Webhooks | optional-config `init`, `defineWebhookHandlers`, `IdbWebhook*` types | [webhooks](./dux-spec-webhooks.md) | ☐ |
+| 5. Webhooks | optional-config `init`, `defineWebhookHandlers`, `IdbWebhook*` types | [webhooks](./dux-spec-webhooks.md) | ☑ complete |
 | 6. Admin | owned `init`, shaped `query`/`subscribeQuery`, typed tx/debug, `asUser`, pass-throughs, `adminDb.webhooks` | [admin](./dux-spec-admin.md) | ☐ |
 | 7. Nuxt | `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler` | [nuxt](./dux-spec-nuxt.md) | ☐ |
 | 8. Perms | the `definePerms` pipeline | [perms](./dux-spec-perms.md) | ☐ |

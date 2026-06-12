@@ -11,9 +11,9 @@ Conventions: [dux-conventions.md](./dux-conventions.md) · Principles: [dux-visi
 
 | Phase | Scope | Global phase | Status |
 |---|---|---|---|
-| H1 | Handling core: `init`, the pipeline verbs, `IdbWebhook*` types | 5 | ☐ not started |
-| H2 | Authoring: `defineWebhookHandlers` narrowing + merge + resolution | 5 | ☐ not started |
-| H3 | Manager: subscription CRUD + event inspection | 5 | ☐ not started |
+| H1 | Handling core: `init`, the pipeline verbs, `IdbWebhook*` types | 5 | ☑ complete |
+| H2 | Authoring: `defineWebhookHandlers` narrowing + merge + resolution | 5 | ☑ complete |
+| H3 | Manager: subscription CRUD + event inspection | 5 | ☑ complete |
 
 Details: [§8 Phased implementation roadmap](#8-phased-implementation-roadmap).
 
@@ -85,7 +85,7 @@ Semantics, preserved exactly from the official dispatcher (behavioral compatibil
 - **Handlers run concurrently**; any rejection rejects `process`, so the route returns non-2xx and Instant retries
 - **Merging**: `defineWebhookHandlers(...maps)` accepts several maps and merges them — composition without a dedicated combinator
 
-A `defineWebhookHandlers` map is **structurally a valid official `WebhookHandlers`** — locked by a compat-target test.
+The handler map produces valid official input, locked by a compat-target test against three contracts: a per-`(namespace, action)` change is exactly the official per-record type, a namespace-scoped map assigns straight to official `WebhookHandlers`, and every concrete official record is accepted by a dux `$default` (so dispatching real deliveries through dux handlers is sound). One deliberate refinement rides above the official shape: a top-level `$default` change is **distributed over the namespace** — `change.namespace` narrows to the matching `IdbEntity`, where the official broad record leaves it a coarse union. dux is richer here, not narrower, and the dispatcher consumes it unchanged ([dux-vision.md §1.2](./dux-vision.md#12-the-only-hard-contract-is-the-backend)).
 
 ## 5. The pipeline
 
@@ -133,8 +133,12 @@ The official per-surface types map mechanically; the non-obvious calls:
 | `WebhookPayload` | the delivered batch | `IdbWebhookPayload` |
 | `WebhookPayloadRecord` / `WebhookPayloadRecordFor` | one change; two types for one concept | **`IdbWebhookChange<'ns'?, action?>`** — one utility, optional narrowing (the `IdbEntity` pattern) |
 | `WebhookHandlers` | the handler map | `IdbWebhookHandlers` |
+| `WebhookBody` | the verified delivery pointer `verify` returns (`payloadUrl` + `token`) | `IdbWebhookBody` |
 | `CreateWebhookParams` / `UpdateWebhookParams` | op payloads | `IdbWebhookCreate` / `IdbWebhookUpdate` (the `IdbTxCreate`/`IdbTxUpdate` pattern) |
 | `WebhookAction` / `WebhookStatus` / `WebhookEventStatus` | unions | `IdbWebhookAction` / `IdbWebhookStatus` / `IdbWebhookEventStatus` |
+| `WebhooksManager` | the manager | `IdbWebhookManager` |
+| `Config` | init config — schema-free (types flow from registration) | `IdbWebhookConfig` |
+| `Webhooks` | the handle `init` returns | `IdbWebhooks` |
 | `WebhookEntity<S, NS>` | id + fields — exactly the entity | **dropped** — it *is* `IdbEntity<'ns'>` |
 
 All registration-typed: no schema generic at any call site.
@@ -159,26 +163,26 @@ Boundary law: `webhooks/` imports core + `@instantdb/webhooks` + `schema/` only 
 
 Done when: dispatch behavior matches the official pipeline on shared fixtures.
 
-- [ ] `init(config?)` — optional config; capability gating (`manager` requires token)
-- [ ] `verify` (Request + raw forms, JWKS verification via the wrapped package)
-- [ ] `fetchPayload`, `dispatch`, `process`, `processNode`
-- [ ] `types.ts` boundary module: the full `IdbWebhook*` table, registration-typed
-- [ ] runtime suite: pipeline parity against official `processRequest` on shared fixtures
-- [ ] retry semantics test: handler rejection → `process` rejects
+- [x] `init(config?)` — optional config; capability gating (`manager` requires token)
+- [x] `verify` (Request + raw forms, JWKS verification via the wrapped package)
+- [x] `fetchPayload`, `dispatch`, `process`, `processNode`
+- [x] `types.ts` boundary module: the full `IdbWebhook*` table, registration-typed
+- [x] runtime suite: dispatch parity against official `processPayload` on shared fixtures
+- [x] retry semantics test: handler rejection → `dispatch`/`process` rejects
 
 ### Phase H2 — authoring (global phase 5)
 
 Done when: handler-narrowing dx tests green; handlers-shape compat test green.
 
-- [ ] `defineWebhookHandlers(...maps)`: contextual narrowing, map merging
-- [ ] resolution order (`ns.action` → `ns.$default` → `$default`) preserved
-- [ ] `.dx.test.ts`: per-change narrowing (`after` typed per namespace/action) on plain literals
-- [ ] compat test: the map is structurally a valid official `WebhookHandlers`
+- [x] `defineWebhookHandlers(...maps)`: contextual narrowing, map merging
+- [x] resolution order (`ns.action` → `ns.$default` → `$default`) preserved
+- [x] `.dx.test.ts`: per-change narrowing (`after` typed per namespace/action) on plain literals
+- [x] compat test: per-record identity, namespace-scoped assignability, and `$default` record acceptance
 
 ### Phase H3 — manager (global phase 5)
 
 Done when: manager surface typed end-to-end; consumed by `/admin` unchanged.
 
-- [ ] `manager` with verbatim method names; `IdbWebhookCreate`/`IdbWebhookUpdate` payloads
-- [ ] event inspection (`listEvents`, `getEvent`, `getPayload`, `resendEvent`) typed
-- [ ] `.test-d.ts`: manager types; `.dx.test.ts`: create/update payload completions
+- [x] `manager` with verbatim method names; `IdbWebhookCreate`/`IdbWebhookUpdate` payloads
+- [x] event inspection (`listEvents`, `getEvent`, `getPayload`, `resendEvent`) typed
+- [x] `.test-d.ts`: manager types; `.dx.test.ts`: create/update payload completions

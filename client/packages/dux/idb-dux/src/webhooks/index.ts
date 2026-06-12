@@ -5,7 +5,28 @@
  * (`verify`/`fetchPayload`/`dispatch`/`process`/`processNode`), and `manager`.
  * Admin-free by design: handling needs no admin token.
  *
- * Spec: `../../../docs/dux-spec-webhooks.md`. Scaffolded empty on purpose —
- * each export lands with its roadmap phase.
+ * Spec: `../../../docs/dux-spec-webhooks.md`.
  */
-export {}
+export { defineWebhookHandlers } from './defineWebhookHandlers.js'
+export { init } from './init.js'
+export type {
+  IdbWebhook,
+  IdbWebhookAction,
+  IdbWebhookAttempt,
+  IdbWebhookBody,
+  IdbWebhookChange,
+  IdbWebhookConfig,
+  IdbWebhookCreate,
+  IdbWebhookEvent,
+  IdbWebhookEventsPage,
+  IdbWebhookEventStatus,
+  IdbWebhookHandlers,
+  IdbWebhookManager,
+  IdbWebhookNodeOpts,
+  IdbWebhookNodeRequest,
+  IdbWebhookPayload,
+  IdbWebhooks,
+  IdbWebhookStatus,
+  IdbWebhookUpdate,
+  IdbWebhookVerifyOpts,
+} from './types.js'
