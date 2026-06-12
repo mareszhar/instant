@@ -84,6 +84,15 @@ const boundaries = {
   ],
 }
 
+/**
+ * Compat suites may import official packages as targets, but they still obey
+ * framework/layer boundaries.
+ * @param {Array<{ group: string[], message: string }>} patterns
+ */
+function withoutOfficialPackageBans(patterns) {
+  return patterns.filter(({ group }) => !group.includes('@instantdb/*'))
+}
+
 export default await antfu(
   {
     formatters: true,
@@ -115,16 +124,18 @@ export default await antfu(
       'no-restricted-imports': /** @type {['error', { patterns: Array<{ group: string[], message: string }> }]} */ (['error', { patterns }]),
     },
   })),
-  {
-    // Compatibility-target suites exist to feed dux output into the official
-    // tools dux doesn't wrap (platform validateSchema/schemaPush, the CLI
-    // contract, resumable-stream) — the official-package bans don't apply to
-    // them. Everything else in the boundary matrix still does.
-    files: ['idb-dux/src/**/*.compat.test.ts', 'idb-dux/src/**/*.compat.test-d.ts'],
+  ...Object.entries(boundaries).map(([layer, patterns]) => ({
+    // Compatibility-target suites feed dux output into official tools dux
+    // doesn't wrap, so official-package bans are lifted there. Layer and
+    // framework boundaries still apply.
+    files: [
+      `idb-dux/src/${layer}/**/*.compat.test.ts`,
+      `idb-dux/src/${layer}/**/*.compat.test-d.ts`,
+    ],
     rules: {
-      'no-restricted-imports': 'off',
+      'no-restricted-imports': /** @type {['error', { patterns: Array<{ group: string[], message: string }> }]} */ (['error', { patterns: withoutOfficialPackageBans(patterns) }]),
     },
-  },
+  })),
   {
     files: ['**/*.test.ts', '**/*.test-d.ts', '**/*.vue'],
     rules: {

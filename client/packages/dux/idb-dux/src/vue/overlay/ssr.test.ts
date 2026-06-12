@@ -10,12 +10,12 @@ import { effectScope } from 'vue'
 import { $only } from '../../query/index.js'
 import { InstantDuxDatabase } from '../baseline/index.js'
 import { isClient } from '../baseline/utils.js'
-import { InstantDuxClient } from './db.js'
+import { IdbClient } from './db.js'
 
 function makeClient() {
   const mock = createMockCore()
   const baseline = new InstantDuxDatabase(mock.core)
-  return { db: new InstantDuxClient<AppSchema>(baseline as any, schema), mock }
+  return { db: new IdbClient<AppSchema>(baseline as any, schema), mock }
 }
 
 function withScope<T>(fn: () => T) {

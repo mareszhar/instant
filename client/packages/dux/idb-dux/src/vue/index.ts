@@ -12,8 +12,8 @@
 export { id, lookup } from '../tx/index.js'
 // Components — official names kept ([§7.3]). Shipped as `.ts` render functions.
 export { Cursors, SignedIn, SignedOut } from './baseline/index.js'
-// The enhanced db type (the value comes from init/defineDb, never constructed).
-export { InstantDuxClient } from './overlay/db.js'
+// The enhanced db type; the value comes from init/defineDb.
+export type { IdbClient } from './overlay/db.js'
 export { defineDb, init } from './overlay/defineDb.js'
 export type { IdbDefineDbOptions } from './overlay/defineDb.js'
 export { makeResult } from './overlay/result.js'
@@ -23,7 +23,7 @@ export type {
   IdbAuthResultRefs,
   IdbAuthResultState,
   IdbAuthUser,
-  IdbConfig,
+  IdbClientConfig,
   IdbConnectionResult,
   IdbConnectionStatus,
   IdbInfiniteQueryResult,

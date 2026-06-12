@@ -1,10 +1,10 @@
 import type { AppSchema } from '@test'
 import type { Ref } from 'vue'
 import type { IdbEntity } from '../../schema/index.js'
-import type { InstantDuxClient } from './db.js'
+import type { IdbClient } from '../index.js'
 import { describe, expectTypeOf, it } from 'vitest'
 
-declare const db: InstantDuxClient<AppSchema>
+declare const db: IdbClient<AppSchema>
 
 type Task = IdbEntity<'tasks', AppSchema>
 type Workspace = IdbEntity<'workspaces', AppSchema>

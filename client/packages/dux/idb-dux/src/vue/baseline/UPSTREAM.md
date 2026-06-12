@@ -35,7 +35,7 @@ never exported; the public hooks compose it ([dux-spec-vue.md §9]).
 
 ## Re-vendoring
 
-`scripts/check-baseline-drift.mjs` diffs each baseline file against its
-upstream source relative to the commit above. When it reports drift, re-copy
-the changed upstream file and re-apply the fenced deltas, then bump the commit
-stamp here. See [dux-spec-workspace.md §5].
+`scripts/check-baseline-drift.mjs` checks git history for each mapped upstream
+source relative to the commit above. When it reports drift, re-copy the changed
+upstream file and re-apply the fenced deltas, then bump the commit stamp here.
+See [dux-spec-workspace.md §5].

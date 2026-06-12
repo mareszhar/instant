@@ -145,7 +145,7 @@ dux is a walled garden, and a garden's wall is a promise: **opting in must never
 | Managing users | `/admin` auth (the magic-code quartet, tokens, `deleteUser`, `signOut`) + `$users` in schema/queries/perms |
 | Presence, Cursors, Activity | `/vue` rooms + `Cursors` component; `/admin` `rooms.getPresence` |
 | Instant CLI | compatibility target (push-only contract, [§3.1](#31-package-verdicts)) |
-| Devtool | `init` config passthrough (`devtool` option in `IdbConfig` — it lives in core) |
+| Devtool | `init` config passthrough (`devtool` option in `IdbClientConfig` — it lives in core) |
 | Platform API | deferred ([§3.4](#34-why-platform-is-deferred-and-whats-true-meanwhile)) |
 | Self Hosting | config passthrough (`apiURI`/`websocketURI`) — supported, not specialized |
 | Explorer Component | out of scope (`@instantdb/components` row) |

@@ -23,7 +23,7 @@ import type { IdbResult, StateOf } from './result.js'
  * and `apiURI`/`websocketURI` (self-hosting). `i.date()` fields are typed as
  * the wire format everywhere, so `useDateObjects` stays off.
  */
-export type IdbConfig<S extends IdbSchema = IdbRegisteredSchema> = Omit<
+export type IdbClientConfig<S extends IdbSchema = IdbRegisteredSchema> = Omit<
   InstantConfig<S, false>,
   'useDateObjects' | 'schema'
 > & { schema?: S }

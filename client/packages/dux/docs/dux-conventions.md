@@ -48,7 +48,7 @@ These words appear with exactly these meanings in schema, queries, tx, perms, ad
 
 One exception: error classes (`IdbError`) keep the brand — `e instanceof IdbError` must read branded next to other libraries' errors.
 
-**Types are `Idb`-prefixed and domain-scoped:** `Idb<Domain><Thing>`, with domains `Query`, `Tx`, `Perms`, `Auth`, `Room`, `Storage`, `Webhook`, `Admin` (and `Platform`, `Migration` reserved for the deferred platform track) — and **schema as the unmarked root domain**: a type read directly off the schema goes unmarked (`IdbEntity`, `IdbSchema`); a type derived through other machinery says which (`IdbQueryEntity`, `IdbTxUpdate`). Anything unmarked = "straight from your schema."
+**Types are `Idb`-prefixed and domain-scoped:** root nouns may stand alone (`IdbClient`), and supporting types use `Idb<Domain><Thing>` (`IdbClientConfig`, `IdbQueryEntity`, `IdbTxUpdate`). Domains are `Client`, `Query`, `Tx`, `Perms`, `Auth`, `Room`, `Storage`, `Webhook`, `Admin` (with `Platform`, `Migration` reserved for the deferred platform track). **Schema is the unmarked root domain**: a type read directly off the schema goes unmarked (`IdbEntity`, `IdbSchema`). Anything unmarked = "straight from your schema."
 
 If idb ever ships an API whose name collides with a dux value, its purpose almost certainly overlaps ours (a future official `defineSchema` would… define a schema) — we absorb the new capability into ours and keep shipping ours. Only a collision with *zero* purpose overlap forces a rename: rare, and a find-and-replace when it happens.
 
@@ -119,7 +119,7 @@ The pattern and the non-obvious calls. Each spec carries its surface's *complete
 | — | entity + every link label, one hop | `IdbEntityWithLinks<'ns'>` |
 | `User` | the **authenticated** user | `IdbAuthUser` |
 | `AuthState` | `{ isLoading, user, error }` | `IdbAuthState` |
-| `Config` / `InstantConfig` | init config, duplicated | `IdbConfig` |
+| `Config` / `InstantConfig` | init config, duplicated | `IdbClientConfig` |
 | `InstantSchemaDef` | the schema type | `IdbSchema` |
 | `InstantRules` | compiled permissions | `IdbPerms` (assignable to `InstantRules`) |
 | `RuleParams` | `{ [k: string]: any }` | `IdbTxRuleParams<'ns'>` / `IdbPermsRuleParams<'ns'>`, schema-typed |

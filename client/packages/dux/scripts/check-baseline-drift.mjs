@@ -11,7 +11,7 @@
  *
  * Exit code: 0 when no drift, 1 when drift is detected (so CI gates on it).
  */
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
@@ -21,13 +21,16 @@ const here = dirname(fileURLToPath(import.meta.url))
 const baselineDir = resolve(here, '../idb-dux/src/vue/baseline')
 const officialDir = resolve(here, '../../vue/src')
 
-/** baseline file → official source file. Mirrors UPSTREAM.md's file map. */
+/** baseline file → official source file(s). Mirrors UPSTREAM.md's file map. */
 const FILE_MAP = {
   'InstantDuxDatabase.ts': 'InstantVueDatabase.ts',
   'InstantDuxRoom.ts': 'InstantVueRoom.ts',
   'useInfiniteQuery.ts': 'useInfiniteQuery.ts',
   'utils.ts': 'utils.ts',
   'version.ts': 'version.ts',
+  'components/auth.ts': ['components/SignedIn.vue', 'components/SignedOut.vue'],
+  'components/Cursors.ts': 'components/Cursors.vue',
+  'components/Cursor.ts': 'components/Cursor.vue',
 }
 
 function vendoredCommit() {
@@ -38,11 +41,11 @@ function vendoredCommit() {
 
 function officialChangedSince(commit, file) {
   const rel = `client/packages/vue/src/${file}`
-  const out = execSync(`git log --oneline ${commit}..HEAD -- ${rel}`, {
+  const out = execFileSync('git', ['log', '--oneline', `${commit}..HEAD`, '--', rel], {
     cwd: resolve(here, '../../../..'),
     encoding: 'utf8',
   })
-  return out.trim()
+  return out.trim().split('\n').filter(Boolean)
 }
 
 const commit = vendoredCommit()
@@ -53,21 +56,33 @@ if (!commit) {
 
 let drift = 0
 
-for (const [baselineFile, officialFile] of Object.entries(FILE_MAP)) {
-  if (!existsSync(resolve(officialDir, officialFile))) {
-    console.error(`⚠️  official source missing: ${officialFile} (renamed upstream?) — re-map ${baselineFile}.`)
+for (const [baselineFile, officialFiles] of Object.entries(FILE_MAP)) {
+  const sources = Array.isArray(officialFiles) ? officialFiles : [officialFiles]
+  let missing = false
+  const changes = new Set()
+
+  for (const officialFile of sources) {
+    if (!existsSync(resolve(officialDir, officialFile))) {
+      console.error(`⚠️  official source missing: ${officialFile} (renamed upstream?) — re-map ${baselineFile}.`)
+      missing = true
+      continue
+    }
+
+    for (const line of officialChangedSince(commit, officialFile))
+      changes.add(line)
+  }
+
+  if (missing) {
     drift++
     continue
   }
 
-  const hunks = officialChangedSince(commit, officialFile)
-  if (hunks) {
-    const count = hunks.split('\n').length
+  if (changes.size > 0) {
     console.error(
-      `🔸 official \`${officialFile}\` changed since last vendor; review ${count} commit(s) `
+      `🔸 official source for \`${baselineFile}\` changed since last vendor; review ${changes.size} commit(s) `
       + `and re-vendor \`${baselineFile}\` (see baseline/UPSTREAM.md):`,
     )
-    for (const line of hunks.split('\n'))
+    for (const line of changes)
       console.error(`     ${line}`)
     drift++
   }

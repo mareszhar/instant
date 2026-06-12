@@ -36,7 +36,7 @@ The enhanced behavior is the only public surface. All hooks are SSR-resilient; a
 
 | API | Notes |
 |---|---|
-| `init(config)` | config typed as `IdbConfig` |
+| `init(config)` | returns `IdbClient`; config typed as `IdbClientConfig` |
 | `db.useQuery(query \| factory, opts?)` | `MaybeRefOrGetter` and factory inputs; full shaping + validation per the [root spec](./dux-spec-root.md) |
 | `db.useInfiniteQuery(query, opts?)` | same data plane, paginated |
 | `db.queryOnce(query, opts?)` | async one-shot, same shaping (the marker name — the bare `query` belongs to the server's primary read, [conventions §4](./dux-conventions.md#4-the-primary-read-rule)) |
@@ -71,7 +71,7 @@ export const useDb = defineDb({
 
 - `defineDb` returns a factory: first call resolves config and creates the db; subsequent calls return the same instance. No framework-wide singleton — global state is the app's responsibility.
 - Schema-level `options` (singularization behavior) are read from the schema — never configured twice.
-- `IdbConfig` passes through everything core supports, including `devtool` and `apiURI`/`websocketURI` (self-hosting) — supported, not specialized.
+- `IdbClientConfig` passes through everything core supports, including `devtool` and `apiURI`/`websocketURI` (self-hosting) — supported, not specialized.
 
 ---
 
@@ -250,15 +250,15 @@ src/vue/
     components/      # SignedIn/SignedOut (auth.ts) + Cursors/Cursor as .ts render fns
     index.ts         # internal-only surface for the overlay + parity harness
   overlay/           # all dux ergonomics, BY COMPOSITION over the baseline
-    db.ts            # InstantDuxClient — the enhanced db (every hook in one class)
+    db.ts            # IdbClient — the enhanced db (every hook in one class)
     defineDb.ts      # init (eager) + defineDb (memoized lazy-init factory)
     result.ts        # makeResult + makeDynamicResult (markRaw getter projections)
     rooms/           # presence/typing gain the result pattern; rest pass through
-    types.ts         # IdbConfig, the result-pattern shapes, auth/connection renames
+    types.ts         # IdbClientConfig, the result-pattern shapes, auth/connection renames
   index.ts           # the /vue entrypoint: exports init/defineDb, components, types
 ```
 
-The enhanced db is one class, `InstantDuxClient` — the hooks are small and share the baseline handle and the registered schema, so a single class reads better than a file per hook (the *value* still only ever comes from `init`/`defineDb`; the class is exported for its type). `useQuery`/`useInfiniteQuery` use `makeDynamicResult` because a query's scope keys aren't known until the query is — a `Proxy` resolves any destructured scope to a memoized `computed` over the shaped data, so `const { workspace, todos } = db.useQuery(…)` works even for factory queries that start `null`.
+The enhanced db is `IdbClient` — the hooks are small and share the baseline handle and the registered schema, so one class reads better than a file per hook. The value comes from `init`/`defineDb`; `/vue` exposes `IdbClient` as a type. `useQuery`/`useInfiniteQuery` use `makeDynamicResult` because a query's scope keys aren't known until the query is — a `Proxy` resolves any destructured scope to a memoized `computed` over the shaped data, so `const { workspace, todos } = db.useQuery(…)` works even for factory queries that start `null`.
 
 ---
 
@@ -288,7 +288,7 @@ Done when: overlay dx + type + runtime suites green; every hook SSR-floor-verifi
 - [x] typed `db.tx` wiring (machinery from root R3) + `transact`
 - [x] pass-throughs: `db.auth.*`, `db.storage.*`, `db.streams` with renamed types
 - [x] components: `SignedIn`, `SignedOut`, `Cursors` as `.ts` render fns
-- [x] `defineDb` (memoized lazy-init; reads schema `options`) + `IdbConfig` (incl. `devtool`, `apiURI`)
+- [x] `defineDb` (memoized lazy-init; reads schema `options`) + `IdbClientConfig` (incl. `devtool`, `apiURI`)
 - [x] SSR floor: inert-state tests for every hook
 - [x] Pinia safety: hydration-skip + write-protection + reactivity-tracking tests
 - [x] `.dx.test.ts` per hook (the gating discipline) + `.test-d.ts` result shapes

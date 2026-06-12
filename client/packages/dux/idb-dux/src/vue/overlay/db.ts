@@ -46,7 +46,7 @@ function shapingSchema(schema: IdbSchema | undefined): IdbSchema {
   } as unknown as IdbSchema
 }
 
-export class InstantDuxClient<S extends IdbSchema = IdbRegisteredSchema> {
+export class IdbClient<S extends IdbSchema = IdbRegisteredSchema> {
   /** The schema-typed tx chain — shared machinery with `/admin` ([root §5]). */
   public readonly tx: IdbTx<S> = typedTx<S>()
   /** Rooms hooks — stateful ones return the result pattern ([§6]). */
