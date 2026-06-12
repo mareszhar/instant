@@ -4,7 +4,9 @@
  * Schema authoring (`defineSchema`, `i`), query authoring (`q`, `defineQuery`),
  * the typed-tx machinery, the `Idb*` type utilities, and `id`/`lookup`.
  *
- * Spec: `../../docs/dux-spec-root.md`. Scaffolded empty on purpose —
- * each export lands with its roadmap phase.
+ * Spec: `../../docs/dux-spec-root.md`.
  */
-export {}
+
+export * from './query/index.js'
+export * from './schema/index.js'
+export * from './tx/index.js'

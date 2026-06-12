@@ -12,8 +12,8 @@ Conventions: [dux-conventions.md](./dux-conventions.md) · Principles: [dux-visi
 | Phase | Scope | Global phase | Status |
 |---|---|---|---|
 | W0 | Scaffold: workspace wiring, package skeleton, boundary lint, six entrypoints | 0 | ☑ complete |
-| W1 | Test foundations: `test-support/`, selenita wiring, suite conventions | 1 (alongside) | ☐ not started |
-| W2 | Sustainability tooling: drift check, `UPSTREAM.md` ritual, compat-suite conventions | 3 (alongside) | ☐ not started |
+| W1 | Test foundations: `test-support/`, selenita wiring, suite conventions | 1 (alongside) | ☑ complete |
+| W2 | Sustainability tooling: drift check, `UPSTREAM.md` ritual, compat-suite conventions | 3 (alongside) | ☑ complete |
 | W3 | Demo + CI lock | 9 | ☐ not started |
 | W4 | Publishing pipeline | first release | ☐ not started |
 
@@ -73,9 +73,11 @@ Phase 0 is **done when** `pnpm -F @mszr/idb-dux build` emits all six entrypoints
 
 Plane separation is enforced by `no-restricted-imports` patterns in the workspace `eslint.config.mjs` — one config block per layer, banning by import specifier so packages and relative paths are covered alike. **The rules apply to test files too**: a query-layer test may import `@test` and `query/**`, never `vue`.
 
+`@instantdb/core` and `@instantdb/version` are the two foundational `dependency`-tier packages (the peer rule, [§2](#2-package-mechanics)); they are allowed in *every* layer and are elided from the per-layer "may import" column below. The compat-target suites (`*.compat.test.ts`/`-d.ts`) are exempt from the official-package bans — their whole job is feeding dux output into the official tools dux doesn't wrap.
+
 | Layer | May import | Never |
 |---|---|---|
-| `schema/` | `@instantdb/core`, itself | everything else |
+| `schema/` | (core/version only), itself | everything else |
 | `query/` | core, `schema/`, itself | frameworks, server pkgs, other layers |
 | `tx/` | core, `schema/`, itself | frameworks, server pkgs, other layers |
 | `perms/` | core, `schema/`, itself | frameworks, server pkgs, other layers |
@@ -99,7 +101,7 @@ This is the single highest-leverage guardrail in the design: "a framework concep
 
 One `vitest run --typecheck` locks all three planes — no bespoke `tsc --noEmit` harness, no separate tooling per layer. Vitest globals are on; the `@test` alias resolves `test-support/`.
 
-**selenita** ([github.com/mareszhar/selenita](https://github.com/mareszhar/selenita)) runs on Vitest and asserts both *completions* (`project.query`) and *diagnostics with their messages* (`project.check`); `queryGroup` replays one snippet against multiple entry points. The `.dx.test.ts` suffix names the plane: editor DX — completions *and* diagnostics.
+**selenita** ([github.com/mareszhar/selenita](https://github.com/mareszhar/selenita)) runs on Vitest and asserts both *completions* (`project.query`) and *diagnostics with their messages* (`project.check`); `queryGroup` replays one snippet against multiple entry points. The `.dx.test.ts` suffix names the plane: editor DX — completions *and* diagnostics. The handle is wired once in `test-support/` (`duxProject()`), with the package's own subpaths plus an `@baseline` alias mapped so snippets read like userland and the internal baseline stays reachable for parity. (One maintainer footnote: selenita's matcher addon augments `vitest`'s `Assertion`, but Vitest 4 widened the type parameter that interface declares; a one-file `.d.ts` shim in `test-support/` re-declares the matchers on Vitest 4's `Matchers` extension point so the `.dx.test.ts` planes stay typed — drop it once selenita ships a Vitest-4 augmentation.)
 
 ### 4.2 The gating discipline
 
@@ -160,7 +162,7 @@ The model is [dux-vision.md §5](./dux-vision.md#5-how-dux-stays-alive); these a
 
 ### 5.2 The drift check
 
-`scripts/check-baseline-drift.mjs` diffs `idb-dux/src/vue/baseline/*` against the official `client/packages/vue/src/*` (the official source sits right beside us in this fork — the reason dux develops here) relative to the `UPSTREAM.md` stamp, and prints: "official `InstantVueDatabase.ts` changed since last vendor; review N hunks." Re-vendoring is a deliberate step, never an accident discovered months later.
+`scripts/check-baseline-drift.mjs` reads the vendored commit from `baseline/UPSTREAM.md` and asks git **what changed in `client/packages/vue/src/*` since that commit** (the official source sits right beside us in this fork — the reason dux develops here). The signal is git history, not a textual diff: the baseline is reformatted to dux's lint style and carries fenced deltas, so byte-equality with upstream is never expected and a content diff would be pure noise. It prints, per mapped file, "official `InstantVueDatabase.ts` changed since last vendor; review N commit(s)" with the commit list, and exits non-zero so CI gates on it. Re-vendoring is a deliberate step, never an accident discovered months later.
 
 ### 5.3 The fork-rebase ritual
 
@@ -207,17 +209,17 @@ Done when: `pnpm -F @mszr/idb-dux build` produces all six entrypoints; boundary 
 
 ### Phase W1 — test foundations (alongside global phase 1)
 
-- [ ] add selenita as a devDependency; first `.dx.test.ts` proves the harness
-- [ ] `test-support/`: canonical app schema + seed data
-- [ ] snippet library conventions (embedded cursors; one bad query per validation rule)
-- [ ] shared `expectTypeOf` helpers
-- [ ] drop `passWithNoTests` from vitest config
+- [x] add selenita as a devDependency; first `.dx.test.ts` proves the harness
+- [x] `test-support/`: canonical app schema + seed data + a mock-core factory for overlay tests
+- [x] snippet library conventions (embedded cursors; one bad query per validation rule); the `registration` block + the `duxProject()` selenita handle live in `test-support/`
+- [x] shared `expectTypeOf` helpers (e.g. the singularize-equivalence word list, shared good/bad fixtures)
+- [x] drop `passWithNoTests` from vitest config
 
 ### Phase W2 — sustainability tooling (alongside global phase 3)
 
-- [ ] `scripts/check-baseline-drift.mjs` + `UPSTREAM.md` format
-- [ ] document the re-vendor procedure in the script's output
-- [ ] compat-target suite scaffolding (assignability assertion helpers)
+- [x] `scripts/check-baseline-drift.mjs` + `UPSTREAM.md` format
+- [x] document the re-vendor procedure in the script's output
+- [x] compat-target suite scaffolding (assignability assertion helpers)
 
 ### Phase W3 — demo + CI lock (global phase 9)
 

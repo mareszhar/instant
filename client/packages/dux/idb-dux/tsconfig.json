@@ -7,9 +7,15 @@
     "module": "nodenext",
     "paths": {
       "@test": ["./src/test-support/index.ts"],
-      "@test/*": ["./src/test-support/*"]
+      "@test/*": ["./src/test-support/*"],
+      "@mszr/idb-dux": ["./src/index.ts"],
+      "@mszr/idb-dux/vue": ["./src/vue/index.ts"],
+      "@mszr/idb-dux/perms": ["./src/perms/index.ts"],
+      "@mszr/idb-dux/admin": ["./src/admin/index.ts"],
+      "@mszr/idb-dux/webhooks": ["./src/webhooks/index.ts"],
+      "@mszr/idb-dux/nuxt": ["./src/nuxt/index.ts"]
     },
-    "types": ["vitest/globals"],
+    "types": ["node", "vitest/globals"],
     "strict": true,
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,

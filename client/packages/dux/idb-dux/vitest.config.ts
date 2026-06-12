@@ -1,16 +1,26 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
+function local(path: string) {
+  return fileURLToPath(new URL(path, import.meta.url))
+}
+
 export default defineConfig({
   resolve: {
     alias: {
-      '@test': fileURLToPath(new URL('./src/test-support', import.meta.url)),
+      '@test': local('./src/test-support'),
+      // Tests import the package the way userland does; the tsconfig paths
+      // carry the same mapping for the type planes.
+      '@mszr/idb-dux/vue': local('./src/vue/index.ts'),
+      '@mszr/idb-dux/perms': local('./src/perms/index.ts'),
+      '@mszr/idb-dux/admin': local('./src/admin/index.ts'),
+      '@mszr/idb-dux/webhooks': local('./src/webhooks/index.ts'),
+      '@mszr/idb-dux/nuxt': local('./src/nuxt/index.ts'),
+      '@mszr/idb-dux': local('./src/index.ts'),
     },
   },
   test: {
     globals: true,
-    // Suites land with their roadmap phases; drop once the first one exists.
-    passWithNoTests: true,
     // Runtime (*.test.ts) and editor-DX (*.dx.test.ts) planes — both match this glob.
     include: ['src/**/*.test.ts'],
     typecheck: {

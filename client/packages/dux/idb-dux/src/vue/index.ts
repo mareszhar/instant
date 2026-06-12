@@ -1,10 +1,36 @@
 /**
  * `@mszr/idb-dux/vue` — the Vue client.
  *
- * `init`, `defineDb`, the enhanced db (hooks, rooms, typed tx), and the
- * `SignedIn`/`SignedOut`/`Cursors` components. SSR-resilient by default.
+ * `init`, `defineDb`, the enhanced db (hooks, rooms, typed tx, pass-throughs),
+ * and the `SignedIn`/`SignedOut`/`Cursors` components. SSR-resilient by
+ * default; a thin overlay over the internal baseline.
  *
- * Spec: `../../../docs/dux-spec-vue.md`. Scaffolded empty on purpose —
- * each export lands with its roadmap phase.
+ * Spec: `../../../docs/dux-spec-vue.md`.
  */
-export {}
+
+// Re-exports — official names kept at the boundary.
+export { id, lookup } from '../tx/index.js'
+// Components — official names kept ([§7.3]). Shipped as `.ts` render functions.
+export { Cursors, SignedIn, SignedOut } from './baseline/index.js'
+// The enhanced db type (the value comes from init/defineDb, never constructed).
+export { InstantDuxClient } from './overlay/db.js'
+export { defineDb, init } from './overlay/defineDb.js'
+export type { IdbDefineDbOptions } from './overlay/defineDb.js'
+export { makeResult } from './overlay/result.js'
+export type { IdbResult } from './overlay/result.js'
+export type {
+  IdbAuthResult,
+  IdbAuthResultRefs,
+  IdbAuthResultState,
+  IdbAuthUser,
+  IdbConfig,
+  IdbConnectionResult,
+  IdbConnectionStatus,
+  IdbInfiniteQueryResult,
+  IdbLocalIdResult,
+  IdbQueryResult,
+  IdbQueryResultData,
+  IdbQueryResultRefs,
+  IdbQueryResultState,
+  IdbUserOptions,
+} from './overlay/types.js'

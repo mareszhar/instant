@@ -11,9 +11,9 @@ Conventions: [dux-conventions.md](./dux-conventions.md) · Principles: [dux-visi
 
 | Phase | Scope | Global phase | Status |
 |---|---|---|---|
-| R1 | Schema layer: `defineSchema`, `i.namespace`, singularization, registration | 1 | ☐ not started |
-| R2 | Query authoring + result shaping: `q`/`defineQuery`, validation, `shapeResult`, type utilities | 2 | ☐ not started |
-| R3 | Typed tx: `ruleParams`, dot-path `.link` | 2 | ☐ not started |
+| R1 | Schema layer: `defineSchema`, `i.namespace`, singularization, registration | 1 | ☑ complete |
+| R2 | Query authoring + result shaping: `q`/`defineQuery`, validation, `shapeResult`, type utilities | 2 | ☑ complete |
+| R3 | Typed tx: `ruleParams`, dot-path `.link` | 2 | ☑ complete |
 
 Details: [§9 Phased implementation roadmap](#9-phased-implementation-roadmap).
 
@@ -460,31 +460,40 @@ A thoughtful proposal — details may move in service of the contracts above.
 ```
 src/
   schema/          # innermost, pure
-    defineSchema.ts
-    namespace.ts   # i.namespace + the i export assembly
-    singularize.ts # runtime algorithm + Singularize<> type utility
+    defineSchema.ts # defineSchema + the IdbSchema* types
+    namespace.ts    # i.namespace + the i export assembly
+    singularize.ts  # runtime algorithm + Singularize<> type utility
+    register.ts     # IdbRegister + the registered-schema resolution
+    types.ts        # IdbEntity, IdbEntityWithLinks (schema-rooted utilities)
+    fields.ts       # shared field/link helpers (indexed/unique/primitive keys)
+    util.ts         # Expand, UnionToIntersection
     index.ts
   query/
-    defineQuery.ts # q + defineQuery
-    shapeResult.ts # pure $only/$at/$as/$m + normalization (shared by vue + admin)
-    validation/    # where/operator/traversal types — the one validation surface
-    types/         # IdbEntity, IdbQueryEntity, IdbQueryData, IdbRegister, …
+    defineQuery.ts  # q + defineQuery
+    constants.ts    # $only / $skip
+    shapeResult.ts  # pure $only/$at/$as/$m + normalization (shared by vue + admin)
+    wire.ts         # strips dux-only keys → a query instaql accepts
+    keys.ts         # scope-key resolution mirror (runtime twin in shapeResult)
+    validation.ts   # the one validation surface — IdbValidQuery + QERR_* arm
+    types.ts        # IdbQuery, IdbQueryData, IdbQueryEntity, IdbQueryOptions, …
     index.ts
   tx/
-    typedTx.ts     # ruleParams + dot-path .link → compiles to lookup()
+    typedTx.ts      # the proxy: dot-path .link → lookup()
+    types.ts        # IdbTx, IdbTxChunk, IdbTxLink, IdbTxRuleParams, …
     index.ts
-  index.ts         # the root entrypoint: re-export schema + query + tx surfaces
+  index.ts          # the root entrypoint: re-export schema + query + tx surfaces
 ```
 
-Boundary law applies ([dux-spec-workspace.md](./dux-spec-workspace.md)): `schema/` imports only `@instantdb/core`; `query/` and `tx/` import only core + `schema/`.
+The field/link helpers live in `schema/fields.ts` (not `query/`) because both `query/` and `tx/` derive from them and may not import each other; the schema layer is their only shared ancestor. Boundary law applies ([dux-spec-workspace.md](./dux-spec-workspace.md)): `schema/` imports only `@instantdb/core`; `query/` and `tx/` import only core + `schema/`.
 
 ### 8.2 Key mechanics
 
-- **`defineSchema`**: construct a real `InstantSchemaDef` (subclass or `Object.create` over the official prototype — whichever keeps `constructor.name === 'InstantSchemaDef'` and the enumerable projection clean), then attach dux metadata via non-enumerable properties. Push tooling sees the official shape; dux reads its own metadata.
-- **`shapeResult(rawData, querySpec)`** is a pure function plus a type-level mirror that computes the same transformation in type space. The function is the *only* place shaping logic exists; consumers wrap it (reactively in `/vue`, post-`await` in `/admin`).
-- **Validation types** live in `query/validation/` and are applied through the query parameter type so inline literals get contextual typing. `q` applies the same parameter type directly, which is what restores localization inside factories.
-- **Singularize** ships as one runtime function and one type utility generated from the same rule set, with a shared table of irregulars — they must never disagree (locked by a type test that compares them across a word list).
-- **Typed tx** wraps core's tx builders in a typed proxy layer; dot-path link keys are detected at the type level (template-literal keys over link labels × unique fields) and compiled to `lookup()` calls at runtime.
+- **`defineSchema`**: build the canonical instance through the official `i.schema(...)` constructor (so `constructor.name === 'InstantSchemaDef'` and the enumerable projection match official output *by construction*), feeding it official-dialect inputs — `i.namespace` returns a real `EntityDef`, and link `singular` is stripped before the constructor sees the links. Dux metadata is then attached non-enumerably as `$dux`. Push tooling sees the official shape; dux reads its own metadata.
+  - **Inference note (counterintuitive, load-bearing):** `i.namespace`'s `fields`/`ruleParams` and `defineSchema`'s `namespaces` are typed with *unconstrained* generics, not `extends AttrsDefs`/`extends IdbNamespacesDef`-with-`$dux`. A generic's constraint becomes the contextual type of the matching argument, and an `AttrsDefs` (or `$dux`-bearing) context silently widens unchained builder calls — a bare `i.string()` degrades to `DataAttrDef<any, …>`, collapsing literal singulars and rule-param value types. The shape is validated through a *parallel intersection arm* (a mapped type that types each non-builder member as a `QERR_SCHEMA_FIELD_INVALID` message) and the return type re-tightens via `Extract<…, AttrsDefs>`. The namespace meta is extracted from the def conditionally, never via a contextual `$dux` constraint.
+- **`shapeResult(rawData, querySpec, schema)`** is a pure function plus a type-level mirror (`IdbQueryData`) that computes the same transformation in type space. The function is the *only* place shaping logic exists; consumers wrap it (reactively in `/vue`, post-`await` in `/admin`). Scope-key resolution (declared singular → algorithm, honoring `options.singularize`) lives once as `SingularScopeKey<>` + its runtime twin, so the TypeScript key and the runtime key always agree.
+- **Validation** is `IdbValidQuery<Q, S>` — an intersection of the input-independent authoring shape `IdbQuery<S>` (the completion source) and an *input-mapped arm* that re-walks the user's own keys and types each violation as a stable `QERR_*` message string at the offending key (valid positions resolve to `unknown`, the intersection identity). `q`/`defineQuery` apply it as a `<const Q extends IdbValidQuery<Q, S>>` self-referential constraint; inline literals get it as a contextual type, and wrapping a factory's return in `q()` restores the same deep localization. (Operator restrictions live in the authoring `IdbWhereOps` shape, typed as their `QERR_*` message when the field doesn't support the operator.)
+- **Singularize** ships as one runtime function and one type utility generated from the same rule set, with a shared table of irregulars — they must never disagree (locked by a type test that compares them across a word list). The list includes the deterministic-but-imperfect cases (`analyses → analyse`) the explicit `singular` override exists for.
+- **Typed tx** wraps core's `txInit()` in a typed proxy layer; dot-path link keys are detected at the type level (template-literal keys over link labels × unique fields) and compiled to `lookup()` calls at runtime. The chain owns its narrower typing rather than re-deriving the official `TransactionChunk` — that type can't be a structural supertype (its method params are contravariant) — and stays interop-safe by carrying the official `__ops`/`__etype` runtime shape `transact` consumes.
 
 ### 8.3 Editor-DX positions to lock
 
@@ -503,37 +512,37 @@ Boundary law applies ([dux-spec-workspace.md](./dux-spec-workspace.md)): `schema
 
 Done when: schema type tests + dx suite green; `defineSchema` compat tests green.
 
-- [ ] `i.namespace` + field builders assembly (`i` carries only the dux dialect)
-- [ ] `defineSchema` runtime: namespaces/links/rooms/options, `InstantSchemaDef` constructor invariant, non-enumerable dux metadata
-- [ ] `singularize` runtime + `Singularize<>` type utility (shared irregulars table; equivalence-locked)
-- [ ] `IdbRegister` + registration plumbing
-- [ ] `IdbSchema`, `IdbEntity`, `IdbEntityWithLinks` (schema-rooted utilities)
-- [ ] compat-target suite: enumerable projection accepted by CLI push + `schemaPush` shapes; constructor invariant
-- [ ] `.dx.test.ts`: `i.namespace({ ⌶ })`, `defineSchema({ ⌶ })` completions + diagnostics
-- [ ] `.test-d.ts`: schema type shapes; singularize equivalence
+- [x] `i.namespace` + field builders assembly (`i` carries only the dux dialect)
+- [x] `defineSchema` runtime: namespaces/links/rooms/options, `InstantSchemaDef` constructor invariant, non-enumerable dux metadata
+- [x] `singularize` runtime + `Singularize<>` type utility (shared irregulars table; equivalence-locked)
+- [x] `IdbRegister` + registration plumbing
+- [x] `IdbSchema`, `IdbEntity`, `IdbEntityWithLinks` (schema-rooted utilities)
+- [x] compat-target suite: enumerable projection accepted by CLI push + `schemaPush` shapes; constructor invariant
+- [x] `.dx.test.ts`: `i.namespace({ ⌶ })`, `defineSchema({ ⌶ })` completions + diagnostics
+- [x] `.test-d.ts`: schema type shapes; singularize equivalence
 
 ### Phase R2 — query authoring + result shaping (global phase 2)
 
 Done when: validation dx tests green, including inline-object completions (the contextual-typing path) and factory + `q()` localization; shaping runtime + type tests green.
 
-- [ ] `q` (registration-bound) + `defineQuery<S>()`
-- [ ] `$only` / `$skip` constants
-- [ ] validation types: root keys, 3-hop traversal, where keys/dot-paths, operator table, order rules, `QERR_*` messages
-- [ ] `shapeResult` pure function: normalization, `$only`/`$at`/`$as`, `$m` (`indexBy`/`groupBy`/`at`), single-pass `$m`
-- [ ] type-level shaping mirror (return types match runtime keys by construction)
-- [ ] `IdbQuery`, `IdbQueryOptions`, `IdbQueryData`, `IdbQueryEntity`, `IdbQuerySubquery`, `IdbQueryFields`, `IdbQueryPageInfo`
-- [ ] `.dx.test.ts`: every validation level + every `QERR_*` message at its cursor; inline vs factory localization both locked
-- [ ] `.test-d.ts`: shaping shapes ($only/$at/$as/$m, nested links, singularize modes)
-- [ ] runtime suite: `shapeResult` against fixture data
+- [x] `q` (registration-bound) + `defineQuery<S>()`
+- [x] `$only` / `$skip` constants
+- [x] validation types: root keys, 3-hop traversal, where keys/dot-paths, operator table, order rules, `QERR_*` messages
+- [x] `shapeResult` pure function: normalization, `$only`/`$at`/`$as`, `$m` (`indexBy`/`groupBy`/`at`), single-pass `$m`
+- [x] type-level shaping mirror (return types match runtime keys by construction)
+- [x] `IdbQuery`, `IdbQueryOptions`, `IdbQueryData`, `IdbQueryEntity`, `IdbQuerySubquery`, `IdbQueryFields`, `IdbQueryPageInfo`
+- [x] `.dx.test.ts`: every validation level + every `QERR_*` message at its cursor; inline vs factory localization both locked
+- [x] `.test-d.ts`: shaping shapes ($only/$at/$as/$m, nested links, singularize modes)
+- [x] runtime suite: `shapeResult` against fixture data
 
 ### Phase R3 — typed tx (global phase 2)
 
 Done when: tx dx + type tests green.
 
-- [ ] typed tx proxy: per-label cardinality typing on `.link`
-- [ ] dot-path `.link` keys → `lookup()` compilation (one hop, unique fields only)
-- [ ] `.ruleParams` typing from schema declarations
-- [ ] `IdbTxChunk`, `IdbTxUpdate`, `IdbTxCreate`, `IdbTxLink`, `IdbTxRuleParams`
-- [ ] `id` / `lookup` re-exports
-- [ ] `.dx.test.ts`: link-label + dot-path completions; ruleParams completions; wrong-value diagnostics
-- [ ] runtime suite: dot-path compiles to official `lookup()` wire form
+- [x] typed tx proxy: per-label cardinality typing on `.link`
+- [x] dot-path `.link` keys → `lookup()` compilation (one hop, unique fields only)
+- [x] `.ruleParams` typing from schema declarations
+- [x] `IdbTxChunk`, `IdbTxUpdate`, `IdbTxCreate`, `IdbTxLink`, `IdbTxRuleParams`
+- [x] `id` / `lookup` re-exports
+- [x] `.dx.test.ts`: link-label + dot-path completions; ruleParams completions; wrong-value diagnostics
+- [x] runtime suite: dot-path compiles to official `lookup()` wire form

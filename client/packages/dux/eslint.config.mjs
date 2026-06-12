@@ -15,11 +15,14 @@ import antfu from '@antfu/eslint-config'
 const frameworks = ['vue', 'vue/*', '@vue/*', 'h3', 'h3/*']
 
 /**
- * Ban every @instantdb package except the listed ones.
+ * Ban every @instantdb package except the listed ones. `@instantdb/core` and
+ * `@instantdb/version` are the two foundational dependencies every dux user
+ * has (the peer rule, dux-spec-workspace.md §2), so they are always allowed.
  * @param {...string} allowed
  */
 function official(...allowed) {
-  return ['@instantdb/*', ...allowed.map(name => `!${name}`)]
+  const permitted = new Set(['@instantdb/core', '@instantdb/version', ...allowed])
+  return ['@instantdb/*', ...[...permitted].map(name => `!${name}`)]
 }
 
 /**
@@ -112,6 +115,16 @@ export default await antfu(
       'no-restricted-imports': /** @type {['error', { patterns: Array<{ group: string[], message: string }> }]} */ (['error', { patterns }]),
     },
   })),
+  {
+    // Compatibility-target suites exist to feed dux output into the official
+    // tools dux doesn't wrap (platform validateSchema/schemaPush, the CLI
+    // contract, resumable-stream) — the official-package bans don't apply to
+    // them. Everything else in the boundary matrix still does.
+    files: ['idb-dux/src/**/*.compat.test.ts', 'idb-dux/src/**/*.compat.test-d.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
+    },
+  },
   {
     files: ['**/*.test.ts', '**/*.test-d.ts', '**/*.vue'],
     rules: {

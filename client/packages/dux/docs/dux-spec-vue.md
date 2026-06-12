@@ -11,8 +11,8 @@ Conventions: [dux-conventions.md](./dux-conventions.md) · Principles: [dux-visi
 
 | Phase | Scope | Global phase | Status |
 |---|---|---|---|
-| V1 | The internal baseline: vendor, mark deltas, parity harness | 3 | ☐ not started |
-| V2 | The overlay: hooks, result pattern, components, `defineDb` | 4 | ☐ not started |
+| V1 | The internal baseline: vendor, mark deltas, parity harness | 3 | ☑ complete |
+| V2 | The overlay: hooks, result pattern, components, `defineDb` | 4 | ☑ complete |
 | V3 | SSR hydration ceiling | 10 | ☐ gated on upstream |
 
 Details: [§10 Phased implementation roadmap](#10-phased-implementation-roadmap).
@@ -242,17 +242,23 @@ The floor is forward-compatible with the ceiling by construction: inert server s
 src/vue/
   baseline/          # near-verbatim mirror of @instantdb/vue (deltas fenced)
     UPSTREAM.md      # vendored-from commit stamp
-    InstantDuxDatabase.ts
-    InstantDuxRoom.ts
+    InstantDuxDatabase.ts   # the baseline db class + init (DUX-DELTA(ssr) guards)
+    InstantDuxRoom.ts       # room class + hooks
     useInfiniteQuery.ts
-    components/      # SignedIn/SignedOut/Cursors as .ts render fns (marked build delta)
+    utils.ts                # tryOnScopeDispose + isClient() (the SSR predicate)
+    version.ts
+    components/      # SignedIn/SignedOut (auth.ts) + Cursors/Cursor as .ts render fns
+    index.ts         # internal-only surface for the overlay + parity harness
   overlay/           # all dux ergonomics, BY COMPOSITION over the baseline
-    useQuery.ts  useAuth.ts  useUser.ts  ...
-    rooms/
-    result.ts        # the refs+state primitive (markRaw getter projection)
-    defineDb.ts      # memoized lazy-init factory
-  index.ts           # assembles + exports the enhanced db
+    db.ts            # InstantDuxClient — the enhanced db (every hook in one class)
+    defineDb.ts      # init (eager) + defineDb (memoized lazy-init factory)
+    result.ts        # makeResult + makeDynamicResult (markRaw getter projections)
+    rooms/           # presence/typing gain the result pattern; rest pass through
+    types.ts         # IdbConfig, the result-pattern shapes, auth/connection renames
+  index.ts           # the /vue entrypoint: exports init/defineDb, components, types
 ```
+
+The enhanced db is one class, `InstantDuxClient` — the hooks are small and share the baseline handle and the registered schema, so a single class reads better than a file per hook (the *value* still only ever comes from `init`/`defineDb`; the class is exported for its type). `useQuery`/`useInfiniteQuery` use `makeDynamicResult` because a query's scope keys aren't known until the query is — a `Proxy` resolves any destructured scope to a memoized `computed` over the shaped data, so `const { workspace, todos } = db.useQuery(…)` works even for factory queries that start `null`.
 
 ---
 
@@ -262,30 +268,30 @@ src/vue/
 
 Done when: parity harness green against official `@instantdb/vue`; drift check wired.
 
-- [ ] vendor `@instantdb/vue` sources into `vue/baseline/` (db class, room class, `useInfiniteQuery`, components)
-- [ ] apply + fence the SSR-resilience deltas (`DUX-DELTA(ssr)`)
-- [ ] apply + fence type-tightening deltas (drop deprecated aliases)
-- [ ] stamp `baseline/UPSTREAM.md` with the vendored commit
-- [ ] wire `scripts/check-baseline-drift.mjs` ([workspace spec](./dux-spec-workspace.md))
-- [ ] parity harness: canonical scenarios replayed against official db + baseline, identical reactive output
-- [ ] parity dx: selenita `queryGroup` asserting baseline completions match official
+- [x] vendor `@instantdb/vue` sources into `vue/baseline/` (db class, room class, `useInfiniteQuery`, components)
+- [x] apply + fence the SSR-resilience deltas (`DUX-DELTA(ssr)`)
+- [x] apply + fence the remaining deltas (`InstantVue*` → `InstantDux*` rename, the framework version tag, components as `.ts` render fns); the baseline is internal-only and re-exports no deprecated aliases
+- [x] stamp `baseline/UPSTREAM.md` with the vendored commit
+- [x] wire `scripts/check-baseline-drift.mjs` ([workspace spec](./dux-spec-workspace.md))
+- [x] parity harness: canonical scenarios replayed against official db + baseline, identical reactive output
+- [x] parity dx: selenita `queryGroup` asserting baseline completions match official (the baseline reaches selenita via the `@baseline` alias, since it is never a package export)
 
 ### Phase V2 — the overlay (global phase 4)
 
 Done when: overlay dx + type + runtime suites green; every hook SSR-floor-verified; Pinia safety locked.
 
-- [ ] `result.ts` — the refs/state/`.refs` primitive (markRaw getter projection)
-- [ ] `useQuery` composing baseline + `shapeResult`; `MaybeRefOrGetter` + factory inputs; `null` pause
-- [ ] `queryOnce`, `useInfiniteQuery` on the same shaping
-- [ ] `useAuth`, `useUser` (strictness typing), `useConnectionStatus`, `useLocalId`
-- [ ] rooms: reactive `db.room`/`db.rooms`, presence/typing/topic hooks with the result pattern
-- [ ] typed `db.tx` wiring (machinery from root R3) + `transact`
-- [ ] pass-throughs: `db.auth.*`, `db.storage.*`, `db.streams` with renamed types
-- [ ] components: `SignedIn`, `SignedOut`, `Cursors` as `.ts` render fns
-- [ ] `defineDb` (memoized lazy-init; reads schema `options`) + `IdbConfig` (incl. `devtool`, `apiURI`)
-- [ ] SSR floor: inert-state tests for every hook
-- [ ] Pinia safety: hydration-skip + write-protection + reactivity-tracking tests
-- [ ] `.dx.test.ts` per hook (the gating discipline) + `.test-d.ts` result shapes
+- [x] `result.ts` — the refs/state/`.refs` primitive (markRaw getter projection); `makeResult` for static-key hooks, `makeDynamicResult` (a Proxy) for query hooks whose scope keys depend on the query
+- [x] `useQuery` composing baseline + `shapeResult`; `MaybeRefOrGetter` + factory inputs; `null` pause
+- [x] `queryOnce`, `useInfiniteQuery` on the same shaping
+- [x] `useAuth`, `useUser` (strictness typing), `useConnectionStatus`, `useLocalId`
+- [x] rooms: reactive `db.room`/`db.rooms`, presence/typing/topic hooks with the result pattern
+- [x] typed `db.tx` wiring (machinery from root R3) + `transact`
+- [x] pass-throughs: `db.auth.*`, `db.storage.*`, `db.streams` with renamed types
+- [x] components: `SignedIn`, `SignedOut`, `Cursors` as `.ts` render fns
+- [x] `defineDb` (memoized lazy-init; reads schema `options`) + `IdbConfig` (incl. `devtool`, `apiURI`)
+- [x] SSR floor: inert-state tests for every hook
+- [x] Pinia safety: hydration-skip + write-protection + reactivity-tracking tests
+- [x] `.dx.test.ts` per hook (the gating discipline) + `.test-d.ts` result shapes
 
 ### Phase V3 — SSR hydration ceiling (global phase 10)
 

@@ -143,8 +143,11 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
     "@instantdb/admin": "workspace:*",
+    "@instantdb/platform": "workspace:^",
     "@instantdb/vue": "workspace:*",
     "@instantdb/webhooks": "workspace:*",
+    "@mszr/selenita": "^0.2.0",
+    "@types/node": "^25.9.3",
     "@vue/test-utils": "^2.4.10",
     "h3": "^1.15.3",
     "jsdom": "^29.1.1",

@@ -355,10 +355,10 @@ Sequenced so each step is independently testable and nothing depends on a surfac
 | Phase | Deliverable | Spec | Status |
 |---|---|---|---|
 | 0. Scaffold | workspace wiring; tshy exports; `sideEffects:false`; optional peers; boundary lint; six empty entrypoints that build | [workspace](./dux-spec-workspace.md) | ☑ complete |
-| 1. Schema layer | `defineSchema`, `i.namespace`, `singularize` (runtime + type), registration | [root](./dux-spec-root.md) | ☐ |
-| 2. Query + tx layer | `q`/`defineQuery`, `shapeResult`, validation types, `Idb*` utilities, typed tx | [root](./dux-spec-root.md) | ☐ |
-| 3. Vue baseline | vendor `@instantdb/vue`, mark deltas, `UPSTREAM.md`, drift check, parity harness | [vue](./dux-spec-vue.md) | ☐ |
-| 4. Vue overlay | `useQuery` & friends via `shapeResult`; refs+state; `defineDb`; components | [vue](./dux-spec-vue.md) | ☐ |
+| 1. Schema layer | `defineSchema`, `i.namespace`, `singularize` (runtime + type), registration | [root](./dux-spec-root.md) | ☑ complete |
+| 2. Query + tx layer | `q`/`defineQuery`, `shapeResult`, validation types, `Idb*` utilities, typed tx | [root](./dux-spec-root.md) | ☑ complete |
+| 3. Vue baseline | vendor `@instantdb/vue`, mark deltas, `UPSTREAM.md`, drift check, parity harness | [vue](./dux-spec-vue.md) | ☑ complete |
+| 4. Vue overlay | `useQuery` & friends via `shapeResult`; refs+state; `defineDb`; components | [vue](./dux-spec-vue.md) | ☑ complete |
 | 5. Webhooks | optional-config `init`, `defineWebhookHandlers`, `IdbWebhook*` types | [webhooks](./dux-spec-webhooks.md) | ☐ |
 | 6. Admin | owned `init`, shaped `query`/`subscribeQuery`, typed tx/debug, `asUser`, pass-throughs, `adminDb.webhooks` | [admin](./dux-spec-admin.md) | ☐ |
 | 7. Nuxt | `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler` | [nuxt](./dux-spec-nuxt.md) | ☐ |

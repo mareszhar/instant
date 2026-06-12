@@ -1,0 +1,94 @@
+/**
+ * The canonical app — the one fixed schema every test plane draws from.
+ * Change it here and every suite updates.
+ *
+ * Deliberate coverage built in:
+ * - `$users` with a declared `singular` ('user' — the algorithm would say '$user')
+ * - `analyses` with a declared namespace `singular` ('analysis' — irregular)
+ * - a link label with a declared `singular` (`analyses` → 'analysis')
+ * - a self-link (`tasks` → subtasks/parentTask)
+ * - `ruleParams` on two namespaces (one required, one optional param)
+ * - unique + indexed + optional fields, every value type, a non-indexed string
+ * - rooms with presence and topics
+ */
+import { defineSchema, i } from '../schema/index.js'
+
+export const schema = defineSchema({
+  namespaces: {
+    $users: i.namespace({
+      singular: 'user', // overrides default Singularize('$users') → '$user'
+      fields: {
+        email: i.string().unique().indexed().optional(),
+        name: i.string().indexed().optional(),
+      },
+    }),
+    workspaces: i.namespace({
+      fields: {
+        name: i.string().indexed(),
+        inviteCode: i.string().unique().indexed(),
+        createdAt: i.date().indexed(),
+      },
+      ruleParams: {
+        inviteCode: i.string(),
+      },
+    }),
+    memberships: i.namespace({
+      fields: { createdAt: i.date().indexed() },
+      ruleParams: { inviteCode: i.string().optional() },
+    }),
+    tasks: i.namespace({
+      fields: {
+        title: i.string().indexed(),
+        isDone: i.boolean().indexed(),
+        createdAt: i.date().indexed(),
+        notes: i.string().optional(), // deliberately non-indexed
+        meta: i.json<{ tags: string[] }>().optional(),
+      },
+    }),
+    reports: i.namespace({
+      fields: { title: i.string() },
+    }),
+    analyses: i.namespace({
+      singular: 'analysis',
+      fields: { score: i.number().indexed() },
+    }),
+  },
+  links: {
+    membershipWorkspace: {
+      forward: { on: 'memberships', has: 'one', label: 'workspace' },
+      reverse: { on: 'workspaces', has: 'many', label: 'memberships' },
+    },
+    membershipUser: {
+      forward: { on: 'memberships', has: 'one', label: 'user' },
+      reverse: { on: '$users', has: 'many', label: 'memberships' },
+    },
+    taskWorkspace: {
+      forward: { on: 'tasks', has: 'one', label: 'workspace' },
+      reverse: { on: 'workspaces', has: 'many', label: 'tasks' },
+    },
+    taskAssignee: {
+      forward: { on: 'tasks', has: 'one', label: 'assignee' },
+      reverse: { on: '$users', has: 'many', label: 'assignedTasks' },
+    },
+    taskSubtasks: {
+      forward: { on: 'tasks', has: 'many', label: 'subtasks' },
+      reverse: { on: 'tasks', has: 'one', label: 'parentTask' },
+    },
+    reportAnalyses: {
+      forward: { on: 'reports', has: 'many', label: 'analyses', singular: 'analysis' },
+      reverse: { on: 'analyses', has: 'one', label: 'report' },
+    },
+  },
+  rooms: {
+    workspace: {
+      presence: i.namespace({
+        fields: { name: i.string(), typing: i.boolean().optional() },
+      }),
+      topics: {
+        reaction: i.namespace({ fields: { emoji: i.string() } }),
+      },
+    },
+  },
+})
+
+export type AppSchema = typeof schema
