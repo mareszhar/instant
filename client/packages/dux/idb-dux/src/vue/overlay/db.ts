@@ -2,7 +2,7 @@ import type { ComputedRef, MaybeRefOrGetter } from 'vue'
 import type { IdbQueryData, IdbQueryOptions, IdbValidQuery } from '../../query/index.js'
 import type { IdbSchema } from '../../schema/defineSchema.js'
 import type { IdbRegisteredSchema } from '../../schema/register.js'
-import type { IdbTx, IdbTxChunk } from '../../tx/index.js'
+import type { IdbTx, IdbTxChunkInput } from '../../tx/index.js'
 import type { InstantDuxDatabase } from '../baseline/index.js'
 import type {
   IdbAuthResult,
@@ -22,29 +22,13 @@ import { InstantError } from '@instantdb/core'
  * are added here.
  */
 import { computed, toValue } from 'vue'
-import { resultKeys, shapeResult, toWireQuery } from '../../query/index.js'
+import { resultKeys, shapeResult, shapingSchema, toWireQuery } from '../../query/index.js'
 import { typedTx } from '../../tx/index.js'
 import { makeDynamicResult, makeResult } from './result.js'
 import { rooms as overlayRooms } from './rooms/index.js'
 
 /** A query input: a query, a ref/getter of one, or a factory returning null to pause. */
 type QueryInput<Q> = MaybeRefOrGetter<Q | null>
-
-/**
- * A schema with a usable `$dux` projection for runtime shaping — the real
- * schema when one is registered, a permissive stub otherwise (singularize
- * 'auto', no declared singulars, no link metadata).
- */
-function shapingSchema(schema: IdbSchema | undefined): IdbSchema {
-  if (schema)
-    return schema
-  return {
-    entities: {},
-    links: {},
-    rooms: {},
-    $dux: { namespaces: {}, linkSingulars: {}, options: { singularize: 'auto' } },
-  } as unknown as IdbSchema
-}
 
 export class IdbClient<S extends IdbSchema = IdbRegisteredSchema> {
   /** The schema-typed tx chain — shared machinery with `/admin` ([root §5]). */
@@ -74,7 +58,7 @@ export class IdbClient<S extends IdbSchema = IdbRegisteredSchema> {
     return this.#baseline.streams
   }
 
-  transact = (chunks: IdbTxChunk<S> | IdbTxChunk<S>[]) =>
+  transact = (chunks: IdbTxChunkInput<S> | IdbTxChunkInput<S>[]) =>
     this.#baseline.transact(chunks as any)
 
   getAuth = (): Promise<IdbAuthUser | null> => this.#baseline.getAuth()

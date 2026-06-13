@@ -171,3 +171,14 @@ export type IdbTxNamespace<
 export type IdbTx<S extends IdbSchema = IdbRegisteredSchema> = {
   [NS in IdbNamespaceName<S>]: IdbTxNamespace<S, NS>
 }
+
+/**
+ * A chunk for *any one* namespace — the type `transact`/`debugTransact` accept.
+ * `IdbTxChunk<S>` defaults its `NS` to the full union, whose method params are
+ * contravariant, so a chunk narrowed to one namespace (what `tx.tasks[id]…`
+ * produces) wouldn't be assignable to it. The per-namespace union is: a
+ * `'tasks'` chunk is exactly one of its members.
+ */
+export type IdbTxChunkInput<S extends IdbSchema = IdbRegisteredSchema> = {
+  [NS in IdbNamespaceName<S>]: IdbTxChunk<S, NS>
+}[IdbNamespaceName<S>]

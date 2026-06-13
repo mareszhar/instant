@@ -11,10 +11,10 @@ Conventions: [dux-conventions.md](./dux-conventions.md) · Principles: [dux-visi
 
 | Phase | Scope | Global phase | Status |
 |---|---|---|---|
-| A1 | `init` + the data plane: `query`, `subscribeQuery` | 6 | ☐ not started |
-| A2 | Typed tx + debug | 6 | ☐ not started |
-| A3 | `asUser` + pass-throughs | 6 | ☐ not started |
-| A4 | `adminDb.webhooks` | 6 | ☐ not started |
+| A1 | `init` + the data plane: `query`, `subscribeQuery` | 6 | ☑ complete |
+| A2 | Typed tx + debug | 6 | ☑ complete |
+| A3 | `asUser` + pass-throughs | 6 | ☑ complete |
+| A4 | `adminDb.webhooks` | 6 | ☑ complete |
 
 Details: [§7 Phased implementation roadmap](#7-phased-implementation-roadmap).
 
@@ -67,8 +67,9 @@ Admin returns **plain shaped data** — the `-Data/-State/-Refs` result pattern 
 
 ## 4. Typed tx and debug
 
-- **`tx` / `transact`** — the typed chain from the [root spec §5](./dux-spec-root.md#5-typed-tx): schema-typed `ruleParams`, dot-path `.link`. One machinery, both runtimes.
-- **`debugQuery` / `debugTransact`** — pass-throughs with typed `ruleParams`; check-result types renamed (`IdbAdminCheckResult`).
+- **`tx` / `transact`** — the typed chain from the [root spec §5](./dux-spec-root.md#5-typed-tx): schema-typed `ruleParams`, dot-path `.link`. `transact`/`debugTransact` accept `IdbTxChunkInput<S>` (the per-namespace chunk union). One machinery, both runtimes.
+- **`debugQuery`** — typed `ruleParams` plus the inspector's rules/ip/origin overrides; its `result` gets the **same shaping** as `query` (the data plane is shaped once — a `debugQuery` and a `query` of the same query return the same `result` shape), and the check results are renamed (`IdbAdminCheckResult`).
+- **`debugTransact`** — pass-through with the inspector overrides; the summary result is `IdbAdminDebugTransactResult`.
 
 ## 5. `asUser` and the pass-throughs
 
@@ -85,8 +86,9 @@ Per-method treatments, decided:
 |---|---|
 | `query(q, opts?)` | the dux data plane: shaping + typed `ruleParams` |
 | `subscribeQuery(q, cb?, opts?)` | same shaping per emission; official callback/async-iterator contracts preserved |
-| `tx` / `transact` | the typed tx chain |
-| `debugQuery` / `debugTransact` | pass-through, typed `ruleParams`, `IdbAdminCheckResult` |
+| `tx` / `transact` | the typed tx chain; `transact` accepts `IdbTxChunkInput<S>` |
+| `debugQuery` | shaped `result` (like `query`) + typed `ruleParams`; `IdbAdminCheckResult` |
+| `debugTransact` | pass-through, inspector overrides; `IdbAdminDebugTransactResult` |
 | `asUser({ email \| token \| guest })` | returns the same dux admin db, permission-scoped |
 | `auth.*` | pass-through, official verbs verbatim |
 | `storage.*` / `streams.*` / `rooms.getPresence` | pass-through verbs, renamed types |
@@ -96,10 +98,15 @@ Type renames in this surface's boundary module (pattern: [conventions §8](./dux
 
 | Official | dux |
 |---|---|
-| `SubscribeQueryResponse` | `IdbQuerySubscription` |
+| `InstantConfig` (minus `useDateObjects`) | `IdbAdminConfig` |
+| `SubscribeQueryResponse` | `IdbQuerySubscription` (payload `IdbQuerySubscriptionPayload`, callback `IdbQuerySubscriptionCallback`) |
+| `SubscriptionReadyState` | `IdbSubscriptionReadyState` |
+| `SubscribeQuerySessionInfo` (not exported) | `IdbQuerySessionInfo` (authored fresh) |
 | `DebugCheckResult` | `IdbAdminCheckResult` |
-| `FileOpts` (and storage option/result types) | `IdbStorageFileOpts`, `IdbStorage*` |
-| stream types | `IdbStream*` |
+| `DebugTransactResult` / transact ack | `IdbAdminDebugTransactResult` / `IdbAdminTransactResult` |
+| `ImpersonationOpts` | `IdbAdminImpersonation` |
+| `FileOpts`, `UploadFileResponse`, `DeleteFileResponse` | `IdbStorageFileOpts`, `IdbStorageUploadResult`, `IdbStorageDeleteResult` |
+| `CreateReadStreamOpts` / `CreateWriteStreamOpts`, the stream handles | `IdbStreamReadOpts` / `IdbStreamWriteOpts`, `IdbReadableStream` / `IdbWritableStream` |
 | `User` | `IdbAuthUser` |
 
 ### Implementation approach (proposal)
@@ -123,26 +130,26 @@ src/admin/
 
 Done when: server reads are dux-shaped with no `init` injection anywhere; type + runtime suites green.
 
-- [ ] `init({ appId, adminToken, schema })` owning the optional peer
-- [ ] `query` with `shapeResult` + typed `ruleParams` opts
-- [ ] `subscribeQuery` with per-emission shaping; callback + async-iterator contracts
-- [ ] `IdbQuerySubscription` + data-plane types
-- [ ] runtime suite: shaping parity with client fixtures (same query, same shape)
+- [x] `init({ appId, adminToken, schema })` owning the optional peer
+- [x] `query` with `shapeResult` + typed `ruleParams` opts
+- [x] `subscribeQuery` with per-emission shaping; callback + async-iterator contracts
+- [x] `IdbQuerySubscription` + data-plane types
+- [x] runtime suite: shaping parity with client fixtures (same query, same shape)
 
 ### Phase A2 — typed tx + debug (global phase 6)
 
-- [ ] `adminDb.tx` / `transact` via the shared tx machinery
-- [ ] `debugQuery` / `debugTransact` with typed `ruleParams`; `IdbAdminCheckResult`
-- [ ] `.dx.test.ts`: tx completions on the admin surface (queryGroup with the client suite)
+- [x] `adminDb.tx` / `transact` via the shared tx machinery (`IdbTxChunkInput` accepted)
+- [x] `debugQuery` (shaped `result`) / `debugTransact` with typed `ruleParams`; `IdbAdminCheckResult`
+- [x] `.dx.test.ts`: tx + query completions and where-key diagnostics on the admin surface
 
 ### Phase A3 — `asUser` + pass-throughs (global phase 6)
 
-- [ ] `asUser` returning the composed dux db (all treatments intact — locked by type test)
-- [ ] `auth.*` pass-through, verbatim verbs
-- [ ] `storage.*` / `streams.*` / `rooms.getPresence` pass-throughs + renamed types
-- [ ] compat test: dux `adminDb` satisfies what `@instantdb/resumable-stream` consumes
+- [x] `asUser` returning the composed dux db (all treatments intact — locked by type test)
+- [x] `auth.*` pass-through, verbatim verbs
+- [x] `storage.*` / `streams.*` / `rooms.getPresence` pass-throughs + renamed types
+- [x] compat test: dux `adminDb` satisfies what `@instantdb/resumable-stream` consumes
 
 ### Phase A4 — `adminDb.webhooks` (global phase 6; after webhooks H3)
 
-- [ ] expose the `/webhooks` surface token-wired at `adminDb.webhooks`
-- [ ] type test: identical surface to `/webhooks` `init({ appId, adminToken })`
+- [x] expose the `/webhooks` surface token-wired at `adminDb.webhooks`
+- [x] type test: identical surface to `/webhooks` `init({ appId, adminToken })`

@@ -144,6 +144,7 @@
     "@arethetypeswrong/cli": "^0.18.2",
     "@instantdb/admin": "workspace:*",
     "@instantdb/platform": "workspace:^",
+    "@instantdb/resumable-stream": "workspace:*",
     "@instantdb/vue": "workspace:*",
     "@instantdb/webhooks": "workspace:*",
     "@mszr/selenita": "^0.2.0",

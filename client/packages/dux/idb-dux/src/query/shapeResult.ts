@@ -54,6 +54,23 @@ export function resultKeys(query: AnyRecord, schema: IdbSchema): string[] {
   return keys
 }
 
+/**
+ * A schema with a usable `$dux` projection for runtime shaping — the real
+ * schema when one is registered, a permissive stub otherwise (singularize
+ * 'auto', no declared singulars, no link metadata). Both clients reach for it
+ * so a query with no schema still shapes consistently.
+ */
+export function shapingSchema(schema: IdbSchema | undefined): IdbSchema {
+  if (schema)
+    return schema
+  return {
+    entities: {},
+    links: {},
+    rooms: {},
+    $dux: { namespaces: {}, linkSingulars: {}, options: { singularize: 'auto' } },
+  } as unknown as IdbSchema
+}
+
 export function shapeResult(
   rawData: AnyRecord | undefined,
   query: AnyRecord,

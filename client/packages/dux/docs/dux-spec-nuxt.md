@@ -11,9 +11,9 @@ Conventions: [dux-conventions.md](./dux-conventions.md) · Principles: [dux-visi
 
 | Phase | Scope | Global phase | Status |
 |---|---|---|---|
-| N1 | `defineServerKit` | 7 | ☐ not started |
-| N2 | `defineAuthSyncHandler` | 7 | ☐ not started |
-| N3 | `defineWebhookHandler` | 7 | ☐ not started |
+| N1 | `defineServerKit` | 7 | ☑ complete |
+| N2 | `defineAuthSyncHandler` | 7 | ☑ complete |
+| N3 | `defineWebhookHandler` | 7 | ☑ complete |
 
 Details: [§6 Phased implementation roadmap](#6-phased-implementation-roadmap).
 
@@ -138,21 +138,21 @@ src/nuxt/
 
 Done when: kit modes typed + verified end-to-end in runtime tests.
 
-- [ ] kit factory: lazy config, memoized admin db, event-context caching
-- [ ] modes: none / `'user?'` / `'user'` (+ `userDb` variants) with mode-narrowed kit types
-- [ ] 401 behavior for `'user'` without valid auth
-- [ ] runtime suite: caching (one verify per request), mode typing, concurrent calls
-- [ ] `.test-d.ts`: kit key narrowing per mode
+- [x] kit factory: lazy config, memoized admin db, event-context caching
+- [x] modes: none / `'user?'` / `'user'` (+ `userDb` variants) with mode-narrowed kit types
+- [x] 401 behavior for `'user'` without valid auth
+- [x] runtime suite: caching (one verify per request), mode typing, concurrent calls
+- [x] `.test-d.ts`: kit key narrowing per mode
 
 ### Phase N2 — `defineAuthSyncHandler` (global phase 7)
 
-- [ ] the sync route: write/clear token-only cookie per the official protocol
-- [ ] cookie attributes parity (SameSite/secure/path) with the official handler
-- [ ] `createInstantRouteHandler` re-export for the official shape
-- [ ] runtime suite: sync flow + kit integration (cookie → `'user'` mode)
+- [x] the sync route: write/clear token-only cookie per the official protocol
+- [x] cookie attributes parity (SameSite/secure/path) with the official handler
+- [x] `createInstantRouteHandler` re-export for the official shape
+- [x] runtime suite: sync flow (token-only cookie, app-id/type guards)
 
 ### Phase N3 — `defineWebhookHandler` (global phase 7)
 
-- [ ] raw-body read the h3 way; delegate to `/webhooks.process`
-- [ ] 2xx/4xx mapping per official retry semantics
-- [ ] runtime suite: end-to-end route test on shared webhook fixtures
+- [x] raw-body read the h3 way; delegate to `/webhooks` verify → fetch → dispatch
+- [x] 2xx/4xx mapping per official retry semantics
+- [x] runtime suite: end-to-end route test on shared webhook fixtures

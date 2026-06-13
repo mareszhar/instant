@@ -444,7 +444,7 @@ The root surface's slice (the cross-cutting pattern lives in [dux-conventions.md
 | — | entity + every link label, one hop | `IdbEntityWithLinks<'ns'>` |
 | `InstantSchemaDef` | the schema type | `IdbSchema` |
 | `RuleParams` | `{ [k: string]: any }` | `IdbTxRuleParams<'ns'>`, schema-typed |
-| `TransactionChunk` | one tx step | `IdbTxChunk` |
+| `TransactionChunk` | one tx step (and the per-namespace union `transact` accepts) | `IdbTxChunk` (and `IdbTxChunkInput`) |
 | `UpdateParams` / `CreateParams` / `LinkParams` | op payload shapes | `IdbTxUpdate<'ns'>` / `IdbTxCreate<'ns'>` / `IdbTxLink<'ns'>` |
 
 `id` and `lookup` are re-exported under their official names (values keep official names at the boundary). Deprecated official aliases (`InstantQuery`, `InstantQueryResult`, `InstantSchema`, `InstantEntity`, `InstantGraph`, …) are never re-exported.
@@ -493,7 +493,7 @@ The field/link helpers live in `schema/fields.ts` (not `query/`) because both `q
 - **`shapeResult(rawData, querySpec, schema)`** is a pure function plus a type-level mirror (`IdbQueryData`) that computes the same transformation in type space. The function is the *only* place shaping logic exists; consumers wrap it (reactively in `/vue`, post-`await` in `/admin`). Scope-key resolution (declared singular → algorithm, honoring `options.singularize`) lives once as `SingularScopeKey<>` + its runtime twin, so the TypeScript key and the runtime key always agree.
 - **Validation** is `IdbValidQuery<Q, S>` — an intersection of the input-independent authoring shape `IdbQuery<S>` (the completion source) and an *input-mapped arm* that re-walks the user's own keys and types each violation as a stable `QERR_*` message string at the offending key (valid positions resolve to `unknown`, the intersection identity). `q`/`defineQuery` apply it as a `<const Q extends IdbValidQuery<Q, S>>` self-referential constraint; inline literals get it as a contextual type, and wrapping a factory's return in `q()` restores the same deep localization. (Operator restrictions live in the authoring `IdbWhereOps` shape, typed as their `QERR_*` message when the field doesn't support the operator.)
 - **Singularize** ships as one runtime function and one type utility generated from the same rule set, with a shared table of irregulars — they must never disagree (locked by a type test that compares them across a word list). The list includes the deterministic-but-imperfect cases (`analyses → analyse`) the explicit `singular` override exists for.
-- **Typed tx** wraps core's `txInit()` in a typed proxy layer; dot-path link keys are detected at the type level (template-literal keys over link labels × unique fields) and compiled to `lookup()` calls at runtime. The chain owns its narrower typing rather than re-deriving the official `TransactionChunk` — that type can't be a structural supertype (its method params are contravariant) — and stays interop-safe by carrying the official `__ops`/`__etype` runtime shape `transact` consumes.
+- **Typed tx** wraps core's `txInit()` in a typed proxy layer; dot-path link keys are detected at the type level (template-literal keys over link labels × unique fields) and compiled to `lookup()` calls at runtime. The chain owns its narrower typing rather than re-deriving the official `TransactionChunk` — that type can't be a structural supertype (its method params are contravariant) — and stays interop-safe by carrying the official `__ops`/`__etype` runtime shape `transact` consumes. `transact`/`debugTransact` accept `IdbTxChunkInput<S>` — the per-namespace union `{ [NS]: IdbTxChunk<S, NS> }[…]` — for the same contravariance reason: a chunk narrowed to one namespace (what `tx.tasks[id]…` produces) is one member of that union, where `IdbTxChunk<S>`'s default full-union `NS` would reject it. One input type, both runtimes (client `db.transact` and `adminDb.transact`).
 
 ### 8.3 Editor-DX positions to lock
 
@@ -542,7 +542,7 @@ Done when: tx dx + type tests green.
 - [x] typed tx proxy: per-label cardinality typing on `.link`
 - [x] dot-path `.link` keys → `lookup()` compilation (one hop, unique fields only)
 - [x] `.ruleParams` typing from schema declarations
-- [x] `IdbTxChunk`, `IdbTxUpdate`, `IdbTxCreate`, `IdbTxLink`, `IdbTxRuleParams`
+- [x] `IdbTxChunk`, `IdbTxChunkInput`, `IdbTxUpdate`, `IdbTxCreate`, `IdbTxLink`, `IdbTxRuleParams`
 - [x] `id` / `lookup` re-exports
 - [x] `.dx.test.ts`: link-label + dot-path completions; ruleParams completions; wrong-value diagnostics
 - [x] runtime suite: dot-path compiles to official `lookup()` wire form

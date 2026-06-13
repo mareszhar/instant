@@ -2,6 +2,7 @@ export { typedTx } from './typedTx.js'
 export type {
   IdbTx,
   IdbTxChunk,
+  IdbTxChunkInput,
   IdbTxCreate,
   IdbTxLink,
   IdbTxNamespace,
