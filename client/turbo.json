@@ -11,6 +11,8 @@
     "NODE_AUTH_TOKEN",
     "NPM_CONFIG_USERCONFIG",
     "NPM_CONFIG_PROVENANCE",
+    "npm_config_cache",
+    "npm_config_loglevel",
 
     "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
     "ACTIONS_ID_TOKEN_REQUEST_URL",

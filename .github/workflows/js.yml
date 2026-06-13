@@ -97,7 +97,7 @@ jobs:
           return output;
 
   build:
-    name: Build & Test packages
+    name: Build & Test fork packages
     timeout-minutes: 15
     runs-on: ubuntu-latest
     container:
@@ -145,21 +145,13 @@ jobs:
         working-directory: client
         run: pnpm i --frozen-lockfile --prefer-offline
 
-      - name: Build packages
+      - name: Build fork packages
         working-directory: client
-        run: pnpm run build-packages
+        run: pnpm run build:fork
 
-      - name: Run tests
+      - name: Run fork package tests
         working-directory: client
-        run: pnpm run test
-
-      - name: Build sandbox
-        working-directory: client
-        run: pnpm run build-sandbox
-
-      - name: Run benchmarks
-        working-directory: client
-        run: pnpm run bench
+        run: pnpm run test:fork
 
       - name: Prune store
         if: github.ref == 'refs/heads/main'

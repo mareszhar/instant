@@ -16,8 +16,10 @@
   },
   "scripts": {
     "build": "turbo run build --cache-dir=.turbo --no-update-notifier",
+    "build:fork": "npm_config_cache=.npm-cache npm_config_loglevel=error turbo run build --filter=@mszr/idb-dux --filter=@mszr/idb-vux --cache-dir=.turbo --no-update-notifier",
     "dev": "turbo run dev --filter=@instantdb/version --filter=@instantdb/core --filter=@instantdb/react-common --filter=@instantdb/react --filter=@instantdb/react-native --filter=@instantdb/admin --filter=@instantdb/platform --filter=@instantdb/react-native-mmkv --filter=@instantdb/expo-sqlite --filter=instant-www --filter=sb-react-nextjs --filter=sb-admin-sdk-express --filter=@instantdb/components --filter=instant-cli --filter=create-instant-app --filter=@instantdb/resumable-stream --filter=@instantdb/webhooks --concurrency=20 --no-update-notifier",
     "test": "turbo run test:ci --no-update-notifier",
+    "test:fork": "turbo run test:ci --filter=@mszr/idb-dux --filter=@mszr/idb-vux --no-update-notifier",
     "clean": "turbo run clean",
     "bench": "turbo run bench:ci --no-update-notifier",
     "format": "prettier --write --ignore-path .prettierignore --ignore-path ../.gitignore \"**/*.{ts,tsx,js,jsx,json,md}\"",
