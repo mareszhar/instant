@@ -1,8 +1,6 @@
 # Baseline vendor stamp
 
-This directory is the **internal baseline** for `/vue` — a near-verbatim mirror
-of `@instantdb/vue`, the parity anchor and the upstream-porting surface. It is
-never exported; the public hooks compose it ([dux-spec-vue.md §9]).
+This directory is the **internal baseline** for `/vue` — a near-verbatim mirror of `@instantdb/vue`, the parity anchor and the upstream-porting surface. It is never exported; the public hooks compose it ([dux-spec-vue.md §9]).
 
 ## Vendored from
 
@@ -25,17 +23,10 @@ never exported; the public hooks compose it ([dux-spec-vue.md §9]).
 
 ## Permitted deltas (all fenced `DUX-DELTA(...)`)
 
-1. **`ssr`** — SSR-resilience floor: every reactive hook guards its reactor
-   subscription on `isClient()`, returning inert state on the server. The
-   `isClient()` helper in `utils.ts` is dux's own addition.
-2. **`components`** — components ship as `.ts` render functions rather than
-   `.vue` SFCs (no SFC compile step; boundary-lint-visible source).
-3. Class/handle renames (`InstantVue*` → `InstantDux*`) and the framework
-   version tag (`@mszr/idb-dux`).
+1. **`ssr`** — SSR-resilience floor: every reactive hook guards its reactor subscription on `isClient()`, returning inert state on the server. The `isClient()` helper in `utils.ts` is dux's own addition.
+2. **`components`** — components ship as `.ts` render functions rather than `.vue` SFCs (no SFC compile step; boundary-lint-visible source).
+3. Class/handle renames (`InstantVue*` → `InstantDux*`) and the framework version tag (`@mszr/idb-dux`).
 
 ## Re-vendoring
 
-`scripts/check-baseline-drift.mjs` checks git history for each mapped upstream
-source relative to the commit above. When it reports drift, re-copy the changed
-upstream file and re-apply the fenced deltas, then bump the commit stamp here.
-See [dux-spec-workspace.md §5].
+`scripts/check-baseline-drift.mjs` checks git history for each mapped upstream source relative to the commit above. When it reports drift, re-copy the changed upstream file and re-apply the fenced deltas, then bump the commit stamp here. See [dux-spec-workspace.md §5].
