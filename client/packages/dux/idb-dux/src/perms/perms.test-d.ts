@@ -5,6 +5,7 @@
  */
 import type { AppSchema } from '@test'
 import type {
+  ActionCtx,
   CommonCtx,
   EntityExpr,
   Expr,
@@ -76,6 +77,20 @@ describe('action-specific contexts', () => {
     expectTypeOf<UpdateCtx<AppSchema, 'tasks', {}, {}, {}>['req']['modifiedFields']>()
       .toEqualTypeOf<ListExpr<string>>()
     expectTypeOf<'modifiedFields' extends keyof TasksCommon['req'] ? true : false>()
+      .toEqualTypeOf<false>()
+  })
+
+  it('ActionCtx selects the right context per action', () => {
+    // update gets the updated entity
+    expectTypeOf<ActionCtx<AppSchema, 'tasks', {}, {}, {}, 'update'>['eu']>()
+      .toEqualTypeOf<EntityExpr<AppSchema, 'tasks'>>()
+    // view/delete do not
+    expectTypeOf<'eu' extends keyof ActionCtx<AppSchema, 'tasks', {}, {}, {}, 'view'> ? true : false>()
+      .toEqualTypeOf<false>()
+    // create carries modifiedFields but not eu
+    expectTypeOf<ActionCtx<AppSchema, 'tasks', {}, {}, {}, 'create'>['req']['modifiedFields']>()
+      .toEqualTypeOf<ListExpr<string>>()
+    expectTypeOf<'eu' extends keyof ActionCtx<AppSchema, 'tasks', {}, {}, {}, 'create'> ? true : false>()
       .toEqualTypeOf<false>()
   })
 })

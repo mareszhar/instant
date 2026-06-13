@@ -10,14 +10,17 @@
 export type { Expr, ExprArg, ItemExpr, ListExpr } from './ast.js'
 export { definePerms } from './builder.js'
 export type {
+  ActionCtx,
   AllowBlock,
   AttrsBuilder,
   AuthExpr,
   CommonCtx,
   DefaultsBuilder,
+  EntityAction,
   EntityExpr,
   Fns,
   IdbPerms,
+  LinkAction,
   LinkCtx,
   NsBuilder,
   PermsBuilder,

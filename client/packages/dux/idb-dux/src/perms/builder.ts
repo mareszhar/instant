@@ -46,8 +46,14 @@ const ACTIONS = ['view', 'create', 'update', 'delete'] as const
 // namespace builder
 
 class NamespaceRuntime {
-  private readonly staged: Record<string, ExprNode>
+  /** Common staged values — inlined, inherited from defaults, merged into every action. */
+  private readonly commonStaged: Record<string, ExprNode>
+  /** All emitted bind aliases — common and action-specific share one block. */
   private readonly binds: Record<string, ExprNode> = {}
+  /** Per-whole-entity-action staged values, visible only in that action. */
+  private readonly actionStaged: Record<string, Record<string, ExprNode>> = {}
+  /** Per-(dir, label) staged values, visible only in that link/unlink rule. */
+  private readonly linkStaged: Record<string, Record<string, Record<string, ExprNode>>> = {}
   private readonly inheritedBindNames: Set<string>
   private allowOut: Record<string, any> = {}
   private fieldsOut: Record<string, string> = {}
@@ -58,33 +64,43 @@ class NamespaceRuntime {
     defaultStaged: Record<string, ExprNode>,
     defaultBindNames: string[],
   ) {
-    this.staged = { ...defaultStaged }
+    this.commonStaged = { ...defaultStaged }
     this.inheritedBindNames = new Set(defaultBindNames)
   }
 
+  /** Is this name already a common staged value, an emitted bind, or inherited? */
   private known(name: string): boolean {
-    return name in this.staged || name in this.binds || this.inheritedBindNames.has(name)
-  }
-
-  private ctx(linkTarget?: string): Ctx {
-    const validator = this.schema
-      ? makeValidator(this.schema, this.ns, linkTarget)
-      : noValidate
-    return makeContext({ staged: this.staged, binds: this.binds }, validator)
+    return name in this.commonStaged || name in this.binds || this.inheritedBindNames.has(name)
   }
 
   private linkTargetOf(label: string): string | undefined {
     return this.schema?.entities[this.ns]?.links?.[label]?.entityName
   }
 
-  private collect(
-    fn: (ctx: Ctx) => Record<string, ExprNode>,
+  /** Build a context over a staged snapshot, validating against ns (or a link target). */
+  private ctxFor(staged: Record<string, ExprNode>, linkTarget?: string): Ctx {
+    const validator = this.schema
+      ? makeValidator(this.schema, this.ns, linkTarget)
+      : noValidate
+    return makeContext({ staged, binds: this.binds }, validator)
+  }
+
+  private mergedStaged(action: string): Record<string, ExprNode> {
+    return { ...this.commonStaged, ...this.actionStaged[action] }
+  }
+
+  private mergedLinkStaged(dir: string, label: string): Record<string, ExprNode> {
+    return { ...this.commonStaged, ...this.linkStaged[dir]?.[label] }
+  }
+
+  private add(
+    produced: Record<string, ExprNode>,
     into: Record<string, ExprNode>,
     guard: boolean,
+    seen: (name: string) => boolean,
   ): this {
-    const produced = fn(this.ctx())
     for (const [name, node] of Object.entries(produced)) {
-      if (guard && this.known(name))
+      if (guard && seen(name))
         throw new Error(`QERR_PERMS_DUPLICATE_NAME: '${name}' is already defined on '${this.ns}' — use .overrideStage/.overrideBind`)
       into[name] = node
     }
@@ -92,27 +108,61 @@ class NamespaceRuntime {
   }
 
   stage(fn: (ctx: Ctx) => Record<string, ExprNode>) {
-    return this.collect(fn, this.staged, true)
+    return this.add(fn(this.ctxFor(this.commonStaged)), this.commonStaged, true, n => this.known(n))
   }
 
   overrideStage(fn: (ctx: Ctx) => Record<string, ExprNode>) {
-    return this.collect(fn, this.staged, false)
+    return this.add(fn(this.ctxFor(this.commonStaged)), this.commonStaged, false, () => false)
   }
 
   bind(fn: (ctx: Ctx) => Record<string, ExprNode>) {
-    return this.collect(fn, this.binds, true)
+    return this.add(fn(this.ctxFor(this.commonStaged)), this.binds, true, n => this.known(n))
   }
 
   overrideBind(fn: (ctx: Ctx) => Record<string, ExprNode>) {
-    return this.collect(fn, this.binds, false)
+    return this.add(fn(this.ctxFor(this.commonStaged)), this.binds, false, () => false)
+  }
+
+  stageFor(actionOrDir: string, labelOrFn: any, maybeFn?: any) {
+    if (maybeFn === undefined) {
+      const action = actionOrDir
+      const into = (this.actionStaged[action] ??= {})
+      return this.add(
+        labelOrFn(this.ctxFor(this.mergedStaged(action))),
+        into,
+        true,
+        n => this.known(n) || n in into,
+      )
+    }
+    const [dir, label] = [actionOrDir, labelOrFn]
+    const into = ((this.linkStaged[dir] ??= {})[label] ??= {})
+    return this.add(
+      maybeFn(this.ctxFor(this.mergedLinkStaged(dir, label), this.linkTargetOf(label))),
+      into,
+      true,
+      n => this.known(n) || n in into,
+    )
+  }
+
+  bindFor(actionOrDir: string, labelOrFn: any, maybeFn?: any) {
+    if (maybeFn === undefined) {
+      const action = actionOrDir
+      return this.add(labelOrFn(this.ctxFor(this.mergedStaged(action))), this.binds, true, n => this.known(n))
+    }
+    const [dir, label] = [actionOrDir, labelOrFn]
+    return this.add(
+      maybeFn(this.ctxFor(this.mergedLinkStaged(dir, label), this.linkTargetOf(label))),
+      this.binds,
+      true,
+      n => this.known(n),
+    )
   }
 
   allow(input: any) {
-    const baseCtx = this.ctx()
-    const block = typeof input === 'function' ? input(baseCtx) : input
+    const block = typeof input === 'function' ? input(this.ctxFor(this.commonStaged)) : input
     for (const action of ACTIONS) {
       if (block[action] !== undefined)
-        this.allowOut[action] = resolveRule(block[action], baseCtx)
+        this.allowOut[action] = resolveRule(block[action], this.ctxFor(this.mergedStaged(action)))
     }
     for (const dir of ['link', 'unlink'] as const) {
       const labels = block[dir]
@@ -120,8 +170,10 @@ class NamespaceRuntime {
         continue
       const map: Record<string, string> = this.allowOut[dir] ?? {}
       for (const [label, rule] of Object.entries(labels)) {
-        if (rule !== undefined)
-          map[label] = resolveRule(rule as RuleValue, this.ctx(this.linkTargetOf(label)))
+        if (rule !== undefined) {
+          const ctx = this.ctxFor(this.mergedLinkStaged(dir, label), this.linkTargetOf(label))
+          map[label] = resolveRule(rule as RuleValue, ctx)
+        }
       }
       this.allowOut[dir] = map
     }
@@ -129,7 +181,7 @@ class NamespaceRuntime {
   }
 
   fields(input: any) {
-    const ctx = this.ctx()
+    const ctx = this.ctxFor(this.commonStaged)
     const block = typeof input === 'function' ? input(ctx) : input
     for (const [field, rule] of Object.entries(block)) {
       if (rule !== undefined)

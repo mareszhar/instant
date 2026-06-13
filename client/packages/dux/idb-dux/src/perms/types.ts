@@ -237,23 +237,118 @@ export interface AttrsCtx<S extends IdbSchema, RL> {
 }
 
 // ==========
+// action scopes — what stageFor/bindFor accumulate
+
+/** The four whole-entity actions a `stageFor`/`bindFor` can target. */
+export type EntityAction = 'view' | 'create' | 'update' | 'delete'
+/** The two link-label actions. */
+export type LinkAction = 'link' | 'unlink'
+
+/** One action's accumulated action-specific staged (`s`) and bind (`b`) names. */
+export interface Scope { s: object, b: object }
+interface EmptyScope { s: {}, b: {} }
+
+/**
+ * The action-specific names a namespace builder has accumulated — threaded
+ * through the builder's type so each appears *only* in its own action's
+ * callback. Whole-entity actions hold one scope; link/unlink hold one per label.
+ */
+export interface ActionScopes {
+  view: Scope
+  create: Scope
+  update: Scope
+  delete: Scope
+  link: Record<string, Scope>
+  unlink: Record<string, Scope>
+}
+
+/** The starting scopes — nothing action-specific yet. */
+export interface EmptyScopes {
+  view: EmptyScope
+  create: EmptyScope
+  update: EmptyScope
+  delete: EmptyScope
+  link: {}
+  unlink: {}
+}
+
+type LinkScopeOf<AX extends ActionScopes, D extends LinkAction, L extends string>
+  = L extends keyof AX[D] ? AX[D][L] : EmptyScope
+
+interface StageScope<Sc extends Scope, O> { s: Expand<Sc['s'] & O>, b: Sc['b'] }
+interface BindScope<Sc extends Scope, O> { s: Sc['s'], b: Expand<Sc['b'] & O> }
+
+// The full ActionScopes is rebuilt explicitly (rather than Omit + re-add) so the
+// result is statically known to keep all six keys, satisfying the constraint
+// even while `A` is still a generic.
+interface AddStage<AX extends ActionScopes, A extends EntityAction, O> {
+  view: A extends 'view' ? StageScope<AX['view'], O> : AX['view']
+  create: A extends 'create' ? StageScope<AX['create'], O> : AX['create']
+  update: A extends 'update' ? StageScope<AX['update'], O> : AX['update']
+  delete: A extends 'delete' ? StageScope<AX['delete'], O> : AX['delete']
+  link: AX['link']
+  unlink: AX['unlink']
+}
+interface AddBind<AX extends ActionScopes, A extends EntityAction, O> {
+  view: A extends 'view' ? BindScope<AX['view'], O> : AX['view']
+  create: A extends 'create' ? BindScope<AX['create'], O> : AX['create']
+  update: A extends 'update' ? BindScope<AX['update'], O> : AX['update']
+  delete: A extends 'delete' ? BindScope<AX['delete'], O> : AX['delete']
+  link: AX['link']
+  unlink: AX['unlink']
+}
+interface AddLinkStage<AX extends ActionScopes, D extends LinkAction, L extends string, O> {
+  view: AX['view']
+  create: AX['create']
+  update: AX['update']
+  delete: AX['delete']
+  link: D extends 'link' ? AX['link'] & { [P in L]: StageScope<LinkScopeOf<AX, 'link', L>, O> } : AX['link']
+  unlink: D extends 'unlink' ? AX['unlink'] & { [P in L]: StageScope<LinkScopeOf<AX, 'unlink', L>, O> } : AX['unlink']
+}
+interface AddLinkBind<AX extends ActionScopes, D extends LinkAction, L extends string, O> {
+  view: AX['view']
+  create: AX['create']
+  update: AX['update']
+  delete: AX['delete']
+  link: D extends 'link' ? AX['link'] & { [P in L]: BindScope<LinkScopeOf<AX, 'link', L>, O> } : AX['link']
+  unlink: D extends 'unlink' ? AX['unlink'] & { [P in L]: BindScope<LinkScopeOf<AX, 'unlink', L>, O> } : AX['unlink']
+}
+
+/** The context a whole-entity action callback (and its `stageFor`/`bindFor`) sees. */
+export type ActionCtx<S extends IdbSchema, NS extends string, St, Bn, RL, A extends EntityAction>
+  = A extends 'update'
+    ? UpdateCtx<S, NS, St, Bn, RL>
+    : A extends 'create'
+      ? WriteCtx<S, NS, St, Bn, RL>
+      : CommonCtx<S, NS, St, Bn, RL>
+
+// ==========
 // allow / fields / bind / stage shapes
 
 /** A rule value: a boolean, an expression, or a callback returning one. */
 export type Rule<Ctx> = boolean | Expr<boolean> | ((ctx: Ctx) => boolean | Expr<boolean>)
 
-/** The allow block for a namespace — actions plus per-label link/unlink rules. */
-export interface AllowBlock<S extends IdbSchema, NS extends string, St, Bn, RL> {
-  view?: Rule<CommonCtx<S, NS, St, Bn, RL>>
-  create?: Rule<WriteCtx<S, NS, St, Bn, RL>>
-  update?: Rule<UpdateCtx<S, NS, St, Bn, RL>>
-  delete?: Rule<CommonCtx<S, NS, St, Bn, RL>>
-  link?: { [L in LinkLabels<S, NS>]?: Rule<LinkCtx<S, NS, L, St, Bn, RL>> }
-  unlink?: { [L in LinkLabels<S, NS>]?: Rule<LinkCtx<S, NS, L, St, Bn, RL>> }
+/**
+ * The allow block for a namespace. Each action's callback sees the common
+ * scope plus that action's `stageFor`/`bindFor` names (and, for link/unlink,
+ * the per-label ones) — so action-specific aliases resolve only where they
+ * make sense.
+ */
+export interface AllowBlock<S extends IdbSchema, NS extends string, St, Bn, RL, AX extends ActionScopes = EmptyScopes> {
+  view?: Rule<CommonCtx<S, NS, St & AX['view']['s'], Bn & AX['view']['b'], RL>>
+  create?: Rule<WriteCtx<S, NS, St & AX['create']['s'], Bn & AX['create']['b'], RL>>
+  update?: Rule<UpdateCtx<S, NS, St & AX['update']['s'], Bn & AX['update']['b'], RL>>
+  delete?: Rule<CommonCtx<S, NS, St & AX['delete']['s'], Bn & AX['delete']['b'], RL>>
+  link?: {
+    [L in LinkLabels<S, NS>]?: Rule<LinkCtx<S, NS, L, St & LinkScopeOf<AX, 'link', L>['s'], Bn & LinkScopeOf<AX, 'link', L>['b'], RL>>
+  }
+  unlink?: {
+    [L in LinkLabels<S, NS>]?: Rule<LinkCtx<S, NS, L, St & LinkScopeOf<AX, 'unlink', L>['s'], Bn & LinkScopeOf<AX, 'unlink', L>['b'], RL>>
+  }
 }
 
-export type AllowInput<S extends IdbSchema, NS extends string, St, Bn, RL>
-  = AllowBlock<S, NS, St, Bn, RL> | ((ctx: CommonCtx<S, NS, St, Bn, RL>) => AllowBlock<S, NS, St, Bn, RL>)
+export type AllowInput<S extends IdbSchema, NS extends string, St, Bn, RL, AX extends ActionScopes = EmptyScopes>
+  = AllowBlock<S, NS, St, Bn, RL, AX> | ((ctx: CommonCtx<S, NS, St, Bn, RL>) => AllowBlock<S, NS, St, Bn, RL, AX>)
 
 /** Field-level rules — every field except `id`. */
 export type FieldsBlock<S extends IdbSchema, NS extends string> = {
@@ -301,21 +396,53 @@ export interface NsBuilder<
   St = {},
   Bn = {},
   RL = {},
+  AX extends ActionScopes = EmptyScopes,
 > {
   stage: <O extends NameObj>(
     fn: (ctx: CommonCtx<S, NS, St, Bn, RL>) => O & NoDuplicateNames<O, St & Bn>,
-  ) => NsBuilder<S, NS, Expand<St & O>, Bn, RL>
+  ) => NsBuilder<S, NS, Expand<St & O>, Bn, RL, AX>
   overrideStage: <O extends NameObj>(
     fn: (ctx: CommonCtx<S, NS, St, Bn, RL>) => O,
-  ) => NsBuilder<S, NS, Expand<St & O>, Bn, RL>
+  ) => NsBuilder<S, NS, Expand<St & O>, Bn, RL, AX>
   bind: <O extends NameObj>(
     fn: (ctx: CommonCtx<S, NS, St, Bn, RL>) => O & NoDuplicateNames<O, St & Bn>,
-  ) => NsBuilder<S, NS, St, Expand<Bn & O>, RL>
+  ) => NsBuilder<S, NS, St, Expand<Bn & O>, RL, AX>
   overrideBind: <O extends NameObj>(
     fn: (ctx: CommonCtx<S, NS, St, Bn, RL>) => O,
-  ) => NsBuilder<S, NS, St, Expand<Bn & O>, RL>
-  allow: (input: AllowInput<S, NS, St, Bn, RL>) => NsBuilder<S, NS, St, Bn, RL>
-  fields: (input: FieldsInput<S, NS, St, Bn, RL>) => NsBuilder<S, NS, St, Bn, RL>
+  ) => NsBuilder<S, NS, St, Expand<Bn & O>, RL, AX>
+  /**
+   * Action-specific staged values — authoring-only, visible only in the
+   * matching action's callback. For link/unlink, pass the label too (spec §9).
+   */
+  stageFor: {
+    <A extends EntityAction, O extends NameObj>(
+      action: A,
+      fn: (ctx: ActionCtx<S, NS, St & AX[A]['s'], Bn & AX[A]['b'], RL, A>) => O & NoDuplicateNames<O, St & Bn>,
+    ): NsBuilder<S, NS, St, Bn, RL, AddStage<AX, A, O>>
+    <D extends LinkAction, L extends LinkLabels<S, NS>, O extends NameObj>(
+      dir: D,
+      label: L,
+      fn: (ctx: LinkCtx<S, NS, L, St & LinkScopeOf<AX, D, L>['s'], Bn & LinkScopeOf<AX, D, L>['b'], RL>) => O & NoDuplicateNames<O, St & Bn>,
+    ): NsBuilder<S, NS, St, Bn, RL, AddLinkStage<AX, D, L, O>>
+  }
+  /**
+   * Action-specific bind aliases — emitted into the namespace `bind` block
+   * (the backend evaluates each only where referenced), visible only in the
+   * matching action's callback (spec §9).
+   */
+  bindFor: {
+    <A extends EntityAction, O extends NameObj>(
+      action: A,
+      fn: (ctx: ActionCtx<S, NS, St & AX[A]['s'], Bn & AX[A]['b'], RL, A>) => O & NoDuplicateNames<O, St & Bn>,
+    ): NsBuilder<S, NS, St, Bn, RL, AddBind<AX, A, O>>
+    <D extends LinkAction, L extends LinkLabels<S, NS>, O extends NameObj>(
+      dir: D,
+      label: L,
+      fn: (ctx: LinkCtx<S, NS, L, St & LinkScopeOf<AX, D, L>['s'], Bn & LinkScopeOf<AX, D, L>['b'], RL>) => O & NoDuplicateNames<O, St & Bn>,
+    ): NsBuilder<S, NS, St, Bn, RL, AddLinkBind<AX, D, L, O>>
+  }
+  allow: (input: AllowInput<S, NS, St, Bn, RL, AX>) => NsBuilder<S, NS, St, Bn, RL, AX>
+  fields: (input: FieldsInput<S, NS, St, Bn, RL>) => NsBuilder<S, NS, St, Bn, RL, AX>
 }
 
 /** The defaults builder — `d` in `.defaults()` (spec §5). */
@@ -354,7 +481,7 @@ type DefaultBindsOf<D> = D extends DefaultsBuilder<any, any, infer Bn, any> ? Bn
 export type NamespacesInput<S extends IdbSchema, St, Bn, RL> = {
   [NS in IdbNamespaceName<S>]?: (
     ns: NsBuilder<S, NS, St, Bn, RL>,
-  ) => NsBuilder<S, NS, any, any, RL>
+  ) => NsBuilder<S, NS, any, any, RL, any>
 }
 
 /** The top-level builder returned by `definePerms` (spec §3). */

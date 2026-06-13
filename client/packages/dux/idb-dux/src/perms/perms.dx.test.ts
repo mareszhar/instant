@@ -122,3 +122,60 @@ describe('definePerms — diagnostics at the cursor', () => {
     expect(errors).toHaveError(/nope/)
   })
 })
+
+describe('definePerms — action-specific stageFor / bindFor scoping', () => {
+  it('exposes eu inside a stageFor("update") callback', () => {
+    const { completions } = project.query`
+      ${prelude}
+      export default definePerms().namespaces({
+        tasks: ns => ns.stageFor('update', ({ eu }) => { eu.${cursor}; return {} }),
+      })
+    `
+    expect(completions).toContainCompletions(['title', 'isDone'])
+  })
+
+  it('exposes el inside a bindFor("link", label) callback, typed to the target', () => {
+    const { completions } = project.query`
+      ${prelude}
+      export default definePerms().namespaces({
+        memberships: ns => ns.bindFor('link', 'user', ({ el }) => { el.${cursor}; return {} }),
+      })
+    `
+    // user → $users
+    expect(completions).toContainCompletions(['id', 'email', 'name'])
+  })
+
+  it('makes a bindFor("update") alias usable in the update rule', () => {
+    const { completions } = project.query`
+      ${prelude}
+      export default definePerms().namespaces({
+        tasks: ns => ns
+          .bindFor('update', ({ e, eu }) => ({ titleChanged: eu.title.neq(e.title) }))
+          .allow({ update: ({ b }) => { b.${cursor}; return true } }),
+      })
+    `
+    expect(completions).toContainCompletions(['titleChanged'])
+  })
+
+  it('keeps an update-only bind out of the view rule', () => {
+    const { errors } = project.check`
+      ${prelude}
+      export default definePerms().namespaces({
+        tasks: ns => ns
+          .bindFor('update', ({ e, eu }) => ({ titleChanged: eu.title.neq(e.title) }))
+          .allow({ view: ({ b }) => b.titleChanged }),
+      })
+    `
+    expect(errors).toHaveError(/titleChanged/)
+  })
+
+  it('rejects eu inside a stageFor("view") callback', () => {
+    const { errors } = project.check`
+      ${prelude}
+      export default definePerms().namespaces({
+        tasks: ns => ns.stageFor('view', ({ eu }) => ({ x: eu.title.eq('y') })),
+      })
+    `
+    expect(errors).toHaveError(/eu/)
+  })
+})

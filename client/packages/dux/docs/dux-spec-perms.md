@@ -14,8 +14,8 @@ Conventions: [dux-conventions.md](./dux-conventions.md) (esp. [§10 Perms vocabu
 | P1 | Expression AST + CEL renderer + the compile pipeline | 8 | ☑ complete |
 | P2 | Common context + core builders (`.stage`/`.bind`/`.allow`/`.fields`, defaults, overrides) | 8 | ☑ complete |
 | P3 | Expression breadth: list methods, functional helpers, `raw` | 8 | ☑ complete |
-| P4 | Action callbacks (`eu`/`el`/`modifiedFields` typed per action) | 8 | ☑ complete — standalone `stageFor`/`bindFor` deferred ([vision §7](./dux-vision.md#7-deferred-intentions)) |
-| P5 | `.attrs`, `$rateLimits`, runtime diagnostics, compat-target tests | 8 | ☑ complete — opt-in raw-string compat mode deferred |
+| P4 | Action-specific contexts (`eu`/`el`/`modifiedFields` per action; `stageFor`/`bindFor`) | 8 | ☑ complete |
+| P5 | `.attrs`, `$rateLimits`, runtime diagnostics, compat-target tests | 8 | ☑ complete |
 
 Details: [§14 Phased implementation roadmap](#14-phased-implementation-roadmap).
 
@@ -531,10 +531,9 @@ Raw CEL should be explicit.
 }))
 ```
 
-- arbitrary strings are not accepted as ordinary expressions
-- `raw(...)` marks the unsafety at the call site
-- a migration/compat mode may allow direct strings, but it is opt-in
-- raw expressions are still parsed if a CEL parser is available in dev/test
+- arbitrary strings are not accepted as ordinary expressions — `raw(...)` is the one explicit door, and it marks the unsafety at the call site
+- raw renders verbatim and yields a boolean expression by default; pass a type param (`raw<string>(...)`) for a non-boolean terminal
+- raw composes safely: it carries the lowest precedence, so any expression built around it is always parenthesized
 
 ## 9. Action-specific stage and bind
 
@@ -591,7 +590,7 @@ Rules:
 - duplicate names across common and action-specific binds are rejected
 - `.overrideBind(...)` may explicitly replace inherited names
 
-Implementation can defer `stageFor` / `bindFor` until after common rules land (a settled intention — [dux-vision.md §7](./dux-vision.md#7-deferred-intentions)), but the API leaves room for it because Instant's own docs use `newData` inside `bind`.
+An action-specific bind is emitted into the namespace's ordinary `bind` block — the backend evaluates each bind only in the rules that reference it, so an `update`-scoped bind that reads `newData` is computed only for updates (Instant's own docs use `newData` inside `bind` for exactly this). The action scope is therefore an *authoring-visibility* boundary: the type carries each `stageFor`/`bindFor` name only into its matching action callback, so it can't be referenced — and so can't compile to invalid CEL — anywhere the value wouldn't exist.
 
 ## 10. Output
 
@@ -901,13 +900,12 @@ Done when: the full example's non-action-specific rules compile and validate.
 - [x] action callback forms: `eu`/`euf` in update; `el`/`elf`/`elr` in link/unlink with per-label typing
 - [x] `request.modifiedFields` in create/update
 - [x] context misuse fails at the cursor (dx-locked)
-- [ ] `stageFor` / `bindFor` (deferred — the action *callbacks* above cover the common need; settled intention, [vision §7](./dux-vision.md#7-deferred-intentions))
+- [x] `stageFor` / `bindFor` (whole-entity and per-label link/unlink; names scoped to the matching action callback)
 
 ### Phase P5 — special builders, diagnostics, compat (global phase 8)
 
 - [x] `.attrs` (create-only, narrow context)
 - [x] `.rateLimits` config + `rl` usage rendering
 - [x] runtime schema validation diagnostics (`definePerms(schema)` dev assertions: namespace, field, ref path, ruleParam, duplicate name)
-- [ ] optional compat mode for direct raw strings (deferred — opt-in, no demand yet)
 - [x] compat-target tests: `InstantRules` assignability + push fixture
 - [x] cyclic bind detection — delegated to Instant: the backend topologically sorts and validates the emitted `bind` block (`server/.../rule.clj`)

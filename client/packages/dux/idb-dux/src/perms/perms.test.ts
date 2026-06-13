@@ -277,3 +277,57 @@ describe('runtime schema validation (definePerms(schema))', () => {
     }).compile()).not.toThrow()
   })
 })
+
+describe('action-specific stageFor / bindFor', () => {
+  it('bindFor emits into the namespace bind block, usable in its action', () => {
+    const r = definePerms(schema).namespaces({
+      tasks: ns => ns
+        .bind(({ auth, er }) => ({ isMember: er('workspace.memberships.user.id').contains(auth.id) }))
+        .bindFor('update', ({ e, eu }) => ({ titleChanged: eu.title.neq(e.title) }))
+        .allow({ update: ({ b }) => b.isMember.and(b.titleChanged) }),
+    }).compile() as any
+    expect(r.tasks.bind).toEqual({
+      isMember: 'auth.id in data.ref(\'workspace.memberships.user.id\')',
+      titleChanged: 'newData.title != data.title',
+    })
+    expect(r.tasks.allow.update).toBe('isMember && titleChanged')
+  })
+
+  it('stageFor stays authoring-only (inlined, never emitted)', () => {
+    const r = definePerms(schema).namespaces({
+      tasks: ns => ns
+        .stageFor('update', ({ e, eu }) => ({ titleChanged: eu.title.neq(e.title) }))
+        .allow({ update: ({ s }) => s.titleChanged }),
+    }).compile() as any
+    expect(r.tasks.allow.update).toBe('newData.title != data.title')
+    expect(r.tasks.bind).toBeUndefined()
+  })
+
+  it('bindFor(link, label) scopes el to the linked namespace', () => {
+    const r = definePerms(schema).namespaces({
+      memberships: ns => ns
+        .bindFor('link', 'user', ({ auth, el }) => ({ linksSelf: el.id.eq(auth.id) }))
+        .allow({ link: { user: ({ b }) => b.linksSelf } }),
+    }).compile() as any
+    expect(r.memberships.bind).toEqual({ linksSelf: 'linkedData.id == auth.id' })
+    expect(r.memberships.allow.link).toEqual({ user: 'linksSelf' })
+  })
+
+  it('stageFor(link, label) inlines per-label staged values', () => {
+    const r = definePerms(schema).namespaces({
+      memberships: ns => ns
+        .stageFor('link', 'workspace', ({ rp, el }) => ({ codeMatches: el.inviteCode.eq(rp('inviteCode')) }))
+        .allow({ link: { workspace: ({ s }) => s.codeMatches } }),
+    }).compile() as any
+    expect(r.memberships.allow.link).toEqual({ workspace: 'linkedData.inviteCode == ruleParams.inviteCode' })
+    expect(r.memberships.bind).toBeUndefined()
+  })
+
+  it('rejects an action bind name that clashes with a common bind', () => {
+    expect(() => definePerms(schema).namespaces({
+      tasks: ns => ns
+        .bind(({ auth }) => ({ dup: auth.id.neq(null) }))
+        .bindFor('update', ({ eu }) => ({ dup: eu.title.neq(null) } as any)),
+    })).toThrow(/already defined/)
+  })
+})

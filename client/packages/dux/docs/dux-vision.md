@@ -338,7 +338,6 @@ No open questions — deferred items are decided intentions with explicit trigge
 | Auto-infer singularity from static patterns (`where: { id }`, unique-field filters) | Explicit `$only`/`$at` is the contract; inference is an eventual spike | post-1.0, only if the explicit forms prove noisy in real apps |
 | Full SSR hydration | Resilience floor now; hydration when upstream marks SSR stable (today: experimental, Next-only) | upstream stability |
 | `options` expansion beyond `singularize` | add schema-level options only when a concrete need appears | concrete need |
-| Perms `stageFor`/`bindFor` | in spec; implementation may land after common rules | perms build order ([dux-spec-perms.md](./dux-spec-perms.md)) |
 | Dot-path `.link` depth | one hop by design — deeper traversal belongs to queries | not planned |
 | Validation/suggestion depth configurability | fixed at 3 hops | only if real schemas demand it |
 | `/platform` subpath (dux-typed platform API) | deferred; the official platform SDK is a tested compat target against dux apps | first external adopter with existing apps, or a dux tooling/CLI initiative — whichever lands first |
