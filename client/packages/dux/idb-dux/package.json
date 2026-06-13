@@ -147,7 +147,7 @@
     "@instantdb/resumable-stream": "workspace:*",
     "@instantdb/vue": "workspace:*",
     "@instantdb/webhooks": "workspace:*",
-    "@mszr/selenita": "^0.2.0",
+    "@mszr/selenita": "^0.2.2",
     "@types/node": "^25.9.3",
     "@vue/test-utils": "^2.4.10",
     "h3": "^1.15.3",

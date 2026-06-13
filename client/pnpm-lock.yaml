@@ -566,6 +566,9 @@ importers:
       '@instantdb/platform':
         specifier: workspace:^
         version: link:../../platform
+      '@instantdb/resumable-stream':
+        specifier: workspace:*
+        version: link:../../resumable-stream
       '@instantdb/vue':
         specifier: workspace:*
         version: link:../../vue
@@ -573,7 +576,7 @@ importers:
         specifier: workspace:*
         version: link:../../webhooks
       '@mszr/selenita':
-        specifier: ^0.2.0
+        specifier: ^0.2.2
         version: 0.2.2(typescript@6.0.3)(vitest@4.1.6(@opentelemetry/api@1.9.0)(@types/node@25.9.3)(jsdom@29.1.1)(msw@2.15.0(@types/node@25.9.3)(typescript@6.0.3))(vite@7.3.1(@types/node@25.9.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.2)(tsx@4.19.3)(yaml@2.8.3)))
       '@types/node':
         specifier: ^25.9.3

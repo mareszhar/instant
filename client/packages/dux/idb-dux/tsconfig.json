@@ -15,7 +15,7 @@
       "@mszr/idb-dux/webhooks": ["./src/webhooks/index.ts"],
       "@mszr/idb-dux/nuxt": ["./src/nuxt/index.ts"]
     },
-    "types": ["node", "vitest/globals"],
+    "types": ["node", "vitest/globals", "@mszr/selenita/vitest"],
     "strict": true,
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
