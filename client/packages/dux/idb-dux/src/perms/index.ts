@@ -5,7 +5,28 @@
  * plain rules object Instant already accepts. Authoring-only: no client
  * runtime, never bundled into client JS.
  *
- * Spec: `../../../docs/dux-spec-perms.md`. Scaffolded empty on purpose —
- * each export lands with its roadmap phase.
+ * Spec: `../../../docs/dux-spec-perms.md`.
  */
-export {}
+export type { Expr, ExprArg, ItemExpr, ListExpr } from './ast.js'
+export { definePerms } from './builder.js'
+export type {
+  AllowBlock,
+  AttrsBuilder,
+  AuthExpr,
+  CommonCtx,
+  DefaultsBuilder,
+  EntityExpr,
+  Fns,
+  IdbPerms,
+  LinkCtx,
+  NsBuilder,
+  PermsBuilder,
+  RateLimitCtx,
+  RefPath,
+  RefTerminal,
+  RequestExpr,
+  Rule,
+  UpdateCtx,
+  WriteCtx,
+  WriteRequestExpr,
+} from './types.js'

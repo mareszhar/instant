@@ -1,4 +1,4 @@
-updated: 2026-06-11
+updated: 2026-06-12
 status: spec — contracts are binding; implementation approaches are proposals in their service
 
 # dux spec — `/perms`
@@ -11,11 +11,11 @@ Conventions: [dux-conventions.md](./dux-conventions.md) (esp. [§10 Perms vocabu
 
 | Phase | Scope | Global phase | Status |
 |---|---|---|---|
-| P1 | Expression AST + CEL renderer + the compile pipeline | 8 | ☐ not started |
-| P2 | Common context + core builders (`.stage`/`.bind`/`.allow`/`.fields`, defaults, overrides) | 8 | ☐ not started |
-| P3 | Expression breadth: list methods, functional helpers, `raw` | 8 | ☐ not started |
-| P4 | Action-specific contexts (`eu`/`el`, `stageFor`/`bindFor`) | 8 | ☐ not started |
-| P5 | `.attrs`, `$rateLimits`, runtime diagnostics, compat mode | 8 | ☐ not started |
+| P1 | Expression AST + CEL renderer + the compile pipeline | 8 | ☑ complete |
+| P2 | Common context + core builders (`.stage`/`.bind`/`.allow`/`.fields`, defaults, overrides) | 8 | ☑ complete |
+| P3 | Expression breadth: list methods, functional helpers, `raw` | 8 | ☑ complete |
+| P4 | Action callbacks (`eu`/`el`/`modifiedFields` typed per action) | 8 | ☑ complete — standalone `stageFor`/`bindFor` deferred ([vision §7](./dux-vision.md#7-deferred-intentions)) |
+| P5 | `.attrs`, `$rateLimits`, runtime diagnostics, compat-target tests | 8 | ☑ complete — opt-in raw-string compat mode deferred |
 
 Details: [§14 Phased implementation roadmap](#14-phased-implementation-roadmap).
 
@@ -237,7 +237,7 @@ Hybrid action-specific form:
 .allow(({ b }) => ({
   view: b.isMember,
   create: ({ req }) => b.isSignedIn.and(
-    req.modifiedFields.all(field => field.in(['title', 'createdAt'])),
+    req.modifiedFields.every(field => field.in(['title', 'createdAt'])),
   ),
   update: ({ e, eu }) => b.isMember.and(
     eu.title.neq(e.title),
@@ -354,10 +354,12 @@ The context is **entity-rooted with current unmarked**: the current entity is *t
 | `entityField` | `ef` | current entity field by string key | `data.<field>` |
 | `entityRef` | `er` | linked attrs from the current entity | `data.ref('...')` |
 | `ruleParams` | `rp` | rule params by key; keys autocomplete from the namespace's `ruleParams` declaration in `defineSchema` | `ruleParams.<key>` |
-| `request` | `req` | request metadata | `request.*` |
+| `request` | `req` | request metadata: `req.time`, `req.ip`, `req.origin` | `request.*` |
 | `rateLimit` | `rl` | rate limit buckets | `rateLimit.*` |
 | `ops` | `f` | functional expression helpers | — |
 | `raw` | - | explicit raw CEL escape hatch | as written |
+
+`req.modifiedFields` is **not** in the common context — it is meaningful only while writing, so it appears on `req` in create and update callbacks (the backend populates it only there). `raw(...)` yields a boolean expression by default; pass a type param (`raw<string>(...)`) for a non-boolean terminal.
 
 ### Update context
 
@@ -871,41 +873,41 @@ The generated object is `IdbPerms<AppSchema>`, structurally assignable to `Insta
 
 Done when: a minimal `definePerms(schema).namespaces({}).compile()` emits a valid rules object.
 
-- [ ] expression AST node design (immutable, phantom-typed, renderable)
-- [ ] CEL renderer: literals, property access, binary ops with deterministic parentheses, calls
-- [ ] `definePerms()` / `definePerms(schema)` / `definePerms<S>()` entrypoints
-- [ ] `.namespaces({}).compile()` skeleton → `IdbPerms<Schema>`
+- [x] expression AST node design (immutable, phantom-typed, renderable)
+- [x] CEL renderer: literals, property access, binary ops with deterministic parentheses, calls
+- [x] `definePerms()` / `definePerms(schema)` / `definePerms<S>()` entrypoints
+- [x] `.namespaces({}).compile()` skeleton → `IdbPerms<Schema>`
 
 ### Phase P2 — common context + core builders (global phase 8)
 
 Done when: the full example's non-action-specific rules compile and validate.
 
-- [ ] common context: `entity`/`e`, `entityField`/`ef`, `entityRef`/`er`, `authRef`/`ar`, `auth`, `ruleParams`/`rp`, `request`/`req`
-- [ ] `.stage` / `.bind` / `.allow` / `.fields`
-- [ ] `.defaults` inheritance (bind + staged) and duplicate rejection
-- [ ] `.overrideStage` / `.overrideBind`
-- [ ] `.dx.test.ts`: namespace keys, field access, ref-path completions, ruleParams completions
-- [ ] `.test-d.ts`: ctx typing per namespace
+- [x] common context: `entity`/`e`, `entityField`/`ef`, `entityRef`/`er`, `authRef`/`ar`, `auth`, `ruleParams`/`rp`, `request`/`req`
+- [x] `.stage` / `.bind` / `.allow` / `.fields`
+- [x] `.defaults` inheritance (bind + staged) and duplicate rejection
+- [x] `.overrideStage` / `.overrideBind`
+- [x] `.dx.test.ts`: namespace keys, field access, ref-path completions, ruleParams completions
+- [x] `.test-d.ts`: ctx typing per namespace
 
 ### Phase P3 — expression breadth (global phase 8)
 
-- [ ] list methods: `.contains`, `.isEmpty`, `.isNonEmpty`, `.size`, `.at`, `.some`, `.every`
-- [ ] `ctx.f` / `ctx.ops` functional helpers
-- [ ] `raw(...)` escape hatch
-- [ ] renderer: CEL list macros (`.exists`, `.all`)
+- [x] list methods: `.contains`, `.isEmpty`, `.isNonEmpty`, `.size`, `.at`, `.some`, `.every`
+- [x] `ctx.f` / `ctx.ops` functional helpers
+- [x] `raw(...)` escape hatch
+- [x] renderer: CEL list macros (`.exists`, `.all`)
 
 ### Phase P4 — action-specific contexts (global phase 8)
 
-- [ ] action callback forms: `eu`/`euf` in update; `el`/`elf`/`elr` in link/unlink with per-label typing
-- [ ] `request.modifiedFields` in create/update
-- [ ] context misuse fails at the cursor (dx-locked)
-- [ ] `stageFor` / `bindFor` (may land after common rules — settled intention)
+- [x] action callback forms: `eu`/`euf` in update; `el`/`elf`/`elr` in link/unlink with per-label typing
+- [x] `request.modifiedFields` in create/update
+- [x] context misuse fails at the cursor (dx-locked)
+- [ ] `stageFor` / `bindFor` (deferred — the action *callbacks* above cover the common need; settled intention, [vision §7](./dux-vision.md#7-deferred-intentions))
 
 ### Phase P5 — special builders, diagnostics, compat (global phase 8)
 
-- [ ] `.attrs` (create-only, narrow context)
-- [ ] `.rateLimits` config + `rl` usage rendering
-- [ ] runtime schema validation diagnostics (`definePerms(schema)` dev assertions)
-- [ ] optional compat mode for direct raw strings (opt-in)
-- [ ] compat-target tests: `InstantRules` assignability + push fixture
-- [ ] cyclic bind detection (or a clear delegation to Instant validation)
+- [x] `.attrs` (create-only, narrow context)
+- [x] `.rateLimits` config + `rl` usage rendering
+- [x] runtime schema validation diagnostics (`definePerms(schema)` dev assertions: namespace, field, ref path, ruleParam, duplicate name)
+- [ ] optional compat mode for direct raw strings (deferred — opt-in, no demand yet)
+- [x] compat-target tests: `InstantRules` assignability + push fixture
+- [x] cyclic bind detection — delegated to Instant: the backend topologically sorts and validates the emitted `bind` block (`server/.../rule.clj`)

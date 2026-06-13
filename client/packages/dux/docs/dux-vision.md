@@ -1,4 +1,4 @@
-updated: 2026-06-11
+updated: 2026-06-12
 status: living hub — the vision, the architecture, and the index over every dux doc
 
 # dux — vision
@@ -362,7 +362,7 @@ Sequenced so each step is independently testable and nothing depends on a surfac
 | 5. Webhooks | optional-config `init`, `defineWebhookHandlers`, `IdbWebhook*` types | [webhooks](./dux-spec-webhooks.md) | ☑ complete |
 | 6. Admin | owned `init`, shaped `query`/`subscribeQuery`, typed tx/debug, `asUser`, pass-throughs, `adminDb.webhooks` | [admin](./dux-spec-admin.md) | ☑ complete |
 | 7. Nuxt | `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler` | [nuxt](./dux-spec-nuxt.md) | ☑ complete |
-| 8. Perms | the `definePerms` pipeline | [perms](./dux-spec-perms.md) | ☐ |
+| 8. Perms | the `definePerms` pipeline | [perms](./dux-spec-perms.md) | ☑ complete |
 | 9. Demo + lock | one Nuxt demo exercising all six entrypoints; CI wiring | [workspace](./dux-spec-workspace.md) | ☐ |
 | 10. SSR hydration | server results serialized → client cache hydrated before subscriptions | [vue](./dux-spec-vue.md) | ☐ gated on upstream |
 
