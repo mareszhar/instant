@@ -21,6 +21,9 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    // Selenita spins up a TypeScript language service in beforeAll for the
+    // editor-DX suites; CI runners can exceed Vitest's 10s default hook budget.
+    hookTimeout: 30_000,
     // Runtime (*.test.ts) and editor-DX (*.dx.test.ts) planes — both match this glob.
     include: ['src/**/*.test.ts'],
     typecheck: {
