@@ -30,6 +30,25 @@ export const schema = defineSchema({
         title: i.string().indexed(),
         isDone: i.boolean().indexed(),
         createdAt: i.date().indexed(),
+        // Denormalized copy of the linked workspace's id. Webhook payloads carry
+        // an entity's fields but not its links, so a `tasks.delete` delivery —
+        // arriving after the row is gone — has no other way to say which
+        // workspace it belonged to. Perms pin this to the actual linked
+        // workspace ([instant.perms.ts]) so it can't be forged to route a
+        // delivery into another workspace's journal.
+        workspaceId: i.string().indexed(),
+      },
+    }),
+    // The per-workspace webhook delivery journal. The receiver writes a row per
+    // delivery ([server/api/webhooks/receive.post.ts]); the panel reads them
+    // back through an ordinary workspace-scoped query, so one visitor never sees
+    // another's deliveries — the same isolation the rest of the demo relies on.
+    webhookEvents: i.namespace({
+      fields: {
+        namespace: i.string().indexed(),
+        action: i.string().indexed(),
+        summary: i.string(),
+        receivedAt: i.date().indexed(),
       },
     }),
   },
@@ -49,6 +68,10 @@ export const schema = defineSchema({
     taskAssignee: {
       forward: { on: 'tasks', has: 'one', label: 'assignee' },
       reverse: { on: '$users', has: 'many', label: 'assignedTasks' },
+    },
+    webhookEventWorkspace: {
+      forward: { on: 'webhookEvents', has: 'one', label: 'workspace' },
+      reverse: { on: 'workspaces', has: 'many', label: 'webhookEvents' },
     },
   },
   rooms: {

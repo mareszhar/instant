@@ -1,67 +1,50 @@
 <template lang="pug">
 article.card
   .stack
-    h3 Webhooks (manager + handler route)
+    h3 Webhooks (handler route + manager)
     p.muted.
-      Subscriptions are managed via #[code adminDb.webhooks.manager]; deliveries land on
-      this app's #[code defineWebhookHandler] route. Instant only posts to a #[strong public]
-      URL, so on localhost subscribe with a tunnel (e.g. #[code ngrok http 3000]) origin.
+      One app-owned subscription (provisioned via #[code adminDb.webhooks.manager]
+      by a maintainer) posts task changes to this app's #[code defineWebhookHandler]
+      route. Each delivery is journaled to its workspace, so the feed below is
+      scoped to #[strong this] workspace — your activity, not anyone else's.
 
-  form.stack(@submit.prevent="webhooks.create(receiverUrl)")
-    label.field
-      span Receiver URL
-      input.input(
-        v-model.trim="receiverUrl"
-        type="url"
-        placeholder="https://your-tunnel.example/api/webhooks/receive"
-      )
-    .row
-      button.btn(
-        type="submit"
-        :disabled="!receiverUrl || webhooks.form.isProcessing"
-      ) Subscribe
-      button.btn.secondary(
-        type="button"
-        :disabled="webhooks.form.isProcessing"
-        @click="webhooks.refresh"
-      ) Refresh
+  .row
+    button.btn.secondary(
+      type="button"
+      :disabled="webhooks.form.isProcessing"
+      @click="webhooks.refresh"
+    ) Refresh subscription
 
   p.alert(v-if="webhooks.form.feedback" :class="webhooks.form.feedback.tone") {{ webhooks.form.feedback.text }}
 
-  .stack(v-if="overview?.webhooks.length")
-    h4 Subscriptions
+  .stack(v-if="subscription?.subscriptions.length")
+    h4 Subscription
     ul.task-list
-      li(v-for="webhook in overview.webhooks" :key="webhook.id")
+      li(v-for="sub in subscription.subscriptions" :key="sub.url")
         .workspace
           .workspace__main
-            p.title {{ webhook.sink.url }}
-            p.muted {{ webhook.namespaces.join(', ') }} · {{ webhook.actions.join(', ') }}
-          .workspace__controls
-            button.btn.danger.compact(
-              type="button"
-              :disabled="webhooks.form.isProcessing"
-              @click="webhooks.remove(webhook.id)"
-            ) Delete
-  p.muted(v-else-if="overview") No webhook subscriptions yet.
+            p.title {{ sub.url }}
+            p.muted {{ sub.namespaces.join(', ') }} · {{ sub.actions.join(', ') }}
+          span.badge {{ sub.status }}
+  p.muted(v-else-if="subscription").
+    No app webhook provisioned yet — run #[code bun run webhook:ensure &lt;receiver-url&gt;]
+    against the deployed (or tunneled) origin.
 
-  .stack(v-if="overview?.recentChanges.length")
-    h4 Recent deliveries
-    ul.task-list.demo-reaction-list
-      li.demo-reaction-item(v-for="change in overview.recentChanges" :key="change.at")
-        span.badge {{ change.namespace }}.{{ change.action }}
-        span.demo-reaction-sender {{ change.summary }}
+  .stack
+    h4 Recent deliveries (this workspace)
+    p.muted(v-if="webhooks.isLoading") Loading deliveries…
+    ul.task-list.demo-reaction-list(v-else-if="webhooks.deliveries.length")
+      li.demo-reaction-item(v-for="delivery in webhooks.deliveries" :key="delivery.id")
+        span.badge {{ delivery.namespace }}.{{ delivery.action }}
+        span.demo-reaction-sender {{ delivery.summary }}
+    p.muted(v-else) No deliveries yet — add, complete, or delete a task to see one land.
 </template>
 
 <script setup lang="ts">
 const webhooks = useWebhooks()
-const overview = computed(() => webhooks.overview)
-
-// Prefill the app's own receiver origin — swap in a tunnel/deploy origin to
-// actually subscribe (localhost is rejected by Instant).
-const receiverUrl = ref('')
+const subscription = computed(() => webhooks.subscription)
 
 onMounted(() => {
-  receiverUrl.value = `${window.location.origin}/api/webhooks/receive`
   webhooks.refresh()
 })
 </script>

@@ -248,6 +248,18 @@ One Nuxt demo (phase 9) exercising **all six entrypoints** — including a webho
 
 CI wiring lands with it: parity, dx, drift, and compat checks all gate.
 
+### 7.1 The isolation invariant
+
+The demo is a public, shared playground: anyone can sign in and experiment, at any time, alongside strangers. Its governing constraint is therefore **one visitor can never see or affect another visitor's experience.** Everything is scoped by *workspace* — a visitor sees and mutates only the workspaces they're a member of — and that scoping is enforced where it's load-bearing: in **perms** (the security boundary), with queries filtered to the active workspace as the ergonomic layer on top. A feature isn't "demoed well" until it preserves this invariant; a panel that exposes app-global state or lets a visitor reach into another's data is a bug, however well it shows off an API.
+
+Most Instant features scope cleanly because their primitives are per-entity. **Webhooks are the instructive exception:** a subscription is an *app-level* primitive (`url + namespaces + actions`, no per-tenant filter), so exposing `manager.create`/`delete` as a visitor action is inherently global and breaks the invariant. The demo's resolution is the pattern to reach for whenever a primitive is coarser than a workspace:
+
+- **provision the app-level resource once**, out of band — a maintainer setup script (`scripts/ensure-webhook.ts`) creates the single app-owned subscription pointing at the deployed receiver; the manager surface still gets demonstrated (`list`/`create`), just not as a visitor mutation,
+- **fan its effects out per workspace at the edge** — the receiver attributes each delivery to a workspace and persists it (a `webhookEvents` journal linked to the workspace), so it re-enters the ordinary, perms-scoped data plane,
+- **let the visitor surface read that scoped projection**, never the global resource — the panel shows the subscription read-only and a workspace-scoped delivery feed.
+
+Where a primitive carries no link in its payload (webhook deliveries carry an entity's fields but not its links), denormalize the scope key onto the entity (`tasks.workspaceId`) and **pin it in perms** to the real linked owner, so the fanned-out attribution can't be forged to cross workspaces. The invariant survives even an adversarial visitor, because it rests on perms, not on the client.
+
 ## 8. Phased implementation roadmap
 
 ### Phase W0 — scaffold (global phase 0)

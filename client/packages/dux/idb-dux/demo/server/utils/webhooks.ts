@@ -1,35 +1,45 @@
+import type { IdbAdminClient } from '@mszr/idb-dux/admin'
+import { id } from '@mszr/idb-dux'
+import { init as initAdmin } from '@mszr/idb-dux/admin'
 import { defineWebhookHandlers } from '@mszr/idb-dux/webhooks'
+import schema from '~~/config/instant.schema'
 
-export interface WebhookLogEntry {
-  at: string
-  namespace: string
-  action: string
-  summary: string
+// Deliveries arrive outside the request kit (Instant POSTs them), so the
+// handlers persist through their own admin db, built lazily from runtime
+// config. adminDb bypasses perms — exactly right for a verified machine writer.
+let adminDb: IdbAdminClient | undefined
+function getAdminDb() {
+  if (!adminDb) {
+    const config = useRuntimeConfig()
+    adminDb = initAdmin({
+      appId: config.public.instantAppId,
+      adminToken: config.instantAppAdminToken,
+      schema,
+    })
+  }
+  return adminDb
 }
 
-// A tiny in-memory ring buffer so the demo can show deliveries arriving.
-// Real apps would notify, enqueue, or persist instead.
-const MAX_LOG_ENTRIES = 20
-export const recentWebhookChanges: WebhookLogEntry[] = []
-
-function record(namespace: string, action: string, summary: string) {
-  recentWebhookChanges.unshift({ at: new Date().toISOString(), namespace, action, summary })
-  if (recentWebhookChanges.length > MAX_LOG_ENTRIES)
-    recentWebhookChanges.length = MAX_LOG_ENTRIES
+// Append one delivery to a workspace's journal. The panel reads these back
+// through a workspace-scoped query, so a delivery only ever surfaces for the
+// workspace that caused it ([app/stores/webhooks.ts]).
+function journal(workspaceId: string, namespace: string, action: string, summary: string) {
+  const db = getAdminDb()
+  return db.transact(
+    db.tx.webhookEvents[id()]!
+      .create({ namespace, action, summary, receivedAt: Date.now() })
+      .link({ workspace: workspaceId }),
+  )
 }
 
 // Plain object literal, full per-change narrowing — `after`/`before` is
-// `IdbEntity<'tasks'>`, the same entity type queries and tx speak. No helper
-// ceremony, no schema generic at the call site ([dux-spec-webhooks.md §4]).
+// `IdbEntity<'tasks'>`, the same entity type queries and tx speak (including the
+// denormalized `workspaceId` that scopes the journal). No helper ceremony, no
+// schema generic at the call site ([dux-spec-webhooks.md §4]).
 export const webhookHandlers = defineWebhookHandlers({
   tasks: {
-    create: ({ after }) => record('tasks', 'create', `created "${after.title}"`),
-    update: ({ after }) => record('tasks', 'update', `"${after.title}" → ${after.isDone ? 'done' : 'pending'}`),
-    delete: ({ before }) => record('tasks', 'delete', `deleted "${before.title}"`),
+    create: ({ after }) => journal(after.workspaceId, 'tasks', 'create', `created "${after.title}"`),
+    update: ({ after }) => journal(after.workspaceId, 'tasks', 'update', `"${after.title}" → ${after.isDone ? 'done' : 'pending'}`),
+    delete: ({ before }) => journal(before.workspaceId, 'tasks', 'delete', `deleted "${before.title}"`),
   },
-  workspaces: {
-    create: ({ after }) => record('workspaces', 'create', `created "${after.name}"`),
-    delete: ({ before }) => record('workspaces', 'delete', `deleted "${before.name}"`),
-  },
-  $default: change => record(change.namespace, change.action, `change to ${change.namespace}`),
 })

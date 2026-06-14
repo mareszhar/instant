@@ -12,7 +12,8 @@
     "prev": "nuxt preview",
     "start": "nuxt build && nuxt preview",
     "postinstall": "nuxt prepare",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "webhook:ensure": "bun run scripts/ensure-webhook.ts"
   },
   "devDependencies": {
     "@floating-ui/vue": "^1.1.11",

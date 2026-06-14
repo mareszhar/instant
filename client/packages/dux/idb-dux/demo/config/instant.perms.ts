@@ -67,10 +67,13 @@ export default definePerms(schema)
       .bind(({ auth, er }) => ({
         isMember: er('workspace.memberships.user.id').contains(auth.id),
       }))
-      .allow(({ b }) => ({
+      .allow(({ b, e, er }) => ({
         view: b.isMember,
-        create: b.isSignedIn.and(b.isMember),
-        update: b.isMember,
+        // `workspaceId` must equal the workspace being linked, so the webhook
+        // journal can trust it ([instant.schema.ts]). Pinned on update too,
+        // since the workspace link is immutable (`unlink.workspace: false`).
+        create: b.isSignedIn.and(b.isMember).and(er('workspace.id').contains(e.workspaceId)),
+        update: ({ eu }) => b.isMember.and(eu.workspaceId.eq(e.workspaceId)),
         delete: b.isMember,
         link: {
           workspace: b.isMember,
@@ -82,6 +85,16 @@ export default definePerms(schema)
           workspace: false,
           assignee: b.isMember,
         },
+      })),
+    // Webhook deliveries are written server-side by the verified receiver
+    // (adminDb bypasses perms); visitors only ever *read* their own workspace's,
+    // so `view` is the sole grant — create/update/delete stay denied by default.
+    webhookEvents: ns => ns
+      .bind(({ auth, er }) => ({
+        isMember: er('workspace.memberships.user.id').contains(auth.id),
+      }))
+      .allow(({ b }) => ({
+        view: b.isMember,
       })),
   })
   .compile()

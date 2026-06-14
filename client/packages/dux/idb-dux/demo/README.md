@@ -29,7 +29,15 @@ Then open `http://localhost:3000`. Open a second tab to see realtime sync, prese
 
 ## Webhooks
 
-The Webhooks panel manages subscriptions through `adminDb.webhooks.manager` and points them at this app's own `/api/webhooks/receive` route. For Instant's backend to reach a local server, expose it with a public tunnel (e.g. `ngrok http 3000`) and subscribe from the tunnel origin.
+Instant webhooks are an **app-level** primitive — a subscription is `url + namespaces + actions`, with no per-user or per-workspace filter. So the demo does **not** let visitors create them (one visitor could then receive, delete, or exhaust everyone's): a maintainer provisions a single app-owned subscription once, and the receiver fans each delivery out to the workspace that caused it. Visitors only ever see their own workspace's deliveries — the same isolation the rest of the demo relies on.
+
+Provision the subscription against the deployed origin (or a public tunnel for local dev, e.g. `ngrok http 3000`):
+
+```bash
+bun run webhook:ensure https://your-origin.example/api/webhooks/receive
+```
+
+It's idempotent (uses `adminDb.webhooks.manager.list`/`create`). The Webhooks panel then shows the subscription read-only and a live, workspace-scoped feed of deliveries (persisted as `webhookEvents`), so add/complete/delete a task to watch one land.
 
 ## Build preview
 

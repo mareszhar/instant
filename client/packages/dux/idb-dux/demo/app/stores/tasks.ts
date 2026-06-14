@@ -37,6 +37,9 @@ export const useTasks = defineStore('tasks', () => {
       title: form.title,
       isDone: false,
       createdAt: Date.now(),
+      // Denormalized so webhook deliveries can self-attribute to a workspace
+      // ([instant.schema.ts]); perms pin it to the linked workspace below.
+      workspaceId: workspaces.current!.id,
     }).link({ workspace: workspaces.current!.id }))
 
     form.title = ''
