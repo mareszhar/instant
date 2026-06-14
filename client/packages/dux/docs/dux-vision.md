@@ -362,7 +362,7 @@ Sequenced so each step is independently testable and nothing depends on a surfac
 | 6. Admin | owned `init`, shaped `query`/`subscribeQuery`, typed tx/debug, `asUser`, pass-throughs, `adminDb.webhooks` | [admin](./dux-spec-admin.md) | ☑ complete |
 | 7. Nuxt | `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler` | [nuxt](./dux-spec-nuxt.md) | ☑ complete |
 | 8. Perms | the `definePerms` pipeline | [perms](./dux-spec-perms.md) | ☑ complete |
-| 9. Demo + lock | one Nuxt demo exercising all six entrypoints; CI wiring | [workspace](./dux-spec-workspace.md) | ☐ |
+| 9. Demo + lock | one Nuxt demo exercising all six entrypoints; CI wiring | [workspace](./dux-spec-workspace.md) | ☑ complete |
 | 10. SSR hydration | server results serialized → client cache hydrated before subscriptions | [vue](./dux-spec-vue.md) | ☐ gated on upstream |
 
 Perms (8) is sequenced late only because it's independent — it can be built in parallel any time after schema (1). Webhooks (5) likewise depends only on the schema layer's types; it sits just before admin so `adminDb.webhooks` lands assembled.

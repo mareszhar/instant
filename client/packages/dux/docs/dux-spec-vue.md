@@ -72,6 +72,7 @@ export const useDb = defineDb({
 - `defineDb` returns a factory: first call resolves config and creates the db; subsequent calls return the same instance. No framework-wide singleton — global state is the app's responsibility.
 - Schema-level `options` (singularization behavior) are read from the schema — never configured twice.
 - `IdbClientConfig` passes through everything core supports, including `devtool` and `apiURI`/`websocketURI` (self-hosting) — supported, not specialized.
+- **The client is `markRaw` — proxy-safe by construction.** Storing the db in a Pinia store or `reactive()` is the normal case, so the client must never be wrapped in a reactive proxy: it is a stable handle, not reactive state (its reactivity lives in the refs its hooks return), and a proxy would break the pass-through getters (`auth`/`storage`/`streams`), whose private-field reads throw when reached through a proxy. `init`/`defineDb` return the client `markRaw`'d, so this works with zero userland ceremony.
 
 ---
 
@@ -198,6 +199,8 @@ Room shapes are schema-typed from the `rooms` block in `defineSchema` ([root spe
 ### 7.3 Components
 
 `SignedIn`, `SignedOut`, `Cursors` — official names kept. They ship as `.ts` render-function components rather than `.vue` SFCs (a marked build delta against the official package): the library then needs no SFC compile step, stays dual-format friendly, and the components remain plain TypeScript that the boundary lint can see.
+
+Their props take the **public db** — the overlay client `init`/`defineDb` returns — since that is the only db a user holds (the vision's single public surface). `SignedIn`/`SignedOut` type `db` as the minimal auth-gate surface (anything exposing `useAuth()`), so the overlay client satisfies it without the vendored components reaching up into the overlay layer.
 
 ### 7.4 Errors
 

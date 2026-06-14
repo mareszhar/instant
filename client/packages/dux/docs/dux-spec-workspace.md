@@ -14,7 +14,7 @@ Conventions: [dux-conventions.md](./dux-conventions.md) · Principles: [dux-visi
 | W0 | Scaffold: workspace wiring, package skeleton, boundary lint, six entrypoints | 0 | ☑ complete |
 | W1 | Test foundations: `test-support/`, selenita wiring, suite conventions | 1 (alongside) | ☑ complete |
 | W2 | Sustainability tooling: drift check, `UPSTREAM.md` ritual, compat-suite conventions | 3 (alongside) | ☑ complete |
-| W3 | Demo + CI lock | 9 | ☐ not started |
+| W3 | Demo + CI lock | 9 | ☑ complete |
 | W4 | Publishing pipeline | first release | ☐ not started |
 
 Details: [§8 Phased implementation roadmap](#8-phased-implementation-roadmap).
@@ -223,10 +223,10 @@ Done when: `pnpm -F @mszr/idb-dux build` produces all six entrypoints; boundary 
 
 ### Phase W3 — demo + CI lock (global phase 9)
 
-- [ ] the Nuxt demo exercising all six entrypoints (webhook route + manager call included)
-- [ ] pack + demo-resolution scripts (link/tarball/npm modes)
-- [ ] CI: build, lint, full suite (runtime/types/dx), parity, drift, compat targets
-- [ ] trim suites to contract-only assertions (test economy pass)
+- [x] the Nuxt demo exercising all six entrypoints (webhook route + manager call included)
+- [x] pack + demo-resolution scripts (link/tarball/npm modes)
+- [x] CI: build, lint, full suite (runtime/types/dx); parity + compat targets ride the suite; drift is its own gate (`.github/workflows/dux.yml`)
+- [x] test economy held: the demo carries no unit tests (exercised by typecheck + build in CI), so phase 9 added no implementation-coupled assertions
 
 ### Phase W4 — publishing (first release)
 
