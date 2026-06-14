@@ -189,10 +189,10 @@ Three publishable artifacts, three parallel verbs — each command is its own na
 | `prepublish:verify` | the shared gate alone: build · lint · typecheck · test · drift |
 | `publish:sdk:dry-run` | verify + packaging rehearsal (`npm publish --dry-run`), nothing published |
 | `publish:sdk:patch` \| `:minor` \| `:major` | the happy path — publish to npm, then demo + subtree orchestration ([§6.2](#62-the-sdk-publish-publish-sdkmjs)) |
-| `publish:demo` \| `publish:demo:prod` | deploy the demo ad hoc (preview / production) ([§6.4](#64-the-demo-publish-publish-demomjs)) |
+| `publish:demo:prev` \| `publish:demo:prod` | deploy the demo ad hoc (preview / production) ([§6.4](#64-the-demo-publish-publish-demomjs)) |
 | `publish:subtree:squash` | push the squashed public-repo commit ad hoc ([§6.3](#63-the-subtree-publish-publish-subtreemjs)) |
 
-**One shared gate, run once.** Every command verifies before it acts; the `publish:sdk:*` orchestrator runs `verify()` a single time up front and hands `skipVerify` to the demo + subtree steps it drives in-process, so a release is safe *and* fast — never re-running gates it just ran. The scripts are vendor-neutral (`publish-sdk`, `publish-demo`, `publish-subtree`, `prepublish-verify` + a small `scripts/lib/`); the demo deployer targets whatever platforms we support (Vercel today), never a vendor-named command.
+**One shared gate, run once.** Every command verifies before it acts; the `publish:sdk:*` orchestrator runs `runPrepublishGates()` a single time up front and hands `skipVerify` to the demo + subtree steps it drives in-process, so a release is safe *and* fast — never re-running gates it just ran. The scripts are vendor-neutral (`publish-sdk`, `publish-demo`, `publish-subtree`, `prepublish-verify` + a small `scripts/lib/`); the demo deployer targets whatever platforms we support (Vercel today), never a vendor-named command.
 
 **Skipping the gate is deliberately awkward.** There is no `--skip-checks`; the only bypass is `DUX_UNSAFE_PUBLISH_SKIP_CHECKS=1`, which prints a loud warning.
 
@@ -228,7 +228,7 @@ Ad hoc it runs the shared gate first and opens `$GIT_EDITOR` (via `git var GIT_E
 
 ### 6.4 The demo publish (`publish-demo.mjs`)
 
-The demo lives at `idb-dux/demo` and resolves dux through the link/tarball/npm modes — only **npm** mode is buildable on a hosting platform (no global bun links or local tarballs there). Resolution-mode commits must never trigger a deploy. So: **no Git integration; deploy on demand from the fork** with `pnpm run publish:demo` (preview) / `pnpm run publish:demo:prod` (production), which
+The demo lives at `idb-dux/demo` and resolves dux through the link/tarball/npm modes — only **npm** mode is buildable on a hosting platform (no global bun links or local tarballs there). Resolution-mode commits must never trigger a deploy. So: **no Git integration; deploy on demand from the fork** with `pnpm run publish:demo:prev` (preview) / `pnpm run publish:demo:prod` (production), which
 
 1. runs the shared gate (ad hoc),
 2. switches the main demo to **npm** mode pinned to a concrete published version — `@mszr/idb-dux@<version>` (defaults to the latest published; the orchestrator passes the just-released version), never a floating `latest` — and proves that version is on npm,
@@ -288,7 +288,7 @@ Done when: `pnpm -F @mszr/idb-dux build` produces all six entrypoints; boundary 
 
 Tooling is in place ([§6](#6-publishing)); the phase closes on the first actual release once the one-time prerequisites ([§6.1](#61-one-time-prerequisites-maintainer)) are done.
 
-- [x] shared gate (`scripts/prepublish-verify.mjs` + `scripts/lib/verify.mjs`): build · lint · typecheck · test · drift; `DUX_UNSAFE_PUBLISH_SKIP_CHECKS=1` is the only (awkward) bypass
+- [x] shared gate (`scripts/prepublish-verify.mjs` + `scripts/lib/run-prepublish-gates.mjs`): build · lint · typecheck · test · drift; `DUX_UNSAFE_PUBLISH_SKIP_CHECKS=1` is the only (awkward) bypass
 - [x] SDK publish (`scripts/publish-sdk.mjs`): verify-once orchestration — version bump (gitmoji `🔖 release v<version>` commit + tag), `workspace:*` rewrite, build, `npm publish --access public`, snapshot/restore, npm-propagation wait, demo prepare + deploy, subtree squash; `publish:sdk:dry-run` rehearsal
 - [x] squashed `git subtree` publish to `mareszhar/idb-dux` with `$GIT_EDITOR` / `--message` (`scripts/publish-subtree.mjs`)
 - [x] vendor-neutral demo deploy from the fork, npm-mode + exact-version-pin guarded (`scripts/publish-demo.mjs`)

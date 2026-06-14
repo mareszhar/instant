@@ -1,7 +1,5 @@
-#!/usr/bin/env node
-
 /**
- * Shared process + logging helpers for the publishing scripts.
+ * Run and log shell steps for the publishing scripts.
  *
  * One `run`/`capture`/`sleep` so every publish script spawns the same way
  * (inherited stdio, merged env, uniform error text) and reads the same.

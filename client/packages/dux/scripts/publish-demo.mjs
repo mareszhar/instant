@@ -13,7 +13,7 @@
  * demo locally as a smoke test, then deploys.
  *
  * Runnable ad hoc:
- *   pnpm run publish:demo          # preview
+ *   pnpm run publish:demo:prev     # preview
  *   pnpm run publish:demo:prod     # production
  * or driven by `publish:sdk:*` (which prepares the demo, commits it, then asks
  * this to deploy — without re-verifying).
@@ -22,9 +22,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { DEMO_DIR, DEMO_PKG, NPM_CACHE, PKG_DIR, PKG_NAME, WORKSPACE_ROOT } from './lib/paths.mjs'
-import { capture, createLogger, run } from './lib/proc.mjs'
-import { verify } from './lib/verify.mjs'
+import { DEMO_DIR, DEMO_PKG, NPM_CACHE, PKG_DIR, PKG_NAME, WORKSPACE_ROOT } from './lib/resolve-publish-paths.mjs'
+import { runPrepublishGates } from './lib/run-prepublish-gates.mjs'
+import { capture, createLogger, run } from './lib/run-publish-step.mjs'
 
 const log = createLogger('demo')
 
@@ -113,7 +113,7 @@ export function deployDemo({ prod = false, passThrough = [], logger = log } = {}
 /** Ad-hoc entry: verify, prepare, deploy. */
 export function publishDemo({ version, prod = false, passThrough = [], skipVerify = false } = {}) {
   if (!skipVerify)
-    verify({ logger: log })
+    runPrepublishGates({ logger: log })
   const resolved = prepareDemoForNpm({ version })
   deployDemo({ prod, passThrough })
   log.log(`done — demo deployed @ ${resolved}.`)
@@ -126,9 +126,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const passThrough = dashIndex !== -1 ? argv.slice(dashIndex + 1) : []
   const flags = dashIndex !== -1 ? argv.slice(0, dashIndex) : argv
   const versionIndex = flags.indexOf('--version')
+  const prev = flags.includes('--prev')
+  const prod = flags.includes('--prod')
+  if (prev === prod)
+    log.fail('usage: publish-demo.mjs (--prev|--prod) [--version <version>] [-- <extra platform args>]')
   publishDemo({
     version: versionIndex !== -1 ? flags[versionIndex + 1] : undefined,
-    prod: flags.includes('--prod'),
+    prod,
     passThrough,
   })
 }

@@ -83,7 +83,7 @@
     "publish:sdk:patch": "node scripts/publish-sdk.mjs patch",
     "publish:sdk:minor": "node scripts/publish-sdk.mjs minor",
     "publish:sdk:major": "node scripts/publish-sdk.mjs major",
-    "publish:demo": "node scripts/publish-demo.mjs",
+    "publish:demo:prev": "node scripts/publish-demo.mjs --prev",
     "publish:demo:prod": "node scripts/publish-demo.mjs --prod",
     "publish:subtree:squash": "node scripts/publish-subtree.mjs"
   },

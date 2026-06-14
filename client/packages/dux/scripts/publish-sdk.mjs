@@ -28,9 +28,9 @@
  */
 import fs from 'node:fs'
 import process from 'node:process'
-import { NPM_CACHE, PKG_DIR, PKG_JSON, PKG_NAME, SHARED_VERSION_SRC, WORKSPACE_ROOT } from './lib/paths.mjs'
-import { capture, createLogger, run, sleep } from './lib/proc.mjs'
-import { verify } from './lib/verify.mjs'
+import { NPM_CACHE, PKG_DIR, PKG_JSON, PKG_NAME, SHARED_VERSION_SRC, WORKSPACE_ROOT } from './lib/resolve-publish-paths.mjs'
+import { runPrepublishGates } from './lib/run-prepublish-gates.mjs'
+import { capture, createLogger, run, sleep } from './lib/run-publish-step.mjs'
 import { deployDemo, prepareDemoForNpm } from './publish-demo.mjs'
 import { publishSubtree } from './publish-subtree.mjs'
 
@@ -92,7 +92,7 @@ if (!dryRun && !VALID_TYPES.has(releaseType))
   log.fail('usage: publish-sdk.mjs <patch|minor|major> | --dry-run')
 
 // 1) shared gate (once)
-verify({ logger: log })
+runPrepublishGates({ logger: log })
 
 const sharedVersion = readSharedVersion()
 const originalRaw = fs.readFileSync(PKG_JSON, 'utf8')

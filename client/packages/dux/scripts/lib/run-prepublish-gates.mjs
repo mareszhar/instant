@@ -1,7 +1,5 @@
-#!/usr/bin/env node
-
 /**
- * The shared prepublish gate (dux-spec-workspace.md §6). One place that runs
+ * The shared prepublish gates (dux-spec-workspace.md §6). One place that runs
  * the common verification — build, lint, typecheck, test, baseline drift — so
  * every publish path is provably verified the same way.
  *
@@ -14,8 +12,8 @@
  * a one-keystroke way to drop the safety rails is too tempting on a tired night.
  */
 import process from 'node:process'
-import { WORKSPACE_ROOT } from './paths.mjs'
-import { createLogger, run } from './proc.mjs'
+import { createLogger, run } from './run-publish-step.mjs'
+import { WORKSPACE_ROOT } from './resolve-publish-paths.mjs'
 
 export const UNSAFE_SKIP_ENV = 'DUX_UNSAFE_PUBLISH_SKIP_CHECKS'
 
@@ -32,7 +30,7 @@ const GATES = [
  * Run the shared gates. Honors the unsafe skip env (with a loud warning).
  * Throws on the first failing gate.
  */
-export function verify({ logger = createLogger('verify') } = {}) {
+export function runPrepublishGates({ logger = createLogger('prepublish') } = {}) {
   if (process.env[UNSAFE_SKIP_ENV] === '1') {
     logger.warn('⚠️  shared gates SKIPPED via DUX_UNSAFE_PUBLISH_SKIP_CHECKS=1 — publishing UNVERIFIED.')
     return

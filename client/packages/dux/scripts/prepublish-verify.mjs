@@ -8,6 +8,6 @@
  * exposing it standalone makes "everything is verified before it ships" legible
  * and gives the maintainer a fast "is the tree releasable?" check.
  */
-import { verify } from './lib/verify.mjs'
+import { runPrepublishGates } from './lib/run-prepublish-gates.mjs'
 
-verify()
+runPrepublishGates()

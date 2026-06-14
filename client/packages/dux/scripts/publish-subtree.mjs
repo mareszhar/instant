@@ -22,9 +22,9 @@ import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { WORKSPACE_ROOT } from './lib/paths.mjs'
-import { capture, createLogger, run } from './lib/proc.mjs'
-import { verify } from './lib/verify.mjs'
+import { WORKSPACE_ROOT } from './lib/resolve-publish-paths.mjs'
+import { runPrepublishGates } from './lib/run-prepublish-gates.mjs'
+import { capture, createLogger, run } from './lib/run-publish-step.mjs'
 
 const DEFAULT_REMOTE = 'https://github.com/mareszhar/idb-dux.git'
 const PREFIX = 'client/packages/dux/idb-dux'
@@ -83,7 +83,7 @@ export function publishSubtree({
     log.fail('working tree is not clean. Commit first (the squash snapshots HEAD).')
 
   if (!skipVerify)
-    verify({ logger: log })
+    runPrepublishGates({ logger: log })
 
   const squashMessage = message ?? composeMessageInEditor(repoRoot)
 

@@ -1,7 +1,5 @@
-#!/usr/bin/env node
-
 /**
- * Shared filesystem anchors for the publishing scripts. One source of truth so
+ * Resolve workspace filesystem anchors for the publishing scripts. One source of truth so
  * a moved directory is a one-line fix, not a hunt across scripts.
  */
 import path from 'node:path'
