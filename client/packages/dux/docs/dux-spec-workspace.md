@@ -176,11 +176,67 @@ On every rebase window (when the fork syncs with upstream `instantdb/instant`):
 ## 6. Publishing
 
 - **Develop in this fork forever.** The vendored-baseline model depends on the official sources sitting beside ours; the fork is the development home, not a staging area.
-- **Publish via `git subtree`** to the public `mareszhar/idb-dux` repo, pushing only milestone/release commits — day-to-day history stays in the fork.
-- npm releases build from the subtree repo (or directly from the fork via the pack scripts); `workspace:*` deps are rewritten to concrete versions at pack time.
+- **Publish via `git subtree`, always squashed** to the public `mareszhar/idb-dux` repo: the fork keeps the granular history, the public face gets one snapshot commit per release.
+- npm releases build **directly from the fork**; `workspace:*` Instant deps are rewritten to concrete versions at publish time, then restored.
 - Local tarball workflows (`packs/` + demo-resolution scripts) support testing the packed artifact against the demo before any release.
 
-The pipeline lands as phase W4; until then `pnpm run sdk:build:all` + `pnpm run sdk:test` from the orchestrator is the whole verification loop.
+### 6.0 The command surface
+
+Three publishable artifacts, three parallel verbs — each command is its own named entry, so there are **no flags to remember** and no bare `release`:
+
+| Command | Does |
+|---|---|
+| `prepublish:verify` | the shared gate alone: build · lint · typecheck · test · drift |
+| `publish:sdk:dry-run` | verify + packaging rehearsal (`npm publish --dry-run`), nothing published |
+| `publish:sdk:patch` \| `:minor` \| `:major` | the happy path — publish to npm, then demo + subtree orchestration ([§6.2](#62-the-sdk-publish-publish-sdkmjs)) |
+| `publish:demo` \| `publish:demo:prod` | deploy the demo ad hoc (preview / production) ([§6.4](#64-the-demo-publish-publish-demomjs)) |
+| `publish:subtree:squash` | push the squashed public-repo commit ad hoc ([§6.3](#63-the-subtree-publish-publish-subtreemjs)) |
+
+**One shared gate, run once.** Every command verifies before it acts; the `publish:sdk:*` orchestrator runs `verify()` a single time up front and hands `skipVerify` to the demo + subtree steps it drives in-process, so a release is safe *and* fast — never re-running gates it just ran. The scripts are vendor-neutral (`publish-sdk`, `publish-demo`, `publish-subtree`, `prepublish-verify` + a small `scripts/lib/`); the demo deployer targets whatever platforms we support (Vercel today), never a vendor-named command.
+
+**Skipping the gate is deliberately awkward.** There is no `--skip-checks`; the only bypass is `DUX_UNSAFE_PUBLISH_SKIP_CHECKS=1`, which prints a loud warning.
+
+### 6.1 One-time prerequisites (maintainer)
+
+These are external to the repo and done once:
+
+1. **Create the public repo** `github.com/mareszhar/idb-dux` (empty; no README so the first subtree push is clean).
+2. **npm scope**: ensure the `@mszr` scope exists with publish rights for the account (`@mszr/idb-dux` is published with `--access public`). Note: `npm login` itself is **not** a one-time step — npm sessions expire quickly, so re-auth before each release; `publish:sdk:*` checks `npm whoami` and stops early if you're logged out.
+3. **Hosting platform**: create a project for the demo and set its env vars (`NUXT_PUBLIC_INSTANT_APP_ID`, `NUXT_INSTANT_APP_ADMIN_TOKEN`); on Vercel, link it once with `vercel link` from the demo directory. No Git integration — the fork is never auto-deployed (see [§6.4](#64-the-demo-publish-publish-demomjs)).
+
+### 6.2 The SDK publish (`publish-sdk.mjs`)
+
+`pnpm run publish:sdk:<patch|minor|major>` is the happy path — publish, then orchestrate the demo and the public subtree in one run. The fork's `workspace:*` twist is rewritten at publish time and restored after:
+
+1. `prepublish:verify` — the shared gate, **once** for the whole release.
+2. Read the fork's shared Instant version (`packages/version/src/version.ts`) and verify each pinned Instant dep (`core`, `version`, `admin`, `webhooks`) exists on npm at that version; check `npm whoami`.
+3. Bump `@mszr/idb-dux`'s own version (`npm version <type> --no-git-tag-version`) — this persists.
+4. Snapshot `package.json`; temporarily rewrite the four `workspace:*` Instant deps to the concrete shared version; `build`; `npm publish --access public`.
+5. Restore the `workspace:*` deps (the version bump stays).
+6. Wait until `npm view @mszr/idb-dux@<version>` resolves (registry propagation).
+7. Prepare the demo: switch it to **npm** mode pinned to `@mszr/idb-dux@<version>` (the exact version, never `latest`), refresh, build as a local smoke test ([§6.4](#64-the-demo-publish-publish-demomjs)).
+8. Commit (version bump **and** demo pin) `🔖 release v<version>` and tag `v<version>`. **Push is left to the maintainer** (so a release can be inspected first).
+9. Deploy the demo to production, then squash-publish the public subtree with `🔖 release v<version>`.
+
+On any failure **up to and including publish**, the original `package.json` is restored. After publish the bump is permanent; a later step failing keeps the bump and prints how to resume (`publish:demo:prod`, `publish:subtree:squash`). `publish:sdk:dry-run` runs verify + the pin/build/`npm publish --dry-run` rehearsal and restores everything — no bump, no publish, no demo, no subtree.
+
+### 6.3 The subtree publish (`publish-subtree.mjs`)
+
+`pnpm run publish:subtree:squash` mirrors `client/packages/dux/idb-dux/` (the package **and** its one demo — the public starter) to `mareszhar/idb-dux`'s `main` as a **single squashed commit**: the tree of the prefix at HEAD, `commit-tree`'d onto the current remote tip and pushed fast-forward. The fork keeps every granular commit; the public history stays one-commit-per-release. Sandbox demos in `dux/sandbox/` stay private to the fork. The npm tarball still ships only `dist` (the `files` allowlist), so the public repo carries source + demo while the package stays lean.
+
+Ad hoc it runs the shared gate first and opens `$GIT_EDITOR` (via `git var GIT_EDITOR`) on a prefilled template for the squash message; pass a message to skip the editor — `pnpm run publish:subtree:squash -- --message "🔖 release v0.1.0"`. The `publish:sdk:*` orchestrator passes the release message and `skipVerify`.
+
+### 6.4 The demo publish (`publish-demo.mjs`)
+
+The demo lives at `idb-dux/demo` and resolves dux through the link/tarball/npm modes — only **npm** mode is buildable on a hosting platform (no global bun links or local tarballs there). Resolution-mode commits must never trigger a deploy. So: **no Git integration; deploy on demand from the fork** with `pnpm run publish:demo` (preview) / `pnpm run publish:demo:prod` (production), which
+
+1. runs the shared gate (ad hoc),
+2. switches the main demo to **npm** mode pinned to a concrete published version — `@mszr/idb-dux@<version>` (defaults to the latest published; the orchestrator passes the just-released version), never a floating `latest` — and proves that version is on npm,
+3. refreshes + builds the demo as a local smoke test, then deploys to every supported platform (Vercel today; the script is vendor-neutral so a second platform is a one-entry addition).
+
+The script is the single home for vendor names — the commands are not. Deploy *after* the npm release so the pinned version resolves. Secrets live in the platform's project settings, never in the repo.
+
+Verification beyond a release is just `pnpm run prepublish:verify`.
 
 ## 7. The demo
 
@@ -230,6 +286,12 @@ Done when: `pnpm -F @mszr/idb-dux build` produces all six entrypoints; boundary 
 
 ### Phase W4 — publishing (first release)
 
-- [ ] `git subtree` publish workflow to `mareszhar/idb-dux`
-- [ ] publish script (version bump, `workspace:*` rewrite, pack, npm publish)
-- [ ] release checklist: parity + drift + compat green on the exact release commit
+Tooling is in place ([§6](#6-publishing)); the phase closes on the first actual release once the one-time prerequisites ([§6.1](#61-one-time-prerequisites-maintainer)) are done.
+
+- [x] shared gate (`scripts/prepublish-verify.mjs` + `scripts/lib/verify.mjs`): build · lint · typecheck · test · drift; `DUX_UNSAFE_PUBLISH_SKIP_CHECKS=1` is the only (awkward) bypass
+- [x] SDK publish (`scripts/publish-sdk.mjs`): verify-once orchestration — version bump (gitmoji `🔖 release v<version>` commit + tag), `workspace:*` rewrite, build, `npm publish --access public`, snapshot/restore, npm-propagation wait, demo prepare + deploy, subtree squash; `publish:sdk:dry-run` rehearsal
+- [x] squashed `git subtree` publish to `mareszhar/idb-dux` with `$GIT_EDITOR` / `--message` (`scripts/publish-subtree.mjs`)
+- [x] vendor-neutral demo deploy from the fork, npm-mode + exact-version-pin guarded (`scripts/publish-demo.mjs`)
+- [x] uniform command surface ([§6.0](#60-the-command-surface)): no bare `release`, no flags to remember; each variant its own named script
+- [x] **maintainer prerequisites** ([§6.1](#61-one-time-prerequisites-maintainer)): create `mareszhar/idb-dux`, npm `@mszr` publish access, hosting project + env + link
+- [ ] **the first release** — `pnpm run publish:sdk:minor` (or `major`), then `git push && git push --tags`

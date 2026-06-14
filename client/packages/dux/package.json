@@ -76,7 +76,16 @@
     "sdk:demo:main:validate:fix": "pnpm run sdk:demo:main:lint:fix && pnpm --dir idb-dux/demo run typecheck",
     "sdmvf": "pnpm run sdk:demo:main:validate:fix",
     "pack:all:refresh:all": "pnpm run sdk:pack:all && pnpm run sdk:demo:all:refresh",
-    "para": "pnpm run pack:all:refresh:all"
+    "para": "pnpm run pack:all:refresh:all",
+
+    "prepublish:verify": "node scripts/prepublish-verify.mjs",
+    "publish:sdk:dry-run": "node scripts/publish-sdk.mjs --dry-run",
+    "publish:sdk:patch": "node scripts/publish-sdk.mjs patch",
+    "publish:sdk:minor": "node scripts/publish-sdk.mjs minor",
+    "publish:sdk:major": "node scripts/publish-sdk.mjs major",
+    "publish:demo": "node scripts/publish-demo.mjs",
+    "publish:demo:prod": "node scripts/publish-demo.mjs --prod",
+    "publish:subtree:squash": "node scripts/publish-subtree.mjs"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^8.3.0",
