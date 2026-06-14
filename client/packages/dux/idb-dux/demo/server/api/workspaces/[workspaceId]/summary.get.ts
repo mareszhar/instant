@@ -2,14 +2,14 @@ export default defineEventHandler(async (event) => {
   const workspaceId = expectWorkspaceId(event)
   const { adminDb } = await useServerIdb(event)
 
-  const workspaceDataPromise = go(adminDb.query(q({
+  const workspaceDataPromise = go(adminDb.query({
     memberships: {
       $: { where: { workspace: workspaceId }, fields: ['id'] },
     },
     tasks: {
       $: { where: { workspace: workspaceId }, fields: ['isDone'] },
     },
-  })))
+  }))
   const userPromise = useServerIdb(event, 'user?')
   const [[errorQueryingWorkspaceData, workspaceData], { user }] = await Promise.all([workspaceDataPromise, userPromise])
 

@@ -2,7 +2,7 @@ export default defineEventHandler(async (event) => {
   const workspaceId = expectWorkspaceId(event)
   const { userDb } = await useServerIdb(event, 'userDb')
 
-  const [errorQueryingTasksDoneData, tasksDoneData] = await go(userDb.query(q({
+  const [errorQueryingTasksDoneData, tasksDoneData] = await go(userDb.query({
     tasks: {
       $: {
         where: { workspace: workspaceId, isDone: true },
@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
         limit: 500,
       },
     },
-  })))
+  }))
 
   const tasksDone = tasksDoneData?.tasks ?? []
   const [errorDeletingTasksDone] = tasksDone.length > 0

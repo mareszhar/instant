@@ -51,14 +51,14 @@ export const useInfiniteTasksStore = defineStore('infinite-tasks', () => {
   })
 
   const clearSeeded = () => executeFormAction(form, !workspaces.current, async () => {
-    const { tasks: seededTasks } = await db.queryOnce(q({
+    const { tasks: seededTasks } = await db.queryOnce({
       tasks: {
         $: {
           where: { workspace: workspaces.current!.id, title: { $like: 'Sample task %' } },
           limit: 500,
         },
       },
-    }))
+    })
 
     if (!seededTasks.length)
       return 'No seeded sample tasks found.'
