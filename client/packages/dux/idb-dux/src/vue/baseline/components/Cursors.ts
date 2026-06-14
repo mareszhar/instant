@@ -1,6 +1,4 @@
-import type { RoomSchemaShape } from '@instantdb/core'
-import type { PropType } from 'vue'
-import type { InstantDuxRoom } from '../InstantDuxRoom.js'
+import type { ComputedRef, PropType } from 'vue'
 // Vendored from @instantdb/vue/src/components/Cursors.vue — see UPSTREAM.md.
 // DUX-DELTA(components): shipped as a `.ts` render function rather than a
 // `.vue` SFC. Behavior matches the SFC: publish the local cursor on
@@ -17,12 +15,24 @@ interface CursorPresence {
   color?: string
 }
 
-type AnyRoom = InstantDuxRoom<any, RoomSchemaShape, string>
+// DUX-DELTA(types): the runtime `room` prop is the loose room handle, not a
+// concrete `InstantDuxRoom`. The official SFC infers `RoomSchema`/`RoomType`
+// per use; a `.ts` render fn can't express inferring generic props, and a
+// concrete room would reject one read back through Vue/Pinia reactivity (which
+// unwraps its deep `core`/reactor types). `core` is left loose so the handle
+// assigns however it's stored — no `markRaw` ceremony at the call site. It
+// stays assignable *to* `InstantDuxRoom<any, any, any>` for the internal
+// `usePresence` call.
+interface GenericRoom {
+  type: ComputedRef<string> | string
+  id: ComputedRef<string> | string
+  core: any
+}
 
 export const Cursors = defineComponent({
   name: 'Cursors',
   props: {
-    room: { type: Object as PropType<AnyRoom>, required: true },
+    room: { type: Object as PropType<GenericRoom>, required: true },
     spaceId: { type: String, required: false },
     as: { type: String, default: 'div' },
     userCursorColor: { type: String, required: false },

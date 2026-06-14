@@ -202,6 +202,8 @@ Room shapes are schema-typed from the `rooms` block in `defineSchema` ([root spe
 
 Their props take the **public db** — the overlay client `init`/`defineDb` returns — since that is the only db a user holds (the vision's single public surface). `SignedIn`/`SignedOut` type `db` as the minimal auth-gate surface (anything exposing `useAuth()`), so the overlay client satisfies it without the vendored components reaching up into the overlay layer.
 
+The same restraint applies to `Cursors`' `room` prop: it is the loose room handle, not a concrete `InstantDuxRoom`. A `.ts` render fn can't infer generic props the way the official SFC does, and pinning the prop to a concrete room would reject a room read back through Vue/Pinia reactivity (which unwraps its deep `core`/reactor types) — forcing a `markRaw` at every call site. The loose prop accepts the handle however it is stored, so passing a room straight out of a Pinia store needs no ceremony (locked by a `.test-d.ts`).
+
 ### 7.4 Errors
 
 The `IdbError` family is the one branded value-name exception ([conventions §2](./dux-conventions.md#2-values-vs-types)): `e instanceof IdbError` must read branded next to other libraries' errors.
