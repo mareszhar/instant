@@ -24,8 +24,9 @@
     "sdk:build:webhooks": "npm_config_cache=.npm-cache npm_config_loglevel=error pnpm --dir ../.. --filter @instantdb/webhooks build",
     "sdk:build:platform": "npm_config_cache=.npm-cache npm_config_loglevel=error pnpm --dir ../.. --filter @instantdb/platform build",
     "sdk:build:admin": "npm_config_cache=.npm-cache npm_config_loglevel=error pnpm --dir ../.. --filter @instantdb/admin build",
+    "sdk:build:resumable-stream": "npm_config_cache=.npm-cache npm_config_loglevel=error pnpm --dir ../.. --filter @instantdb/resumable-stream build",
     "sdk:build:ours": "pnpm --dir idb-dux run build",
-    "sdk:build:all": "pnpm run sdk:build:version && pnpm run sdk:build:core && pnpm run sdk:build:vue && pnpm run sdk:build:webhooks && pnpm run sdk:build:admin && pnpm run sdk:build:platform && pnpm run sdk:build:ours",
+    "sdk:build:all": "pnpm run sdk:build:version && pnpm run sdk:build:core && pnpm run sdk:build:vue && pnpm run sdk:build:webhooks && pnpm run sdk:build:platform && pnpm run sdk:build:admin && pnpm run sdk:build:resumable-stream && pnpm run sdk:build:ours",
 
     "sdk:pack:version": "pnpm run sdk:build:version && pnpm --dir ../version pack --pack-destination ../dux/packs",
     "sdk:pack:core": "pnpm run sdk:build:core && pnpm --dir ../core pack --pack-destination ../dux/packs",
