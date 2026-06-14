@@ -7,8 +7,8 @@ export interface WebhookLogEntry {
   summary: string
 }
 
-// A tiny in-memory ring buffer so the demo can show deliveries arriving. Real
-// apps would notify, enqueue, or persist instead.
+// A tiny in-memory ring buffer so the demo can show deliveries arriving.
+// Real apps would notify, enqueue, or persist instead.
 const MAX_LOG_ENTRIES = 20
 export const recentWebhookChanges: WebhookLogEntry[] = []
 
