@@ -169,9 +169,11 @@ dist
 client/packages/dux/**/.output
 client/packages/dux/**/.data
 client/packages/dux/**/.nitro
+client/packages/dux/packs
 client/packages/vux/**/.output
 client/packages/vux/**/.data
 client/packages/vux/**/.nitro
+client/packages/vux/packs
 
 # Gatsby files
 .cache/
