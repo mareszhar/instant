@@ -1,0 +1,70 @@
+# Gate for the @mszr/idb-dux maintainer workspace (dux-spec-workspace.md → W3).
+# Runs on changes under client/packages/dux/**: lint (SDK + demo + scripts),
+# build all six entrypoints, the full Vitest suite (runtime / type-shape / dx /
+# parity / compat targets, all locked by `vitest run --typecheck`), and the
+# baseline drift check.
+name: dux CI
+
+on:
+  push:
+    paths:
+      - 'client/packages/dux/**'
+      - '.github/workflows/dux.yml'
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - 'client/packages/dux/**'
+      - '.github/workflows/dux.yml'
+
+jobs:
+  dux:
+    name: Lint, build, test, drift
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          # Drift check reads git history since the vendored commit.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.0'
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Get pnpm cache directory path
+        id: pnpm-cache-dir-path
+        run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        working-directory: client
+        run: pnpm i --frozen-lockfile --prefer-offline
+
+      - name: Lint (SDK + demo + scripts)
+        working-directory: client/packages/dux
+        run: pnpm run lint
+
+      - name: Build all entrypoints
+        working-directory: client/packages/dux
+        run: pnpm run sdk:build:all
+
+      - name: Full suite (runtime / types / dx / parity / compat)
+        working-directory: client/packages/dux
+        run: pnpm run sdk:test
+
+      - name: Baseline drift check
+        working-directory: client/packages/dux
+        run: pnpm run sdk:check-baseline-drift
