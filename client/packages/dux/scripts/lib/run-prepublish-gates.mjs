@@ -12,8 +12,8 @@
  * a one-keystroke way to drop the safety rails is too tempting on a tired night.
  */
 import process from 'node:process'
-import { createLogger, run } from './run-publish-step.mjs'
 import { WORKSPACE_ROOT } from './resolve-publish-paths.mjs'
+import { createLogger, run } from './run-publish-step.mjs'
 
 export const UNSAFE_SKIP_ENV = 'DUX_UNSAFE_PUBLISH_SKIP_CHECKS'
 
