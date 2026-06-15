@@ -73,7 +73,7 @@ declare module '@mszr/idb-dux' {
 
 dux completes linked dot-paths in `where` clauses up to three hops (`memberships`, `memberships.user`, `memberships.user.email`). For the nicest experience, turn off accept-on-commit-character in your editor:
 
-```JSON
+```JS
 // VS Code settings.json
 "editor.acceptSuggestionOnCommitCharacter": false
 ```
