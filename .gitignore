@@ -221,6 +221,10 @@ apps/.DS_Store
 .nrepl-port
 
 .vscode
+# Re-include shared editor config for the dux package so it travels with the repo.
+!client/packages/dux/.vscode/
+!client/packages/dux/.vscode/settings.json
+!client/packages/dux/.vscode/extensions.json
 
 dump.sql
 .cpcache/
