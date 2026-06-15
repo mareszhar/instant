@@ -4,7 +4,7 @@
 
 dux keeps Instant's backend, wire protocol, and rules engine exactly as they are, and rebuilds the authoring and client surface around a single question: *what would feel most delightful to use?*
 
-> **Status: pre-implementation.** The package is scaffolded and spec-complete; the surfaces below land phase by phase. The specs are the source of truth: start at `dux-vision.md` ([public link](https://github.com/mareszhar/instant/blob/vux/client/packages/dux/docs/dux-vision.md) | [local fork path](../docs/dux-vision.md)).
+> **Status: pre-implementation.** The package is scaffolded and spec-complete; the surfaces below land phase by phase. The specs are the source of truth: start at `dux-vision.md` ([public link](https://github.com/mareszhar/instant/blob/dux/client/packages/dux/docs/dux-vision.md) | [local fork path](../docs/dux-vision.md)).
 
 ## The shape
 
@@ -44,10 +44,10 @@ declare module '@mszr/idb-dux' {
 
 ## Development
 
-The public `idb-dux` repo is the package and demo face, not the standalone development workspace. Build, test, release, and demo-resolution commands live in the dux maintainer workspace inside the Instant fork: `client/packages/dux` ([public link](https://github.com/mareszhar/instant/tree/vux/client/packages/dux) | [local fork path](..)).
+The public `idb-dux` repo is the package and demo face, not the standalone development workspace. Build, test, release, and demo-resolution commands live in the dux maintainer workspace inside the Instant fork: `client/packages/dux` ([public link](https://github.com/mareszhar/instant/tree/dux/client/packages/dux) | [local fork path](..)).
 
 ## Docs
 
-- `dux-vision.md` ([public link](https://github.com/mareszhar/instant/blob/vux/client/packages/dux/docs/dux-vision.md) | [local fork path](../docs/dux-vision.md)) — philosophy, architecture, scope, roadmap
-- `dux-conventions.md` ([public link](https://github.com/mareszhar/instant/blob/vux/client/packages/dux/docs/dux-conventions.md) | [local fork path](../docs/dux-conventions.md)) — vocabulary and naming law
-- `dux-spec-*.md` ([public link](https://github.com/mareszhar/instant/tree/vux/client/packages/dux/docs) | [local fork path](../docs)) — one spec per entrypoint, plus the maintainer manual
+- `dux-vision.md` ([public link](https://github.com/mareszhar/instant/blob/dux/client/packages/dux/docs/dux-vision.md) | [local fork path](../docs/dux-vision.md)) — philosophy, architecture, scope, roadmap
+- `dux-conventions.md` ([public link](https://github.com/mareszhar/instant/blob/dux/client/packages/dux/docs/dux-conventions.md) | [local fork path](../docs/dux-conventions.md)) — vocabulary and naming law
+- `dux-spec-*.md` ([public link](https://github.com/mareszhar/instant/tree/dux/client/packages/dux/docs) | [local fork path](../docs)) — one spec per entrypoint, plus the maintainer manual

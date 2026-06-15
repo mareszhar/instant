@@ -308,8 +308,8 @@ Done when: `pnpm run sdk:build:ours` produces all six entrypoints; boundary lint
 
 - [x] the Nuxt demo exercising the five interactively-demoable entrypoints (root, `/vue`, `/perms`, `/admin`, `/nuxt`); `/webhooks` excluded by design, guaranteed by its suites ([§7.2](#72-webhooks-the-documented-exception))
 - [x] pack + demo-resolution scripts (link/tarball/npm modes)
-- [x] CI: build, lint, full suite (runtime/types/dx); parity + compat targets ride the suite; drift is its own gate (`.github/workflows/dux.yml`)
-- [x] test economy held: the demo carries no unit tests (exercised by typecheck + build in CI), so phase 9 added no implementation-coupled assertions
+- [x] CI: workspace lint, SDK build, full suite (runtime/types/dx); parity + compat targets ride the suite; drift is its own gate (`.github/workflows/dux.yml`)
+- [x] test economy held: the demo carries no unit tests; demo typecheck/build stays local/release-only because demo manifests can be in link/tarball/npm modes
 
 ### Phase W4 — publishing (first release)
 

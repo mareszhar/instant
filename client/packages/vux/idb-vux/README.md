@@ -84,4 +84,4 @@ Check out the [local demo app](./demo) to see `@mszr/idb-vux` in action. See the
 
 ## Maintainers
 
-If you are contributing to the monorepo workspace, see the [Maintainer docs index](https://github.com/mareszhar/instant/tree/vux/client/packages/vux/docs/README.md).
+If you are contributing to the monorepo workspace, see the [Maintainer docs index](https://github.com/mareszhar/instant/tree/dux/client/packages/vux/docs/README.md).

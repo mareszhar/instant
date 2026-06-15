@@ -278,4 +278,4 @@ The target shape is similar to Instant's React/Next SSR support:
 
 Maintainer context:
 
-- `https://github.com/mareszhar/instant/tree/vux/client/packages/vux/docs/notes/ssr-feasibility.md`
+- `https://github.com/mareszhar/instant/tree/dux/client/packages/vux/docs/notes/ssr-feasibility.md`

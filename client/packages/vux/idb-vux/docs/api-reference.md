@@ -78,4 +78,4 @@ The package exports a broad set of Instant core and Vue-specific types, includin
 
 For exact type names, inspect `src/index.ts` in the package source:
 
-- `https://github.com/mareszhar/instant/tree/vux/client/packages/vux/idb-vux/src/index.ts`
+- `https://github.com/mareszhar/instant/tree/dux/client/packages/vux/idb-vux/src/index.ts`

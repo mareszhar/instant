@@ -40,7 +40,7 @@ So webhooks earn their guarantee where it's actually airtight — the test suite
 - the `defineWebhookHandler` route driven through h3's real request lifecycle with 2xx/4xx retry mapping (`idb-dux/src/nuxt/nuxt.test.ts`)
 - type, editor-DX, and official-shape compatibility planes (`idb-dux/src/webhooks/*.test-d.ts`, `*.dx.test.ts`)
 
-To use webhooks in a real app, see [`dux-spec-webhooks.md`](https://github.com/mareszhar/instant/blob/vux/client/packages/dux/docs/dux-spec-webhooks.md) and [`dux-spec-nuxt.md`](https://github.com/mareszhar/instant/blob/vux/client/packages/dux/docs/dux-spec-nuxt.md).
+To use webhooks in a real app, see [`dux-spec-webhooks.md`](https://github.com/mareszhar/instant/blob/dux/client/packages/dux/docs/dux-spec-webhooks.md) and [`dux-spec-nuxt.md`](https://github.com/mareszhar/instant/blob/dux/client/packages/dux/docs/dux-spec-nuxt.md).
 
 ## Build preview
 
