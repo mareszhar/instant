@@ -46,8 +46,15 @@ export function instantDepNames(pkg) {
   return [...names].sort()
 }
 
-export function assertPackageVersionOnNpm(pkg, version) {
-  const got = capture('npm', ['view', `${pkg}@${version}`, 'version'], {
+/**
+ * Assert a concrete version is resolvable on npm. Pass `preferOnline` when
+ * polling for a *just-published* version: without it `npm view` can serve a
+ * packument cached by an earlier poll that predates propagation, so every later
+ * poll reads the same stale "not found" and the wait times out against its own
+ * cache. `--prefer-online` revalidates each call.
+ */
+export function assertPackageVersionOnNpm(pkg, version, { preferOnline = false } = {}) {
+  const got = capture('npm', ['view', `${pkg}@${version}`, 'version', ...(preferOnline ? ['--prefer-online'] : [])], {
     cwd: PKG_DIR,
     env: { npm_config_cache: NPM_CACHE },
   })

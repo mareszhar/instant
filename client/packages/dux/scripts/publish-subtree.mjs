@@ -10,11 +10,18 @@
  * remote tip, pushed fast-forward. No subtree history is replayed publicly.
  *
  * Runnable ad hoc (`pnpm run publish:subtree:squash`) or driven by
- * `publish:sdk:*`. Ad hoc it runs the shared gate first and opens $GIT_EDITOR
- * for the squash message; pass `--message` (or let the orchestrator pass one)
- * to skip the editor:
+ * `publish:sdk:*`. Ad hoc it runs the shared gate first and opens $GIT_EDITOR to
+ * compose the squash message — prefilled with the convention-following default
+ * (`🔖 release v<version>` from the package), so saving as-is is one keystroke
+ * and editing is right there. Pass `--message` to skip the editor:
  *
  *   pnpm run publish:subtree:squash -- --message "🔖 release v0.1.0"
+ *
+ * An automatic version-derived message is the happy path's job, not the ad-hoc
+ * one's: the `publish:sdk:*` orchestrator always passes `--message`, so a
+ * release never opens an editor; a maintainer running the push by hand picks
+ * the message. (Spawning the IDE editor can trip its workspace-trust prompt —
+ * that's the IDE guarding external file-opens, harmless to allow.)
  */
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -124,6 +131,13 @@ function pinPublicDemoDeps(pkg, duxVersion, sharedVersion) {
   return pins.sort()
 }
 
+/** The default squash message — `🔖 release v<version>` from the package at HEAD. */
+function defaultSubtreeMessage(repoRoot) {
+  const rawPkg = capture('git', ['show', `HEAD:${PREFIX}/package.json`], { cwd: repoRoot })
+  const version = rawPkg ? JSON.parse(rawPkg).version : undefined
+  return version ? `🔖 release v${version}` : '🔖 publish idb-dux'
+}
+
 /** Resolve the configured git editor on a prefilled template; return the message. */
 function composeMessageInEditor(repoRoot) {
   const editor = capture('git', ['var', 'GIT_EDITOR'], { cwd: repoRoot }) || process.env.EDITOR || 'vi'
@@ -131,10 +145,11 @@ function composeMessageInEditor(repoRoot) {
   fs.writeFileSync(
     file,
     [
+      defaultSubtreeMessage(repoRoot),
       '',
-      '# Write the squash commit message for the public idb-dux repo.',
-      '# Lines starting with "#" are ignored. An empty message aborts.',
-      `# e.g. 🔖 release v0.1.0`,
+      '# Squash commit message for the public idb-dux repo. The line above is a',
+      '# convention-following default — keep it, or replace it with your own.',
+      '# Lines starting with "#" are ignored; an empty message aborts.',
       '',
     ].join('\n'),
   )

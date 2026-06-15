@@ -19,5 +19,7 @@ export const DEMO_PKG = path.resolve(DEMO_DIR, 'package.json')
 export const SHARED_VERSION_SRC = path.resolve(WORKSPACE_ROOT, '../version/src/version.ts')
 /** Local npm cache, kept out of the user's global cache. */
 export const NPM_CACHE = path.resolve(WORKSPACE_ROOT, '.npm-cache')
+/** Gitignored scratch dir for release machinery (verify stamp, release state). */
+export const STATE_DIR = path.resolve(WORKSPACE_ROOT, '.dux')
 /** The published package's npm name. */
 export const PKG_NAME = '@mszr/idb-dux'

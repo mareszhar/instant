@@ -46,9 +46,12 @@ function latestPublishedVersion() {
   return capture('npm', ['view', `${PKG_NAME}`, 'version'], { cwd: PKG_DIR, env: { npm_config_cache: NPM_CACHE } })
 }
 
-/** Assert a concrete version is resolvable on npm. */
+/**
+ * Assert a concrete version is resolvable on npm (revalidating, since this may
+ * run moments after the SDK publish while the registry is still propagating).
+ */
 function assertOnNpm(version) {
-  const got = capture('npm', ['view', `${PKG_NAME}@${version}`, 'version'], { cwd: PKG_DIR, env: { npm_config_cache: NPM_CACHE } })
+  const got = capture('npm', ['view', `${PKG_NAME}@${version}`, 'version', '--prefer-online'], { cwd: PKG_DIR, env: { npm_config_cache: NPM_CACHE } })
   if (got !== version)
     log.fail(`${PKG_NAME}@${version} is not on npm (got "${got || 'nothing'}"). Publish the SDK first.`)
 }
