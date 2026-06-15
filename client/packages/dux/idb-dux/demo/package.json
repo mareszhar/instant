@@ -16,8 +16,8 @@
   },
   "devDependencies": {
     "@floating-ui/vue": "^1.1.11",
-    "@instantdb/admin": "link:@instantdb/admin",
-    "@mszr/idb-dux": "link:@mszr/idb-dux",
+    "@instantdb/admin": "npm:@instantdb/admin@latest",
+    "@mszr/idb-dux": "npm:@mszr/idb-dux@1.0.0",
     "@pinia/nuxt": "^0.11.3",
     "@vue/language-plugin-pug": "^3.3.0",
     "@vueuse/core": "^14.3.0",

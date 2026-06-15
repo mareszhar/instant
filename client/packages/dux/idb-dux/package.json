@@ -1,7 +1,7 @@
 {
   "name": "@mszr/idb-dux",
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "A DX/UX-first reimagining of the InstantDB developer experience",
   "license": "Apache-2.0",
   "homepage": "https://github.com/mareszhar/idb-dux",
