@@ -5,7 +5,7 @@ This directory is the **internal baseline** for `/vue` — a near-verbatim mirro
 ## Vendored from
 
 - **Package:** `@instantdb/vue` (this fork's `client/packages/vue`)
-- **Commit:** `895f304a507b6796ac6222bd331ee3c08fab2710`
+- **Commit:** `1281e5fd9236da870f30a4c05c10a80a46ce414e`
 - **Date:** 2026-06-11
 
 ## File map
