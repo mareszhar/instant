@@ -1,0 +1,48 @@
+{
+  // Disable default formatters
+  "prettier.enable": false,
+  "editor.formatOnSave": false,
+
+  // Auto-fix
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "never"
+  },
+
+  // Silence stylistic rules in the IDE, but still auto-fix them
+  "eslint.rules.customizations": [
+    { "rule": "style/*", "severity": "off" },
+    { "rule": "*-indent", "severity": "off" },
+    { "rule": "*-spacing", "severity": "off" },
+    { "rule": "*-spaces", "severity": "off" },
+    { "rule": "*-order", "severity": "off" },
+    { "rule": "*-dangle", "severity": "off" },
+    { "rule": "*-newline", "severity": "off" },
+    { "rule": "*quotes", "severity": "off" },
+    { "rule": "*semi", "severity": "off" }
+  ],
+
+  // Enable ESLint for all supported languages
+  "eslint.validate": [
+    "html",
+    "javascript",
+    "javascriptreact",
+    "json",
+    "jsonc",
+    "markdown",
+    "typescript",
+    "typescriptreact",
+    "vue",
+    "yaml"
+  ],
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+
+  // Allow TS server to load local plugins
+  "typescript.tsdk": "node_modules/typescript/lib",
+
+  // Don't accept a highlighted suggestion when typing a commit character.
+  // Without this, typing `.` while completing a dux `where` dot-path
+  // (`memberships.user.`) auto-accepts the preselected suggestion instead of
+  // just continuing the path — Tab/Enter/arrows still accept as expected.
+  "editor.acceptSuggestionOnCommitCharacter": false
+}
