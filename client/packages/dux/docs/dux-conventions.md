@@ -71,7 +71,7 @@ If idb ever ships an API whose name collides with a dux value, its purpose almos
 
 ## 3. The result pattern
 
-Every stateful client hook returns `Idb<Domain>Result` with `-Data` / `-State` / `-Refs` subparts (`IdbQueryResult`, `IdbQueryResultData`, `IdbQueryResultState`, `IdbQueryResultRefs`; same pattern for `IdbAuthResult`, `IdbRoomPresenceResult`, …). Learn one, know all.
+Every stateful client hook returns `Idb<Domain>Result` with `-Data` / `-State` / `-Refs` subparts (`IdbQueryResult`, `IdbQueryResultData`, `IdbQueryResultState`, `IdbQueryResultRefs`; same pattern for `IdbAuthResult`, `IdbInfiniteQueryResult`, `IdbConnectionResult`, `IdbLocalIdResult`, and the presence/typing hooks — their shapes are inferred per room, so no separately-named alias exists). Learn one, know all.
 
 The result pattern is a *client-reactivity* concept. Server one-shots return plain shaped data and deliberately don't claim it ([dux-spec-admin.md](./dux-spec-admin.md)).
 
@@ -135,11 +135,11 @@ The pattern and the non-obvious calls. Each spec carries its surface's *complete
 | — | entity, `id` + fields only | `IdbEntity<'ns'>` |
 | — | entity + every link label, one hop | `IdbEntityWithLinks<'ns'>` |
 | `User` | the **authenticated** user | `IdbAuthUser` |
-| `AuthState` | `{ isLoading, user, error }` | `IdbAuthState` |
+| `AuthState` | `{ isLoading, user, error }` | surfaced via the result pattern — `IdbAuthResult` and its `.state` (`IdbAuthResultState`) ([§3](#3-the-result-pattern)) |
 | `Config` / `InstantConfig` | init config, duplicated | `IdbClientConfig` |
 | `InstantSchemaDef` | the schema type | `IdbSchema` |
 | `InstantRules` | compiled permissions | `IdbPerms` (assignable to `InstantRules`) |
-| `RuleParams` | `{ [k: string]: any }` | `IdbTxRuleParams<'ns'>` / `IdbPermsRuleParams<'ns'>`, schema-typed |
+| `RuleParams` | `{ [k: string]: any }` | tx: `IdbTxRuleParams<'ns'>`, schema-typed; perms: typed at the call site via the `rp` context, no standalone export |
 | `TransactionChunk` | one tx step | `IdbTxChunk` |
 | `UpdateParams` / `CreateParams` / `LinkParams` | op payload shapes | `IdbTxUpdate<'ns'>` / `IdbTxCreate<'ns'>` / `IdbTxLink<'ns'>` |
 | `RoomsOf` / `PresenceOf` / `TopicsOf` | room shape extractors | `IdbRooms` / `IdbRoomPresence<'room'>` / `IdbRoomTopics<'room'>` |

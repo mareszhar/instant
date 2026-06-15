@@ -7,6 +7,7 @@
  * Spec: `../../docs/dux-spec-root.md`.
  */
 
+export * from './errors.js'
 export * from './query/index.js'
 export * from './schema/index.js'
 export * from './tx/index.js'

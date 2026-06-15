@@ -40,6 +40,7 @@ The root entrypoint exports:
 | `q` / `defineQuery<S>()` | schema-aware query authoring — `q` is ready-made via registration |
 | `$only`, `$skip` | authoring constants ([§3.2](#32-only-and-skip)) |
 | `id`, `lookup` | re-exports, official names kept |
+| `IdbError`, `IdbApiError` (+ `IdbIssue` type) | the branded error family ([conventions §2](./dux-conventions.md#2-values-vs-types)) — `e instanceof IdbError`; re-exported by the surfaces that throw (`/vue`, `/admin`, `/webhooks`) |
 | `IdbRegister` + the `Idb*` type utilities | [§6](#6-type-utilities) |
 | the typed-tx machinery | consumed by `/vue`'s `db.tx` and `/admin`'s `adminDb.tx` ([§5](#5-typed-tx)) |
 
@@ -424,6 +425,8 @@ Rules:
 - Type utilities accept **the same `$` keys as runtime queries** (`$only`, `$at`, `$as`, plus `fields`) with the same meaning — one vocabulary, one meaning. At the type level `$only`/`$at` coerce to `Entity | undefined` regardless of position; singularization follows the schema's `options.singularize`; `$as` always wins.
 - All utilities are type-only imports — zero runtime footprint.
 - Multi-schema escape hatch: a trailing schema param (`IdbEntity<'todos', OtherSchema>`).
+
+The room shapes are schema-rooted too — `IdbRooms`, `IdbRoomName`, `IdbRoomPresence<'room'>`, `IdbRoomTopics<'room'>` live at the root (the unmarked schema domain) and are re-exported by the clients that use them (`/vue`, `/admin`).
 
 ---
 

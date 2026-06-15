@@ -7,6 +7,9 @@
  *
  * Spec: `../../../docs/dux-spec-webhooks.md`.
  */
+// The branded error family — `e instanceof IdbError` (verify/fetch can throw).
+export { IdbApiError, IdbError } from '../errors.js'
+export type { IdbIssue } from '../errors.js'
 export { defineWebhookHandlers } from './defineWebhookHandlers.js'
 export { init } from './init.js'
 export type {

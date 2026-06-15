@@ -27,4 +27,8 @@ export type {
   IdbEntity,
   IdbEntityWithLinks,
   IdbNamespaceName,
+  IdbRoomName,
+  IdbRoomPresence,
+  IdbRooms,
+  IdbRoomTopics,
 } from './types.js'

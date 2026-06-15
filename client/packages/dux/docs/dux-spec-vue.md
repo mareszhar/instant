@@ -47,9 +47,11 @@ The enhanced behavior is the only public surface. All hooks are SSR-resilient; a
 | `db.transact(...)` / `db.tx` | `tx` is **typed**: schema-typed `ruleParams`, dot-path `.link` ([root spec §5](./dux-spec-root.md#5-typed-tx)) |
 | `db.auth.*` / `db.storage.*` / `db.streams` | **considered pass-throughs**: official verbs kept verbatim — already precise — with exported types renamed (`IdbAuth*`, `IdbStorage*`, `IdbStream*`) |
 | `SignedIn`, `SignedOut`, `Cursors` | components ([§7.3](#73-components)) |
-| `id`, `lookup`, `createInstantRouteHandler` | re-exports keep their official names |
+| `IdbError`, `IdbApiError` (+ `IdbIssue` type) | the branded error family ([§7.4](#74-errors)) — `e instanceof IdbError` |
+| `IdbRooms`, `IdbRoomPresence<'room'>`, `IdbRoomTopics<'room'>` | room type extractors, re-exported from the root ([§6](#6-rooms)) |
+| `id`, `lookup` | re-exports keep their official names |
 
-Deprecated official type aliases are not re-exported.
+Deprecated official type aliases are not re-exported. `createInstantRouteHandler` is a *server* route handler — it lives on the server planes (`/admin`, `/nuxt`), not on the client surface ([dux-spec-nuxt.md §3](./dux-spec-nuxt.md#3-defineauthsynchandler)); plane separation keeps it off `/vue`.
 
 ---
 
@@ -109,7 +111,7 @@ watch(isLoading, loading => console.log('loading:', loading))
 
 `state` is not useful as a direct accessor (`state.todos` and `todos.value` are equivalent); its value is as a remapped scope name — `const { state: auth } = db.useAuth()` reads as `auth.user`, `auth.isLoading` throughout a store or composable.
 
-The shapes are typed `Idb<Domain>Result` with `-Data`/`-State`/`-Refs` subparts (`IdbQueryResult`, `IdbAuthResult`, `IdbRoomPresenceResult`, …) — learn one, know all ([conventions §3](./dux-conventions.md#3-the-result-pattern)).
+The shapes are typed `Idb<Domain>Result` with `-Data`/`-State`/`-Refs` subparts (`IdbQueryResult`, `IdbAuthResult`, `IdbConnectionResult`, `IdbLocalIdResult`, and the presence/typing hooks — shapes inferred per room, no separately-named alias) — learn one, know all ([conventions §3](./dux-conventions.md#3-the-result-pattern)).
 
 ### Pinia safety
 

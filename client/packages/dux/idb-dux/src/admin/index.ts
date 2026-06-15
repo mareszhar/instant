@@ -9,6 +9,12 @@
  * Spec: `../../../docs/dux-spec-admin.md`.
  */
 
+// The branded error family — `e instanceof IdbError` (the admin fetch path
+// throws `IdbApiError`, which extends `IdbError`).
+export { IdbApiError, IdbError } from '../errors.js'
+export type { IdbIssue } from '../errors.js'
+// Schema-rooted room type extractor — `rooms.getPresence` reads against it.
+export type { IdbRoomPresence } from '../schema/index.js'
 // Re-exports — official names kept at the boundary.
 export { id, lookup } from '../tx/index.js'
 export { IdbAdminClient, init } from './init.js'

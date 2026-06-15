@@ -4,6 +4,9 @@ import type {
   IdbEntity,
   IdbEntityWithLinks,
   IdbRegisteredSchema,
+  IdbRoomName,
+  IdbRoomPresence,
+  IdbRoomTopics,
   IdbUnknownSchema,
 } from './index.js'
 import { describe, expectTypeOf, it } from 'vitest'
@@ -63,5 +66,12 @@ describe('schema type shapes', () => {
 
   it('falls back to the unknown schema when nothing is registered', () => {
     expectTypeOf<IdbRegisteredSchema>().toEqualTypeOf<IdbUnknownSchema>()
+  })
+
+  it('room extractors read room shapes straight off the schema', () => {
+    expectTypeOf<IdbRoomName<AppSchema>>().toEqualTypeOf<'workspace'>()
+    expectTypeOf<IdbRoomPresence<'workspace', AppSchema>['name']>().toEqualTypeOf<string>()
+    expectTypeOf<IdbRoomPresence<'workspace', AppSchema>['typing']>().toEqualTypeOf<boolean | undefined>()
+    expectTypeOf<IdbRoomTopics<'workspace', AppSchema>['reaction']>().toExtend<{ emoji: string }>()
   })
 })
