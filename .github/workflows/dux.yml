@@ -1,19 +1,48 @@
 # Gate for the @mszr/idb-dux maintainer workspace (dux-spec-workspace.md → W3).
-# Runs on changes under client/packages/dux/**: lint (SDK + demo + scripts),
-# build all six entrypoints, the full Vitest suite (runtime / type-shape / dx /
-# parity / compat targets, all locked by `vitest run --typecheck`), and the
-# baseline drift check.
+# Runs on dux workspace changes and changes to the upstream packages dux wraps or
+# tests against: workspace lint, build all six entrypoints, the full Vitest suite
+# (runtime / type-shape / dx / parity / compat, locked by `vitest run --typecheck`),
+# and the baseline drift check. Demo typecheck/build is local/release-only — demos
+# may reference the package via link/tarball/npm, so their resolutions are not CI-stable.
 name: dux CI
 
 on:
   push:
     paths:
+      - 'client/package.json'
+      - 'client/pnpm-lock.yaml'
+      - 'client/pnpm-workspace.yaml'
+      - 'client/turbo.json'
+      - 'client/packages/admin/**'
+      - 'client/packages/core/**'
       - 'client/packages/dux/**'
+      # demo and sandbox excluded — their package resolutions vary by mode (link/tarball/npm)
+      - '!client/packages/dux/idb-dux/demo/**'
+      - '!client/packages/dux/sandbox/**'
+      - 'client/packages/platform/**'
+      - 'client/packages/resumable-stream/**'
+      - 'client/packages/version/**'
+      - 'client/packages/vue/**'
+      - 'client/packages/webhooks/**'
       - '.github/workflows/dux.yml'
   pull_request:
     types: [opened, synchronize]
     paths:
+      - 'client/package.json'
+      - 'client/pnpm-lock.yaml'
+      - 'client/pnpm-workspace.yaml'
+      - 'client/turbo.json'
+      - 'client/packages/admin/**'
+      - 'client/packages/core/**'
       - 'client/packages/dux/**'
+      # demo and sandbox excluded — their package resolutions vary by mode (link/tarball/npm)
+      - '!client/packages/dux/idb-dux/demo/**'
+      - '!client/packages/dux/sandbox/**'
+      - 'client/packages/platform/**'
+      - 'client/packages/resumable-stream/**'
+      - 'client/packages/version/**'
+      - 'client/packages/vue/**'
+      - 'client/packages/webhooks/**'
       - '.github/workflows/dux.yml'
 
 jobs:
@@ -53,7 +82,7 @@ jobs:
         working-directory: client
         run: pnpm i --frozen-lockfile --prefer-offline
 
-      - name: Lint (SDK + demo + scripts)
+      - name: Lint workspace
         working-directory: client/packages/dux
         run: pnpm run lint
 

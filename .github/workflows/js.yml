@@ -49,14 +49,16 @@ jobs:
           };
 
           for (const file of files) {
+            // dux has its own CI (dux.yml) and is excluded from all js.yml change flags
+            const dux = file.startsWith('client/packages/dux/');
             const changes = {
-              client: file.startsWith('client'),
-              docs: /docs/.test(file),
+              client: file.startsWith('client') && !dux,
+              docs: /docs/.test(file) && !dux,
               mcpPackages: /^client\/packages\/(mcp|core|platform|admin)/.test(file),
               mcpDockerfile: file === 'client/Dockerfile.mcp',
               mcpFly: file === 'client/fly.toml',
               workflowFile: file === '.github/workflows/js.yml',
-              packages: file.startsWith('client/packages'),
+              packages: file.startsWith('client/packages') && !dux,
               version: file === 'client/packages/version/src/version.ts',
             };
             console.log('file', file);
