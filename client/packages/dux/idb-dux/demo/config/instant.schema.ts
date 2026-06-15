@@ -32,6 +32,14 @@ export const schema = defineSchema({
         createdAt: i.date().indexed(),
       },
     }),
+
+    // >>> FOR SANDBOX EXPERIMENTS (START) <<<
+    fruits: i.namespace({
+      fields: {
+        name: i.string<'apple' | 'banana' | 'orange'>().indexed(),
+      },
+    }),
+    // >>> FOR SANDBOX EXPERIMENTS (END) <<<
   },
   links: {
     membershipWorkspace: {
