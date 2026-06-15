@@ -142,17 +142,7 @@ function defaultSubtreeMessage(repoRoot) {
 function composeMessageInEditor(repoRoot) {
   const editor = capture('git', ['var', 'GIT_EDITOR'], { cwd: repoRoot }) || process.env.EDITOR || 'vi'
   const file = path.join(os.tmpdir(), `dux-subtree-msg-${Date.now()}.txt`)
-  fs.writeFileSync(
-    file,
-    [
-      defaultSubtreeMessage(repoRoot),
-      '',
-      '# Squash commit message for the public idb-dux repo. The line above is a',
-      '# convention-following default — keep it, or replace it with your own.',
-      '# Lines starting with "#" are ignored; an empty message aborts.',
-      '',
-    ].join('\n'),
-  )
+  fs.writeFileSync(file, `${defaultSubtreeMessage(repoRoot)}\n`)
 
   const result = spawnSync(`${editor} "${file}"`, { stdio: 'inherit', shell: true })
   if (result.status !== 0) {
@@ -252,6 +242,14 @@ export function publishSubtree({
 
   run('git', ['push', remote, `${commit}:refs/heads/${branch}`], { cwd: repoRoot })
   log.log(`pushed ${commit.slice(0, 10)} to ${branch}.`)
+
+  const rawPkg = capture('git', ['show', `HEAD:${PREFIX}/package.json`], { cwd: repoRoot })
+  const pkgVersion = rawPkg ? JSON.parse(rawPkg).version : undefined
+  if (pkgVersion) {
+    run('git', ['push', remote, `${commit}:refs/tags/v${pkgVersion}`], { cwd: repoRoot })
+    log.log(`pushed tag v${pkgVersion} to ${remote}.`)
+  }
+
   return commit
 }
 
