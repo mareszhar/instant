@@ -172,7 +172,7 @@ Per-call options (`IdbQueryOptions`) carry schema-typed `ruleParams`.
 ## 5. Auth, connection, identity
 
 - **`useAuth()`** — the result pattern over `{ isLoading, user, error }`; `user` is `IdbAuthUser | undefined`.
-- **`useUser(opts?)`** — the user-centric projection. Contract: in views that exist behind an auth gate, the user should be typed *present* without repeated narrowing. Proposal: `useUser({ requireUser: true })` types `user` as `IdbAuthUser` and treats rendering without one as a development-time error; the default leaves it optional.
+- **`useUser(opts?)`** — the user-centric projection: in views behind an auth gate, the user is typed *present* without repeated narrowing. `useUser({ requireUser: true })` types `user` as `IdbAuthUser` and treats rendering without a user as a development-time error; the default leaves it optional.
 - **`useConnectionStatus()`** — result pattern over `IdbConnectionStatus`.
 - **`useLocalId(name)`** — reactive input, result pattern.
 

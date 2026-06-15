@@ -230,7 +230,7 @@ The public tree is a projection, not a checkout mutation: it pins every `@instan
 
 References from `idb-dux` to files outside `idb-dux` follow the audience. Maintainer-only code comments may name unique spec files or use fork-relative paths. User-facing docs and demo comments use public URLs. Hybrid surfaces, chiefly `idb-dux/README.md`, include both labels: `public link` and `local fork path`.
 
-Ad hoc it runs the shared gate first and opens `$GIT_EDITOR` (via `git var GIT_EDITOR`) on a prefilled template for the squash message; pass a message to skip the editor — `pnpm run publish:subtree:squash -- --message "🔖 release v0.1.0"`. The `publish:sdk:*` orchestrator passes the release message and `skipVerify`.
+When run ad hoc, it runs the shared gate first and opens `$GIT_EDITOR` (via `git var GIT_EDITOR`) on a prefilled template for the squash message; pass a message to skip the editor — `pnpm run publish:subtree:squash -- --message "🔖 release v0.1.0"`. The `publish:sdk:*` orchestrator passes the release message and `skipVerify`.
 
 ### 6.4 The demo publish (`publish-demo.mjs`)
 

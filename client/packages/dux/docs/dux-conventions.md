@@ -13,6 +13,7 @@ Every name must pass three questions:
 
 dux holds itself to all three because the official surface doesn't: three brand prefixes (`Instant*`, `Insta*`, `InstantDB*`), `InstaQLParams` naming the query object "params", `InstaQLResult` and `InstaQLResponse` naming the *same shape* twice, `User` meaning "authenticated user", and the schema API disagreeing with the docs on entity-vs-namespace. dux serves a single mental model instead; official names map to dux names at the boundary.
 
+- [0. Language conventions](#0-language-conventions)
 - [1. Vocabulary](#1-vocabulary)
 - [2. Values vs types](#2-values-vs-types)
 - [3. The result pattern](#3-the-result-pattern)
@@ -23,6 +24,22 @@ dux holds itself to all three because the official surface doesn't: three brand 
 - [8. The rename table](#8-the-rename-table)
 - [9. Coexisting with official packages](#9-coexisting-with-official-packages)
 - [10. Perms vocabulary](#10-perms-vocabulary)
+
+---
+
+## 0. Language conventions
+
+The house style for every dux doc — specs, vision, and READMEs alike.
+
+**Precise, not plain.** The same concept always uses the same term — synonyms aren't interchangeable; different words signal different things. Technical vocabulary is appropriate where the domain calls for it. The goal is comprehension: write to minimize cognitive load, not to avoid complexity.
+
+**Decisions, not deliberations.** Writing is direct and authoritative. Dropped alternatives, prior attempts, and exploratory reasoning are omitted — docs reflect the current answer, not the path to it. Use imperative or declarative constructions ("use X," "X is Y") rather than suggestive ones ("consider X," "you might want to Y").
+
+**Rationale earns its place.** Explanation belongs when it makes a non-obvious choice make sense, frames the intent behind a section, or guards against a known failure mode resurfacing. The test isn't "is this interesting?" but "does this help someone apply this correctly, or understand why it matters?" When rationale is included, it makes the decision stickier — it does not narrate how it was reached. The failure modes are opposite but equal: verbose over-explanation that buries the spec in commentary, and terse opacity that leaves choices feeling arbitrary. Directness is the default; rationale is the deliberate exception.
+
+**No hedging.** Avoid qualifiers like *generally*, *typically*, *usually*, or *try to* unless the exception genuinely matters and needs to be surfaced. If the rule has meaningful carve-outs, state them explicitly. If it doesn't, write the rule cleanly.
+
+**Tone is audience-scoped.** Specs are technical and authoritative. The vision is deliberate and aspirational. READMEs are warmer — a new reader's first contact with dux — but still precise: friendly without filler, empathetic without indecision.
 
 ---
 
@@ -78,7 +95,7 @@ The rule, stated once: dux's *top-level exports are unprefixed*; dux's *keys ins
 
 Generic type aliases cannot be partially applied in TypeScript, so a curried `type IdbEntity = DefineIdbEntity<AppSchema>` form is impossible. The mechanism that delivers the no-repetition DX is module-augmentation registration (the TanStack-style `Register` pattern), declared once next to the schema:
 
-```ts
+```TS
 // instant.schema.ts
 export const schema = defineSchema({ /* ... */ })
 
@@ -89,7 +106,7 @@ declare module '@mszr/idb-dux' {
 
 From then on, project-wide:
 
-```ts
+```TS
 import { q } from '@mszr/idb-dux' // q ships ready-made — no defineQuery<AppSchema>() step
 
 type Todo = IdbEntity<'todos'>

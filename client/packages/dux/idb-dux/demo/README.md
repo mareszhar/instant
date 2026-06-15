@@ -34,7 +34,7 @@ Then open `http://localhost:3000`. Open a second tab to see realtime sync, prese
 
 This demo's one rule is that no visitor can affect another's experience: everything is scoped per workspace. Instant webhooks don't fit that model, because a subscription is an **app-level** primitive (`url + namespaces + actions`, with no per-user/per-workspace filter). Exposing subscription management to visitors would be globally destructive (one visitor could receive, delete, or exhaust everyone's), and the realistic alternative — an operator provisioning one app-owned subscription whose deliveries are server-to-server — has nothing a visitor can meaningfully and safely *try* in the browser without contriving an unrealistic, non-idiomatic setup (e.g. denormalizing foreign keys onto entities just to route deliveries). A demo example should look like a real project; this one wouldn't.
 
-So webhooks earn their guarantee where it's actually airtight — the test suites:
+So webhooks earn their guarantee where it is airtight — the test suites:
 
 - dispatch parity against the official pipeline, resolution order, and retry semantics, plus `verify` reaching the real verifier (`idb-dux/src/webhooks/webhooks.test.ts`)
 - the `defineWebhookHandler` route driven through h3's real request lifecycle with 2xx/4xx retry mapping (`idb-dux/src/nuxt/nuxt.test.ts`)
