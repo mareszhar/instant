@@ -75,6 +75,8 @@ Every stateful client hook returns `Idb<Domain>Result` with `-Data` / `-State` /
 
 The result pattern is a *client-reactivity* concept. Server one-shots return plain shaped data and deliberately don't claim it ([dux-spec-admin.md](./dux-spec-admin.md)).
 
+Because a query's top-level output keys are spread beside the result's own fields, those field names are **reserved**: `isLoading`, `error`, `pageInfo`, `refs`, `state`, `canLoadNextPage`, `loadNextPage`. A scope whose resolved key (via `$as`, singularization, or its plain name) or top-level `$m` label lands on one is a query error, not a silent clash — the contract lives in [dux-spec-root.md §4.5](./dux-spec-root.md#45-result-key-collisions).
+
 ## 4. The primary-read rule
 
 **The bare name goes to the surface's primary read.** On a client the subscription is primary, so it owns `useQuery` and the one-shot carries the marker (`queryOnce`); on a server db the one-shot is primary, so it owns `query` and the subscription carries the marker (`subscribeQuery`). Same law, both directions.

@@ -44,6 +44,7 @@ describe('defineSchema — compatibility targets', () => {
         }),
         reports: officialI.entity({ title: officialI.string() }),
         analyses: officialI.entity({ score: officialI.number().indexed() }),
+        states: officialI.entity({ label: officialI.string().indexed() }),
       },
       links: {
         membershipWorkspace: {

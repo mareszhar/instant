@@ -45,6 +45,27 @@ export type HasPick<Node> = Node extends { $: infer Dollar }
     : false
   : false
 
+/**
+ * The top-level keys a `/vue` client hook result owns. A query whose resolved
+ * scope key — or top-level `$m` label — lands on one of these would clash with
+ * the hook's own ref (`{ isLoading } = useQuery(...)`), so query validation
+ * rejects it ([validation.ts], `QERR_RESULT_KEY_RESERVED`). The set is the
+ * union across `useQuery`, `useInfiniteQuery`, and the result wrapper
+ * (`.refs`/`.state`); the `/vue` result shapes are locked against it by a type
+ * test so the two never drift.
+ *
+ * Nested keys never appear here: they live inside entity objects, where no
+ * result field exists to collide with.
+ */
+export type ReservedResultKey
+  = | 'isLoading'
+    | 'error'
+    | 'pageInfo'
+    | 'refs'
+    | 'state'
+    | 'canLoadNextPage'
+    | 'loadNextPage'
+
 /** The output key of a scope: `$as` wins, `$only`/`$at` singularize, else as-is. */
 export type ResolvedScopeKey<
   S extends IdbSchema,

@@ -87,24 +87,50 @@ type IdAttr = DataAttrDef<string, false, true, true>
 
 /**
  * The where shape: fields, `id`, link labels (matching the linked entity's
- * id), one enumerated hop of `label.field` dot-paths, and `and`/`or`.
- * Deeper dot-paths (up to 3 hops) are accepted via validation rather than
- * enumerated here. `undefined` values (`$skip`) drop the clause.
+ * id), linked dot-paths up to 3 hops, and `and`/`or`. `undefined` values
+ * (`$skip`) drop the clause.
+ *
+ * Completions are enumerated, not just validated: every dot-path the cursor
+ * could complete is a key here, so `where: { ⌶ }` suggests `memberships`,
+ * `memberships.user`, and `memberships.user.email` alike. The value type for
+ * each path is resolved by `WhereKeyAttr` (a link leaf matches the linked
+ * entity's id; a field leaf takes its own type).
  */
 export type IdbWhereShape<S extends IdbSchema, NS extends string> = {
   [F in FieldKeys<S, NS>]?: FieldWhereValue<AttrsOf<S, NS>[F]>
 } & {
   [L in LinkLabels<S, NS>]?: FieldWhereValue<IdAttr>
 } & {
-  [P in DotPathsOneHop<S, NS>]?: FieldWhereValue<WhereKeyAttr<S, NS, P>>
+  [P in WhereDotPaths<S, NS>]?: FieldWhereValue<WhereKeyAttr<S, NS, P>>
 } & {
   id?: FieldWhereValue<IdAttr>
   and?: readonly IdbWhereShape<S, NS>[]
   or?: readonly IdbWhereShape<S, NS>[]
 }
 
-type DotPathsOneHop<S extends IdbSchema, NS extends string> = {
-  [L in LinkLabels<S, NS>]: `${L}.${FieldKeys<S, LinkTarget<S, NS, L>> | 'id'}`
+/**
+ * A where leaf on a linked namespace: any field, any link label (a bare link
+ * filters on the linked id), or `id`. A link label as a leaf is what lets a
+ * dot-path stop on a relationship — e.g. `memberships.user`.
+ */
+type WhereLeaf<S extends IdbSchema, NS extends string>
+  = FieldKeys<S, NS> | LinkLabels<S, NS> | 'id'
+
+/**
+ * Linked dot-paths for `where`, hops 2 and 3 (hop 1 — fields, `id`, link
+ * labels — are direct keys on the shape above). Each non-terminal segment is
+ * a link label; the terminal is any `WhereLeaf`. Bounded at 3 hops by
+ * construction (the fixed depth policy — [dux-spec-root.md §3.3]).
+ */
+type WhereDotPaths<S extends IdbSchema, NS extends string> = {
+  [L1 in LinkLabels<S, NS>]:
+    | `${L1}.${WhereLeaf<S, LinkTarget<S, NS, L1>>}`
+    | {
+      [L2 in LinkLabels<S, LinkTarget<S, NS, L1>>]: `${L1}.${L2}.${WhereLeaf<
+        S,
+        LinkTarget<S, LinkTarget<S, NS, L1>, L2>
+      >}`
+    }[LinkLabels<S, LinkTarget<S, NS, L1>>]
 }[LinkLabels<S, NS>]
 
 /** Resolve the attr def a where key addresses — fields, id, labels, dot-paths ≤ 3 hops. */

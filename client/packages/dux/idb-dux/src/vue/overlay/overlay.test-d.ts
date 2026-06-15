@@ -1,7 +1,9 @@
 import type { AppSchema } from '@test'
 import type { Ref } from 'vue'
+import type { ReservedResultKey } from '../../query/index.js'
 import type { IdbEntity } from '../../schema/index.js'
 import type { IdbClient } from '../index.js'
+import type { IdbInfiniteQueryResult, IdbQueryResult } from './types.js'
 import { describe, expectTypeOf, it } from 'vitest'
 
 declare const db: IdbClient<AppSchema>
@@ -56,5 +58,18 @@ describe('overlay auth', () => {
     // default leaves it optional
     const maybe = db.useUser()
     expectTypeOf(maybe.value).toExtend<{ id: string } | undefined>()
+  })
+})
+
+describe('reserved result keys — drift lock', () => {
+  // The query-validation guard (`QERR_RESULT_KEY_RESERVED`) rejects userland
+  // scope keys that would collide with a hook result field. Its reserved set
+  // (`ReservedResultKey`) must cover every static key these results actually
+  // expose — an empty query has no data keys, so its keys are exactly the
+  // static ones. If a new static key is added without updating the set, this
+  // fails, and the guard would silently miss the new collision.
+  it('ReservedResultKey covers every static query-result key', () => {
+    expectTypeOf<keyof IdbQueryResult<{}, AppSchema>>().toExtend<ReservedResultKey>()
+    expectTypeOf<keyof IdbInfiniteQueryResult<{}, AppSchema>>().toExtend<ReservedResultKey>()
   })
 })

@@ -69,6 +69,17 @@ declare module '@mszr/idb-dux' {
 }
 ```
 
+## Editor tip — smoother `where` dot-paths
+
+dux completes linked dot-paths in `where` clauses up to three hops (`memberships`, `memberships.user`, `memberships.user.email`). For the nicest experience, turn off accept-on-commit-character in your editor:
+
+```JSON
+// VS Code settings.json
+"editor.acceptSuggestionOnCommitCharacter": false
+```
+
+Otherwise typing `.` to continue a path (`memberships.user.`) auto-accepts the highlighted suggestion instead of letting you keep going. With it off, Tab / Enter / arrow keys still accept completions exactly as you'd expect.
+
 ## The one hard contract
 
 **dux owes behavioral compatibility to Instant's backend, not API compatibility to Instant's SDKs.** Everything dux emits — schema shapes for the CLI, perms CEL, wire queries — is something Instant already accepts. Inside that envelope, dux is free to reimagine the ergonomics.

@@ -58,20 +58,42 @@ describe('query authoring — completions', () => {
     ])
   })
 
-  it('where completes fields, id, link labels, and one-hop dot-paths', () => {
+  it('where completes fields, id, link labels, and linked dot-paths up to 3 hops', () => {
     const { completions } = project.query`
       ${prelude}
       q({ tasks: { $: { where: { ${cursor} } } } })
     `
     expect(completions).toContainCompletions([
+      // fields, id, and/or, and the hop-1 link labels
       'title',
       'isDone',
       'id',
       'and',
       'or',
       'workspace',
+      'assignee',
+      // hop-2 dot-paths: a linked field AND a linked relationship
       'workspace.inviteCode',
       'assignee.email',
+      'workspace.memberships',
+      'assignee.memberships',
+      // hop-3 dot-paths: through a relationship to a field or another relationship
+      'workspace.memberships.createdAt',
+      'workspace.memberships.user',
+    ])
+  })
+
+  it('where dot-paths can stop on a relationship — the demo`s memberships.user', () => {
+    const { completions } = project.query`
+      ${prelude}
+      q({ workspaces: { $: { where: { ${cursor} } } } })
+    `
+    // exactly the path the workspaces store filters on, plus a third hop —
+    // links are first-class completions, not just fields
+    expect(completions).toContainCompletions([
+      'memberships',
+      'memberships.user',
+      'memberships.user.email',
     ])
   })
 
@@ -195,6 +217,32 @@ describe('query authoring — diagnostics at the cursor', () => {
       q({ workspaces: { tasks: { $: { offset: 5 } } } })
     `
     expect(errors).toHaveError(/QERR_QUERY_OPTION_TOP_LEVEL_ONLY: offset is only available on top-level scopes/)
+  })
+
+  it('flags $as renaming a scope onto a reserved result key', () => {
+    const { errors } = project.check`
+      ${prelude}
+      q({ tasks: { $: { $as: 'isLoading' } } })
+    `
+    expect(errors).toHaveError(/QERR_RESULT_KEY_RESERVED: result key 'isLoading' is reserved/)
+  })
+
+  it('flags singularization that lands on a reserved result key', () => {
+    // `states` singularizes to `state`; a $only read would collide with the
+    // result wrapper`s own key, so the guard fires at the query, not silently.
+    const { errors } = project.check`
+      ${prelude}
+      q({ states: { $: { $only } } })
+    `
+    expect(errors).toHaveError(/QERR_RESULT_KEY_RESERVED: result key 'state' is reserved/)
+  })
+
+  it('flags a $m label that is a reserved result key', () => {
+    const { errors } = project.check`
+      ${prelude}
+      q({ tasks: { $m: { error: { at: 0 } } } })
+    `
+    expect(errors).toHaveError(/QERR_RESULT_KEY_RESERVED: \$m label 'error' is reserved/)
   })
 
   it('flags indexBy on a non-unique field', () => {

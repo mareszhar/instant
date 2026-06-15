@@ -9,6 +9,8 @@
  * - a self-link (`tasks` → subtasks/parentTask)
  * - `ruleParams` on two namespaces (one required, one optional param)
  * - unique + indexed + optional fields, every value type, a non-indexed string
+ * - `states`, whose algorithmic singular ('state') is a reserved result key —
+ *   exercises the singularization-collision guard
  * - rooms with presence and topics
  */
 import { defineSchema, i } from '../schema/index.js'
@@ -51,6 +53,11 @@ export const schema = defineSchema({
     analyses: i.namespace({
       singular: 'analysis',
       fields: { score: i.number().indexed() },
+    }),
+    states: i.namespace({
+      // Singularize('states') → 'state', a reserved result key: a plain read is
+      // fine, but `$only`/`$at` would collide, so the guard fires at that query.
+      fields: { label: i.string().indexed() },
     }),
   },
   links: {

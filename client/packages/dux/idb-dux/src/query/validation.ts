@@ -16,13 +16,13 @@
  * The `QERR_*` codes: ROOT_KEY_UNKNOWN, NESTED_KEY_UNKNOWN, OPTION_UNKNOWN,
  * OPTION_TOP_LEVEL_ONLY, WHERE_KEY_UNKNOWN, WHERE_VALUE_TYPE,
  * WHERE_OPERATOR_INVALID (lives in the ops shape, `types.ts`),
- * ORDER_KEY_INVALID, M_LABEL_COLLISION, M_TRANSFORM_UNKNOWN,
- * M_INDEXBY_NOT_UNIQUE, M_GROUPBY_NOT_PRIMITIVE.
+ * ORDER_KEY_INVALID, RESULT_KEY_RESERVED, M_LABEL_COLLISION,
+ * M_TRANSFORM_UNKNOWN, M_INDEXBY_NOT_UNIQUE, M_GROUPBY_NOT_PRIMITIVE.
  */
 import type { DataAttrDef } from '@instantdb/core'
 import type { IdbSchema } from '../schema/defineSchema.js'
 import type { IdbNamespaceName } from '../schema/types.js'
-import type { ResolvedScopeKey } from './keys.js'
+import type { ReservedResultKey, ResolvedScopeKey } from './keys.js'
 import type {
   FieldKeys,
   IdbQuery,
@@ -177,12 +177,33 @@ type ValidNode<
     }
   : unknown
 
+// ==========
+// result-key collision — a top-level output key that would clash with a hook
+// result field (`isLoading`, `error`, `refs`, `state`, …). Catches `$as` to a
+// reserved name and singularization that lands on one (e.g. `states` → `state`)
+// alike, because both flow through `ResolvedScopeKey`. Nested scopes can't
+// collide, so only the top level is checked.
+
+type TopMLabels<Node> = Node extends { $m: infer M } ? keyof M & string : never
+
+type ReservedScopeMsg<
+  S extends IdbSchema,
+  Key extends string,
+  Node,
+> = ResolvedScopeKey<S, null, Key, Node> extends ReservedResultKey
+  ? `QERR_RESULT_KEY_RESERVED: result key '${ResolvedScopeKey<S, null, Key, Node> & string}' is reserved — it clashes with a hook result field; rename this scope`
+  : [Extract<TopMLabels<Node>, ReservedResultKey>] extends [never]
+      ? false
+      : `QERR_RESULT_KEY_RESERVED: $m label '${Extract<TopMLabels<Node>, ReservedResultKey>}' is reserved — it clashes with a hook result field; choose another label`
+
 /**
  * The per-call validating type. Use as a self-referential constraint:
  * `<Q extends IdbValidQuery<Q, S>>(query: Q)`.
  */
 export type IdbValidQuery<Q, S extends IdbSchema> = IdbQuery<S> & {
   [K in keyof Q & string]: K extends IdbNamespaceName<S>
-    ? ValidNode<Q[K], S, K, null, K, [], true>
+    ? ReservedScopeMsg<S, K, Q[K]> extends infer Msg extends string
+      ? Msg
+      : ValidNode<Q[K], S, K, null, K, [], true>
     : `QERR_QUERY_ROOT_KEY_UNKNOWN: ${K} is not a valid top-level namespace`
 }

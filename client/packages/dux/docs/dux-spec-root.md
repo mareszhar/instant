@@ -220,7 +220,7 @@ The contract per level, with the intended diagnostic. Diagnostics carry stable `
 
 > `QERR_QUERY_NESTED_KEY_UNKNOWN: foo is not a valid nested key on tasks`
 
-**Where clause level** — keys: `id`, schema fields, and linked dot-paths up to 3 hops. `undefined` values (`$skip`) drop the clause.
+**Where clause level** — keys: `id`, schema fields, **link labels**, and **linked dot-paths up to 3 hops**. The completions are *enumerated*, not merely validated: at `where: { ⌶ }` the cursor offers the namespace's fields and links **and** every traversal the schema allows — `memberships`, `memberships.user`, `memberships.user.email` are all completions, because a dot-path segment may be a field *or* a link, and a path may terminate on a link (which filters on the linked entity's `id`). `undefined` values (`$skip`) drop the clause.
 
 > `QERR_WHERE_KEY_UNKNOWN: tagName is not a valid where key on tasks`
 
@@ -249,6 +249,8 @@ const query = db.useQuery({
 ```
 
 **Order level** — the native `order` key; direct fields and `id` only (ordering does not support linked attributes); directions `'asc' | 'desc'`.
+
+**Result-key collision level** — a top-level scope whose *resolved* key (or top-level `$m` label) hits a reserved result field is flagged with `QERR_RESULT_KEY_RESERVED`. The full contract — the reserved set, why it's caught here and not at `defineSchema` — is [§4.5](#45-result-key-collisions).
 
 **Depth policy:** suggestion/validation depth is fixed at **3 hops** for where dot-paths and link traversal — not configurable (a YAGNI decision, revisited only if real schemas demand it).
 
@@ -362,6 +364,26 @@ const { todos, latestTodo } = db.useQuery({
 `$m` also works on nested link traversals. `$m` keys cannot collide with the resolved scope label — TypeScript enforces it.
 
 **Performance is part of the contract** (principle 8): multiple `$m` projections are computed in a single pass over the data, not one reduce per key.
+
+### 4.5 Result-key collisions
+
+A query's top-level output keys are spread beside the hook's own result fields — `const { isLoading, error, workspaces } = db.useQuery(...)`. So a *top-level* output key that resolves to one of those reserved fields would silently clash: the two intersect into a broken ref instead of erroring. dux closes this hole at the query, where the collision is real and the cursor can point at it (principle 3).
+
+**The reserved set** is the union of every static field a client result exposes: `isLoading`, `error`, `pageInfo`, `refs`, `state`, `canLoadNextPage`, `loadNextPage`. It is owned by the query layer (`ReservedResultKey`) and locked against the `/vue` result shapes by a type test, so the two never drift.
+
+**The check is on the *resolved* key**, so one rule covers every way a collision can arise:
+
+- **`$as` to a reserved name** — `workspaces: { $: { $as: 'isLoading' } }` resolves to `isLoading`.
+- **Singularization that lands on one** — `states: { $: { $only } }` singularizes to `state`; `errors` would singularize to `error`.
+- **A namespace literally named one** read plain, and a **top-level `$m` label** that is reserved.
+
+> `QERR_RESULT_KEY_RESERVED: result key 'state' is reserved — it clashes with a hook result field; rename this scope`
+
+The fix is always the same and the message says it: rename the scope with `$as` to any non-reserved name.
+
+**Only top-level keys are checked** — nested scope keys live inside entity objects, where no result field exists to collide with, so link-label singulars (`analyses` → `analysis`) are never constrained.
+
+**Why query-time, not schema-time.** A reserved word is only a problem when it becomes a *top-level output key*. A plural namespace whose algorithmic singular is reserved (`states`) is perfectly valid to declare and to read plain — the clash exists only on a `$only`/`$at` read. Erroring at `defineSchema` would reject correct schemas for a collision that may never occur; the query is the one place the collision is certain, and the only place the cursor can land on the offending scope. So `defineSchema` stays silent and the guard lives in query validation.
 
 ---
 
@@ -500,8 +522,9 @@ The field/link helpers live in `schema/fields.ts` (not `query/`) because both `q
 
 ### 8.3 Editor-DX positions to lock
 
-- `q({ todos: { $: { where: { ⌶ } } } })` → attribute names + dot-paths
+- `q({ todos: { $: { where: { ⌶ } } } })` → fields, `id`, link labels, and linked dot-paths up to 3 hops (a path may terminate on a link)
 - inline `useQuery({ ⌶ })` → namespace completions (the contextual-typing path)
+- `q({ states: { $: { $only } } })` → `QERR_RESULT_KEY_RESERVED` on the colliding scope
 - `i.namespace({ ⌶ })` → `singular`/`fields`/`ruleParams`
 - `db.tx.memberships[id()].link({ ⌶ })` → link labels + dot-path unique attrs
 - `.ruleParams({ ⌶ })` → schema-declared params
@@ -530,7 +553,7 @@ Done when: validation dx tests green, including inline-object completions (the c
 
 - [x] `q` (registration-bound) + `defineQuery<S>()`
 - [x] `$only` / `$skip` constants
-- [x] validation types: root keys, 3-hop traversal, where keys/dot-paths, operator table, order rules, `QERR_*` messages
+- [x] validation types: root keys, 3-hop traversal, where keys/dot-paths (fields + links, 3 hops, link-terminating), operator table, order rules, result-key collisions (`QERR_RESULT_KEY_RESERVED`), `QERR_*` messages
 - [x] `shapeResult` pure function: normalization, `$only`/`$at`/`$as`, `$m` (`indexBy`/`groupBy`/`at`), single-pass `$m`
 - [x] type-level shaping mirror (return types match runtime keys by construction)
 - [x] `IdbQuery`, `IdbQueryOptions`, `IdbQueryData`, `IdbQueryEntity`, `IdbQuerySubquery`, `IdbQueryFields`, `IdbQueryPageInfo`

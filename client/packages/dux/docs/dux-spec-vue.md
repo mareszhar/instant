@@ -113,6 +113,8 @@ watch(isLoading, loading => console.log('loading:', loading))
 
 The shapes are typed `Idb<Domain>Result` with `-Data`/`-State`/`-Refs` subparts (`IdbQueryResult`, `IdbAuthResult`, `IdbConnectionResult`, `IdbLocalIdResult`, and the presence/typing hooks — shapes inferred per room, no separately-named alias) — learn one, know all ([conventions §3](./dux-conventions.md#3-the-result-pattern)).
 
+The static fields a query result spreads beside its data — `isLoading`, `error`, `pageInfo`, `refs`, `state`, and `useInfiniteQuery`'s `canLoadNextPage`/`loadNextPage` — are the **reserved result keys**. A query scope can't resolve a top-level key onto one; the guard lives in query validation and the canonical set (`ReservedResultKey`) is locked against these shapes by a type test ([dux-spec-root.md §4.5](./dux-spec-root.md#45-result-key-collisions)).
+
 ### Pinia safety
 
 `state` objects are `markRaw` plain objects with getter properties over the underlying refs. Pinia does not treat them as hydratable; writing to a `state` property fails at the property level; Vue effects track correctly through the getters because each getter reads a reactive source. No user configuration needed.
