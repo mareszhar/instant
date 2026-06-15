@@ -36,6 +36,8 @@ Details: [§8 Phased implementation roadmap](#8-phased-implementation-roadmap).
 
 The whole surface is **wrap-and-map** over `@instantdb/webhooks`: composition over its public surface, renames at the boundary module, zero forked internals.
 
+This surface is guaranteed by its test suites rather than the Nuxt demo: webhooks are an app-level, operator-facing, server-to-server primitive that can't be exercised realistically *and* safely by an anonymous visitor in a shared playground ([dux-spec-workspace.md §7.2](./dux-spec-workspace.md#72-webhooks-the-documented-exception)). The contract lock-in lives in dispatch-parity/retry/verify runtime tests, the h3-lifecycle route test, and the type/dx/compat planes.
+
 ## 2. Vocabulary
 
 A **webhook** delivers **payloads** of **changes** ([conventions §1](./dux-conventions.md#1-vocabulary)). A change's `before`/`after` **is `IdbEntity<'ns'>`** — the same entity type queries and tx speak (verified: the official per-change entity type resolves to id + fields with no links, exactly `IdbEntity`'s shape). A webhook handler and a query reading the same namespace see the same type by construction. Webhook payloads arrive as JSON, matching `IdbEntity`'s wire-format dates.

@@ -19,9 +19,6 @@ main.app-shell.page
         PanelRoom
         PanelAdmin
 
-      section.grid
-        PanelWebhooks
-
       PanelCursors
 </template>
 

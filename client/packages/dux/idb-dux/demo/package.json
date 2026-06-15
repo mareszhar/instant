@@ -12,13 +12,11 @@
     "prev": "nuxt preview",
     "start": "nuxt build && nuxt preview",
     "postinstall": "nuxt prepare",
-    "typecheck": "nuxt typecheck",
-    "webhook:ensure": "bun run scripts/ensure-webhook.ts"
+    "typecheck": "nuxt typecheck"
   },
   "devDependencies": {
     "@floating-ui/vue": "^1.1.11",
     "@instantdb/admin": "link:@instantdb/admin",
-    "@instantdb/webhooks": "link:@instantdb/webhooks",
     "@mszr/idb-dux": "link:@mszr/idb-dux",
     "@pinia/nuxt": "^0.11.3",
     "@vue/language-plugin-pug": "^3.3.0",

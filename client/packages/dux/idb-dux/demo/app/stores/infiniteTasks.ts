@@ -41,7 +41,6 @@ export const useInfiniteTasksStore = defineStore('infinite-tasks', () => {
           title: `Sample task ${String(currentTaskNumber++).padStart(2, '0')}`,
           isDone,
           createdAt: now + index,
-          workspaceId: workspaces.current!.id,
         }).link({ workspace: workspaces.current!.id }),
         ...(index % 2 === 0 ? [db.tx.tasks[taskId]!.link({ assignee: auth.user!.id })] : []),
       ]

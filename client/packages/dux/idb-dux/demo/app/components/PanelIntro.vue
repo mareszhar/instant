@@ -5,7 +5,7 @@ section.card.demo-intro
     p.subtitle
       | Create or join a workspace, then open multiple tabs or devices to test realtime sync.
     p.muted
-      | Covers auth, typed queries, transactions, infinite feeds, presence, topics, cursors, admin routes, and webhooks.
+      | Covers auth, typed queries, transactions, infinite feeds, presence, topics, cursors, and admin routes.
 
   .stats
     .stat

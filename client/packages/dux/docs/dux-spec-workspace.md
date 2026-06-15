@@ -240,25 +240,34 @@ Verification beyond a release is just `pnpm run prepublish:verify`.
 
 ## 7. The demo
 
-One Nuxt demo (phase 9) exercising **all six entrypoints** — including a webhook route and a manager call — is the proof that the garden has no missing walls. It doubles as:
+One Nuxt demo (phase 9) exercising the **five interactively-demoable entrypoints** — root, `/vue`, `/perms`, `/admin`, `/nuxt` (`defineServerKit` + `defineAuthSyncHandler`) — is the proof that the garden has no missing walls a real app would hit. It doubles as:
 
 - the SSR floor/ceiling verification vehicle,
 - the dux starter (the `create-instant-app` of this world),
 - the consumer of the pack/demo-resolution scripts (link mode ↔ tarball mode ↔ npm mode).
 
-CI wiring lands with it: parity, dx, drift, and compat checks all gate.
+`/webhooks` (and `/nuxt`'s `defineWebhookHandler`) is deliberately **out of the demo** — its guarantee lives in the test suites instead ([§7.2](#72-webhooks-the-documented-exception)). CI wiring lands with the demo: parity, dx, drift, and compat checks all gate.
 
 ### 7.1 The isolation invariant
 
 The demo is a public, shared playground: anyone can sign in and experiment, at any time, alongside strangers. Its governing constraint is therefore **one visitor can never see or affect another visitor's experience.** Everything is scoped by *workspace* — a visitor sees and mutates only the workspaces they're a member of — and that scoping is enforced where it's load-bearing: in **perms** (the security boundary), with queries filtered to the active workspace as the ergonomic layer on top. A feature isn't "demoed well" until it preserves this invariant; a panel that exposes app-global state or lets a visitor reach into another's data is a bug, however well it shows off an API.
 
-Most Instant features scope cleanly because their primitives are per-entity. **Webhooks are the instructive exception:** a subscription is an *app-level* primitive (`url + namespaces + actions`, no per-tenant filter), so exposing `manager.create`/`delete` as a visitor action is inherently global and breaks the invariant. The demo's resolution is the pattern to reach for whenever a primitive is coarser than a workspace:
+A second, equal constraint keeps the demo honest as *teaching*: each panel must read like a **realistic, idiomatic** use of the feature it shows. A demo that contorts a feature into an unnatural shape just to fit the playground teaches the contortion — a failure of principles 1 and 4, however much surface it covers. When a feature can't be both realistically *and* safely exercised by an anonymous visitor in a shared browser, the right move is to leave it out and say so plainly (the scope edge's rule that *an undocumented absence is worse than either verdict* — [dux-vision.md §3](./dux-vision.md#3-the-scope-edge) — applies to the demo too), not to force it.
 
-- **provision the app-level resource once**, out of band — a maintainer setup script (`scripts/ensure-webhook.ts`) creates the single app-owned subscription pointing at the deployed receiver; the manager surface still gets demonstrated (`list`/`create`), just not as a visitor mutation,
-- **fan its effects out per workspace at the edge** — the receiver attributes each delivery to a workspace and persists it (a `webhookEvents` journal linked to the workspace), so it re-enters the ordinary, perms-scoped data plane,
-- **let the visitor surface read that scoped projection**, never the global resource — the panel shows the subscription read-only and a workspace-scoped delivery feed.
+### 7.2 Webhooks: the documented exception
 
-Where a primitive carries no link in its payload (webhook deliveries carry an entity's fields but not its links), denormalize the scope key onto the entity (`tasks.workspaceId`) and **pin it in perms** to the real linked owner, so the fanned-out attribution can't be forged to cross workspaces. The invariant survives even an adversarial visitor, because it rests on perms, not on the client.
+Most Instant features scope per-entity, so they land naturally in a per-workspace demo. **Webhooks don't, and this is the worked example of the rule above.** A subscription is an *app-level* primitive (`url + namespaces + actions`, no per-tenant filter), and a webhook consumer is an app *operator*, not an end-user: you provision one subscription at deploy time and your server does operator work (notify, sync, audit) on a server-to-server channel. Trying to make that a visitor-facing playground feature fails both constraints at once:
+
+- **It can't be safe.** Exposing `manager.create`/`delete` to visitors is globally destructive — one visitor could redirect, delete, or exhaust the single app-wide subscription quota for everyone.
+- **It can't be realistic.** The only isolated alternative — provision one app-owned subscription, then fan its deliveries out per workspace and show each visitor their own — is not a thing real apps build, and it forces non-idiomatic shapes (e.g. denormalizing a foreign key onto an entity *as a plain field* purely to route deliveries, because webhook payloads carry an entity's fields but not its links). That would teach a workaround as if it were the normal way to use dux.
+
+So webhooks earn their guarantee where it is actually airtight — the suites, not a fragile live smoke that even a demo couldn't make deterministic (it depends on Instant's live delivery to a public URL):
+
+- dispatch parity against the official pipeline, resolution order, retry semantics, and `verify` reaching the real verifier (`webhooks/webhooks.test.ts`);
+- `defineWebhookHandler` driven through h3's real request lifecycle with 2xx/4xx retry mapping (`nuxt/nuxt.test.ts`);
+- type, editor-DX, and official-`WebhookHandlers` compatibility planes.
+
+The demo README states the absence and points to the specs, turning it from a gap into a reasoned verdict. (`/webhooks` remains fully in scope as a dux subpath — [dux-vision.md §3.3](./dux-vision.md#33-why-webhooks-is-in-and-why-its-a-subpath); it is the *demo vehicle*, not the feature, that webhooks don't fit.)
 
 ## 8. Phased implementation roadmap
 
@@ -291,7 +300,7 @@ Done when: `pnpm -F @mszr/idb-dux build` produces all six entrypoints; boundary 
 
 ### Phase W3 — demo + CI lock (global phase 9)
 
-- [x] the Nuxt demo exercising all six entrypoints (webhook route + manager call included)
+- [x] the Nuxt demo exercising the five interactively-demoable entrypoints (root, `/vue`, `/perms`, `/admin`, `/nuxt`); `/webhooks` excluded by design, guaranteed by its suites ([§7.2](#72-webhooks-the-documented-exception))
 - [x] pack + demo-resolution scripts (link/tarball/npm modes)
 - [x] CI: build, lint, full suite (runtime/types/dx); parity + compat targets ride the suite; drift is its own gate (`.github/workflows/dux.yml`)
 - [x] test economy held: the demo carries no unit tests (exercised by typecheck + build in CI), so phase 9 added no implementation-coupled assertions

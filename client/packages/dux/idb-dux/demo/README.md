@@ -6,8 +6,9 @@ A minimal Nuxt 4 app that exercises **every** `@mszr/idb-dux` entrypoint in a re
 - **`/vue`** — `init`, `useQuery`/`useInfiniteQuery`/`queryOnce`, `useAuth`, rooms (presence, topics, typing, cursors), `SignedIn`/`SignedOut`/`Cursors`
 - **`/perms`** — `definePerms(schema)` in `config/instant.perms.ts`
 - **`/admin`** — server summary + cleanup routes over the dux admin db
-- **`/webhooks`** — `defineWebhookHandlers` + `adminDb.webhooks.manager`
-- **`/nuxt`** — `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler`
+- **`/nuxt`** — `defineServerKit`, `defineAuthSyncHandler`
+
+`/webhooks` (and `/nuxt`'s `defineWebhookHandler`) is **supported but intentionally not demoed here** — see [Webhooks](#webhooks) below.
 
 ## Prerequisites
 
@@ -29,15 +30,17 @@ Then open `http://localhost:3000`. Open a second tab to see realtime sync, prese
 
 ## Webhooks
 
-Instant webhooks are an **app-level** primitive — a subscription is `url + namespaces + actions`, with no per-user or per-workspace filter. So the demo does **not** let visitors create them (one visitor could then receive, delete, or exhaust everyone's): a maintainer provisions a single app-owned subscription once, and the receiver fans each delivery out to the workspace that caused it. Visitors only ever see their own workspace's deliveries — the same isolation the rest of the demo relies on.
+`@mszr/idb-dux/webhooks` (handling + `manager`) and `/nuxt`'s `defineWebhookHandler` are **fully supported** — they're just not part of this interactive demo, on purpose.
 
-Provision the subscription against the deployed origin (or a public tunnel for local dev, e.g. `ngrok http 3000`):
+This demo's one rule is that no visitor can affect another's experience: everything is scoped per workspace. Instant webhooks don't fit that model, because a subscription is an **app-level** primitive (`url + namespaces + actions`, with no per-user/per-workspace filter). Exposing subscription management to visitors would be globally destructive (one visitor could receive, delete, or exhaust everyone's), and the realistic alternative — an operator provisioning one app-owned subscription whose deliveries are server-to-server — has nothing a visitor can meaningfully and safely *try* in the browser without contriving an unrealistic, non-idiomatic setup (e.g. denormalizing foreign keys onto entities just to route deliveries). A demo example should look like a real project; this one wouldn't.
 
-```bash
-bun run webhook:ensure https://your-origin.example/api/webhooks/receive
-```
+So webhooks earn their guarantee where it's actually airtight — the test suites:
 
-It's idempotent (uses `adminDb.webhooks.manager.list`/`create`). The Webhooks panel then shows the subscription read-only and a live, workspace-scoped feed of deliveries (persisted as `webhookEvents`), so add/complete/delete a task to watch one land.
+- dispatch parity against the official pipeline, resolution order, and retry semantics, plus `verify` reaching the real verifier (`idb-dux/src/webhooks/webhooks.test.ts`)
+- the `defineWebhookHandler` route driven through h3's real request lifecycle with 2xx/4xx retry mapping (`idb-dux/src/nuxt/nuxt.test.ts`)
+- type, editor-DX, and official-shape compatibility planes (`idb-dux/src/webhooks/*.test-d.ts`, `*.dx.test.ts`)
+
+To use webhooks in a real app, see [`docs/dux-spec-webhooks.md`](../../docs/dux-spec-webhooks.md) and [`docs/dux-spec-nuxt.md`](../../docs/dux-spec-nuxt.md).
 
 ## Build preview
 
