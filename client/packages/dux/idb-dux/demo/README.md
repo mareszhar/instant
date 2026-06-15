@@ -1,5 +1,7 @@
 # idb-dux demo
 
+[🖥️ Online Preview](https://idb-dux-demo-2nwfhzoou-mareszhars-projects.vercel.app)
+
 A minimal Nuxt 4 app that exercises the **five interactively-demoable** `@mszr/idb-dux` entrypoints in a realistic setup:
 
 - **root** — `defineSchema` + registration, the ready-made `q`, typed `db.tx` (dot-path `.link`, schema-typed `ruleParams`), `$skip`
