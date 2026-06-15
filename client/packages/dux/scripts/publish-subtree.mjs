@@ -22,14 +22,107 @@ import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { WORKSPACE_ROOT } from './lib/resolve-publish-paths.mjs'
+import {
+  assertInstantDepsOnNpm,
+  assertPackageVersionOnNpm,
+  DEP_SECTIONS,
+  instantDepNames,
+  pinInstantDeps,
+  readSharedInstantVersion,
+} from './lib/pin-instant-deps.mjs'
+import { PKG_NAME, WORKSPACE_ROOT } from './lib/resolve-publish-paths.mjs'
 import { runPrepublishGates } from './lib/run-prepublish-gates.mjs'
 import { capture, createLogger, run } from './lib/run-publish-step.mjs'
 
 const DEFAULT_REMOTE = 'https://github.com/mareszhar/idb-dux.git'
 const PREFIX = 'client/packages/dux/idb-dux'
+const DEMO_RESOLUTION_FIELDS = ['overrides', 'resolutions']
 
 const log = createLogger('subtree')
+
+function writeGitBlob(repoRoot, content) {
+  const result = spawnSync('git', ['hash-object', '-w', '--stdin'], {
+    cwd: repoRoot,
+    input: content,
+    encoding: 'utf8',
+  })
+  if (result.status !== 0)
+    throw new Error(`git hash-object failed: ${result.stderr || result.stdout || 'no output'}`)
+  return result.stdout.trim()
+}
+
+function publicTree(repoRoot, sourceTree, sharedVersion) {
+  const rawPkg = capture('git', ['show', `HEAD:${PREFIX}/package.json`], { cwd: repoRoot })
+  if (!rawPkg)
+    log.fail(`could not read ${PREFIX}/package.json at HEAD.`)
+
+  const pkg = JSON.parse(rawPkg)
+  const pinnedNames = pinInstantDeps(pkg, sharedVersion)
+  const duxVersion = pkg.version
+  const pinnedPkgBlob = writeGitBlob(repoRoot, `${JSON.stringify(pkg, null, 2)}\n`)
+  const rawDemoPkg = capture('git', ['show', `HEAD:${PREFIX}/demo/package.json`], { cwd: repoRoot })
+  const demoPkg = rawDemoPkg ? JSON.parse(rawDemoPkg) : null
+  const demoPins = demoPkg ? pinPublicDemoDeps(demoPkg, duxVersion, sharedVersion) : []
+  const pinnedDemoPkgBlob = demoPkg ? writeGitBlob(repoRoot, `${JSON.stringify(demoPkg, null, 2)}\n`) : null
+  const indexFile = path.join(os.tmpdir(), `dux-public-tree-${process.pid}-${Date.now()}.index`)
+
+  try {
+    run('git', ['read-tree', sourceTree], { cwd: repoRoot, env: { GIT_INDEX_FILE: indexFile } })
+    run('git', ['update-index', '--cacheinfo', '100644', pinnedPkgBlob, 'package.json'], {
+      cwd: repoRoot,
+      env: { GIT_INDEX_FILE: indexFile },
+    })
+    if (pinnedDemoPkgBlob) {
+      run('git', ['update-index', '--cacheinfo', '100644', pinnedDemoPkgBlob, 'demo/package.json'], {
+        cwd: repoRoot,
+        env: { GIT_INDEX_FILE: indexFile },
+      })
+    }
+    const tree = capture('git', ['write-tree'], { cwd: repoRoot, env: { GIT_INDEX_FILE: indexFile } })
+    if (!tree)
+      log.fail('git write-tree produced no public tree.')
+    log.log(`public package.json pins: ${pinnedNames.map(name => `${name}@${sharedVersion}`).join(', ')}`)
+    if (demoPins.length)
+      log.log(`public demo package.json pins: ${demoPins.join(', ')}`)
+    return tree
+  }
+  finally {
+    fs.rmSync(indexFile, { force: true })
+  }
+}
+
+function pinPublicDemoDeps(pkg, duxVersion, sharedVersion) {
+  const pins = []
+  for (const section of DEP_SECTIONS) {
+    const deps = pkg[section]
+    if (!deps)
+      continue
+    for (const name of Object.keys(deps)) {
+      if (name === PKG_NAME) {
+        deps[name] = `npm:${PKG_NAME}@${duxVersion}`
+        pins.push(`${PKG_NAME}@${duxVersion}`)
+      }
+      else if (name.startsWith('@instantdb/')) {
+        deps[name] = `npm:${name}@${sharedVersion}`
+        pins.push(`${name}@${sharedVersion}`)
+      }
+    }
+  }
+
+  for (const field of DEMO_RESOLUTION_FIELDS) {
+    const deps = pkg[field]
+    if (!deps)
+      continue
+    for (const name of Object.keys(deps)) {
+      if (name === PKG_NAME || name.startsWith('@instantdb/'))
+        delete deps[name]
+    }
+    if (Object.keys(deps).length === 0)
+      delete pkg[field]
+  }
+
+  return pins.sort()
+}
 
 /** Resolve the configured git editor on a prefilled template; return the message. */
 function composeMessageInEditor(repoRoot) {
@@ -74,6 +167,8 @@ export function publishSubtree({
   message,
   dryRun = false,
   skipVerify = false,
+  sharedVersion,
+  skipDependencyCheck = false,
 } = {}) {
   const repoRoot = capture('git', ['rev-parse', '--show-toplevel'], { cwd: WORKSPACE_ROOT })
   if (!repoRoot)
@@ -86,11 +181,34 @@ export function publishSubtree({
     runPrepublishGates({ logger: log })
 
   const squashMessage = message ?? composeMessageInEditor(repoRoot)
+  const version = sharedVersion ?? (() => {
+    try {
+      return readSharedInstantVersion()
+    }
+    catch (error) {
+      log.fail(error instanceof Error ? error.message : String(error))
+    }
+  })()
 
   // The tree object for the prefix as it stands at HEAD — the squash payload.
-  const tree = capture('git', ['rev-parse', `HEAD:${PREFIX}`], { cwd: repoRoot })
-  if (!tree)
+  const sourceTree = capture('git', ['rev-parse', `HEAD:${PREFIX}`], { cwd: repoRoot })
+  if (!sourceTree)
     log.fail(`could not resolve a committed tree at ${PREFIX}.`)
+
+  const publicSnapshotTree = publicTree(repoRoot, sourceTree, version)
+  if (!skipDependencyCheck) {
+    const rawPkg = capture('git', ['show', `${publicSnapshotTree}:package.json`], { cwd: repoRoot })
+    const rawDemoPkg = capture('git', ['show', `${publicSnapshotTree}:demo/package.json`], { cwd: repoRoot })
+    try {
+      assertInstantDepsOnNpm(instantDepNames(JSON.parse(rawPkg)), version)
+      assertPackageVersionOnNpm(PKG_NAME, JSON.parse(rawPkg).version)
+      if (rawDemoPkg)
+        assertInstantDepsOnNpm(instantDepNames(JSON.parse(rawDemoPkg)), version)
+    }
+    catch (error) {
+      log.fail(error instanceof Error ? error.message : String(error))
+    }
+  }
 
   // Parent = the current remote tip, so the push fast-forwards (empty on first push).
   let parent = ''
@@ -109,7 +227,7 @@ export function publishSubtree({
 
   const commit = capture('git', [
     'commit-tree',
-    tree,
+    publicSnapshotTree,
     ...(parent ? ['-p', parent] : []),
     '-m',
     squashMessage,

@@ -74,7 +74,8 @@ export type AppSchema = typeof schema
 export default schema
 
 // Register the schema once — `q` and every `Idb*` type utility then default
-// to it across the whole project ([dux-conventions.md §7]).
+// to it across the whole project.
+// Docs: https://github.com/mareszhar/instant/blob/vux/client/packages/dux/docs/dux-conventions.md#7-global-schema-registration
 declare module '@mszr/idb-dux' {
   interface IdbRegister {
     schema: typeof schema

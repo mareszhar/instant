@@ -11,8 +11,8 @@
  *   1. prepublish:verify            shared gates, once
  *   2. read the fork's shared Instant version; prove each pinned dep is on npm
  *   3. bump @mszr/idb-dux's own version (persists)
- *   4. temporarily pin the workspace:* Instant deps; build; npm publish --public
- *   5. restore the workspace:* deps (the bump stays)
+ *   4. temporarily pin Instant workspace deps; build; npm publish --public
+ *   5. restore the workspace deps (the bump stays)
  *   6. wait until npm view @mszr/idb-dux@<version> resolves
  *   7. prepare the demo: npm mode pinned to @<version> (not latest), refresh, build
  *   8. commit (version bump + demo pin) "🔖 release v<version>" and tag
@@ -28,7 +28,8 @@
  */
 import fs from 'node:fs'
 import process from 'node:process'
-import { NPM_CACHE, PKG_DIR, PKG_JSON, PKG_NAME, SHARED_VERSION_SRC, WORKSPACE_ROOT } from './lib/resolve-publish-paths.mjs'
+import { assertInstantDepsOnNpm, assertPackageVersionOnNpm, pinInstantDeps, readSharedInstantVersion } from './lib/pin-instant-deps.mjs'
+import { NPM_CACHE, PKG_DIR, PKG_JSON, PKG_NAME, WORKSPACE_ROOT } from './lib/resolve-publish-paths.mjs'
 import { runPrepublishGates } from './lib/run-prepublish-gates.mjs'
 import { capture, createLogger, run, sleep } from './lib/run-publish-step.mjs'
 import { deployDemo, prepareDemoForNpm } from './publish-demo.mjs'
@@ -36,47 +37,19 @@ import { publishSubtree } from './publish-subtree.mjs'
 
 const log = createLogger('sdk')
 
-// The workspace:* Instant deps rewritten to a concrete version to publish.
-const PINNED_DEPS = ['@instantdb/core', '@instantdb/version', '@instantdb/admin', '@instantdb/webhooks']
-const DEP_SECTIONS = ['dependencies', 'peerDependencies', 'devDependencies']
 const VALID_TYPES = new Set(['patch', 'minor', 'major'])
-
-function readSharedVersion() {
-  const src = fs.readFileSync(SHARED_VERSION_SRC, 'utf8')
-  const match = src.match(/const\s+version\s*=\s*'v([^']+)'/)
-  if (!match)
-    log.fail(`could not find a version in ${SHARED_VERSION_SRC} (expected: const version = 'vX.Y.Z')`)
-  return match[1].trim()
-}
-
-function assertRegistryHas(pkg, version) {
-  const got = capture('npm', ['view', `${pkg}@${version}`, 'version'], { cwd: PKG_DIR, env: { npm_config_cache: NPM_CACHE } })
-  if (got !== version)
-    throw new Error(`${pkg}@${version} is not on npm (got "${got || 'nothing'}"). Rebase the fork and retry.`)
-}
-
-function pinInstantDeps(pkg, version) {
-  for (const section of DEP_SECTIONS) {
-    const deps = pkg[section]
-    if (!deps)
-      continue
-    for (const name of PINNED_DEPS) {
-      if (name in deps)
-        deps[name] = version
-    }
-  }
-}
 
 /** Poll npm until the just-published version resolves (registry propagation). */
 function waitForNpm(version, { timeoutMs = 180_000, intervalMs = 5_000 } = {}) {
   const deadline = Date.now() + timeoutMs
   log.log(`waiting for ${PKG_NAME}@${version} to resolve on npm…`)
   while (Date.now() < deadline) {
-    const got = capture('npm', ['view', `${PKG_NAME}@${version}`, 'version'], { cwd: PKG_DIR, env: { npm_config_cache: NPM_CACHE } })
-    if (got === version) {
+    try {
+      assertPackageVersionOnNpm(PKG_NAME, version)
       log.log(`${PKG_NAME}@${version} is live on npm.`)
       return
     }
+    catch {}
     sleep(intervalMs)
   }
   log.fail(`${PKG_NAME}@${version} did not appear on npm within ${timeoutMs / 1000}s. It may still be propagating; resume with: pnpm run publish:demo:prod && pnpm run publish:subtree:squash`)
@@ -94,7 +67,13 @@ if (!dryRun && !VALID_TYPES.has(releaseType))
 // 1) shared gate (once)
 runPrepublishGates({ logger: log })
 
-const sharedVersion = readSharedVersion()
+let sharedVersion
+try {
+  sharedVersion = readSharedInstantVersion()
+}
+catch (error) {
+  log.fail(error instanceof Error ? error.message : String(error))
+}
 const originalRaw = fs.readFileSync(PKG_JSON, 'utf8')
 
 // ── Dry run: pin → build → publish --dry-run → restore. No bump, no side effects.
@@ -102,9 +81,10 @@ if (dryRun) {
   log.log(`packaging rehearsal against shared Instant version ${sharedVersion}`)
   try {
     const pinned = JSON.parse(originalRaw)
-    pinInstantDeps(pinned, sharedVersion)
+    const pinnedNames = pinInstantDeps(pinned, sharedVersion)
+    assertInstantDepsOnNpm(pinnedNames, sharedVersion)
     fs.writeFileSync(PKG_JSON, `${JSON.stringify(pinned, null, 2)}\n`)
-    run('pnpm', ['run', 'build'], { cwd: PKG_DIR, env: { npm_config_cache: NPM_CACHE } })
+    run('pnpm', ['run', 'sdk:build:ours'], { cwd: WORKSPACE_ROOT, env: { npm_config_cache: NPM_CACHE } })
     run('npm', ['publish', '--access', 'public', '--dry-run'], { cwd: PKG_DIR, env: { npm_config_cache: NPM_CACHE } })
   }
   finally {
@@ -117,14 +97,14 @@ if (dryRun) {
 // ── Real release.
 // 2) shared Instant version must be on npm before we pin to it.
 log.log(`shared Instant version: ${sharedVersion}`)
-for (const dep of PINNED_DEPS) {
-  try {
-    assertRegistryHas(dep, sharedVersion)
-  }
-  catch (error) {
-    log.fail(error instanceof Error ? error.message : String(error))
-  }
-  log.log(`ok on npm: ${dep}@${sharedVersion}`)
+try {
+  const pinnedProbe = JSON.parse(originalRaw)
+  const pinnedNames = pinInstantDeps(pinnedProbe, sharedVersion)
+  assertInstantDepsOnNpm(pinnedNames, sharedVersion)
+  log.log(`ok on npm: ${pinnedNames.map(dep => `${dep}@${sharedVersion}`).join(', ')}`)
+}
+catch (error) {
+  log.fail(error instanceof Error ? error.message : String(error))
 }
 
 // 2b) npm auth — needed to publish.
@@ -138,18 +118,18 @@ try {
   releasedVersion = JSON.parse(fs.readFileSync(PKG_JSON, 'utf8')).version
   log.log(`${PKG_NAME} → v${releasedVersion}`)
 
-  // Restore target: bumped version, workspace:* deps intact.
+  // Restore target: bumped version, workspace deps intact.
   const bumpedRaw = fs.readFileSync(PKG_JSON, 'utf8')
 
   // 4) pin Instant deps, build, publish.
   const pinned = JSON.parse(bumpedRaw)
   pinInstantDeps(pinned, sharedVersion)
   fs.writeFileSync(PKG_JSON, `${JSON.stringify(pinned, null, 2)}\n`)
-  run('pnpm', ['run', 'build'], { cwd: PKG_DIR, env: { npm_config_cache: NPM_CACHE } })
+  run('pnpm', ['run', 'sdk:build:ours'], { cwd: WORKSPACE_ROOT, env: { npm_config_cache: NPM_CACHE } })
   run('npm', ['publish', '--access', 'public'], { cwd: PKG_DIR, env: { npm_config_cache: NPM_CACHE } })
   log.log(`published ${PKG_NAME}@${releasedVersion}`)
 
-  // 5) restore workspace:* deps (keep the bump).
+  // 5) restore workspace deps (keep the bump).
   fs.writeFileSync(PKG_JSON, bumpedRaw)
 }
 catch (error) {
@@ -176,7 +156,7 @@ try {
   deployDemo({ prod: true, logger: log })
 
   // 10) squash-publish the public subtree.
-  publishSubtree({ message: `🔖 release v${releasedVersion}`, skipVerify: true })
+  publishSubtree({ message: `🔖 release v${releasedVersion}`, skipVerify: true, sharedVersion, skipDependencyCheck: true })
 }
 catch (error) {
   log.error(error instanceof Error ? error.message : String(error))

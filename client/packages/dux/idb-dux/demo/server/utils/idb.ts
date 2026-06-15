@@ -4,7 +4,8 @@ import schema from '~~/config/instant.schema'
 // One factory at module scope; one `await useServerIdb(event, mode)` per route.
 // `dux`'s server kit owns the admin db internally — no `init` to wire, no token
 // reading or 401 boilerplate. The mode declares auth strictness and the kit's
-// keys follow ([dux-spec-nuxt.md §2]).
+// keys follow.
+// Docs: https://github.com/mareszhar/instant/blob/vux/client/packages/dux/docs/dux-spec-nuxt.md
 export const useServerIdb = defineServerKit({
   schema,
   getAppId: event => useRuntimeConfig(event).public.instantAppId,

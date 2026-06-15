@@ -1,6 +1,6 @@
 # idb-dux demo
 
-A minimal Nuxt 4 app that exercises **every** `@mszr/idb-dux` entrypoint in a realistic setup:
+A minimal Nuxt 4 app that exercises the **five interactively-demoable** `@mszr/idb-dux` entrypoints in a realistic setup:
 
 - **root** — `defineSchema` + registration, the ready-made `q`, typed `db.tx` (dot-path `.link`, schema-typed `ruleParams`), `$skip`
 - **`/vue`** — `init`, `useQuery`/`useInfiniteQuery`/`queryOnce`, `useAuth`, rooms (presence, topics, typing, cursors), `SignedIn`/`SignedOut`/`Cursors`
@@ -40,7 +40,7 @@ So webhooks earn their guarantee where it's actually airtight — the test suite
 - the `defineWebhookHandler` route driven through h3's real request lifecycle with 2xx/4xx retry mapping (`idb-dux/src/nuxt/nuxt.test.ts`)
 - type, editor-DX, and official-shape compatibility planes (`idb-dux/src/webhooks/*.test-d.ts`, `*.dx.test.ts`)
 
-To use webhooks in a real app, see [`docs/dux-spec-webhooks.md`](../../docs/dux-spec-webhooks.md) and [`docs/dux-spec-nuxt.md`](../../docs/dux-spec-nuxt.md).
+To use webhooks in a real app, see [`dux-spec-webhooks.md`](https://github.com/mareszhar/instant/blob/vux/client/packages/dux/docs/dux-spec-webhooks.md) and [`dux-spec-nuxt.md`](https://github.com/mareszhar/instant/blob/vux/client/packages/dux/docs/dux-spec-nuxt.md).
 
 ## Build preview
 
@@ -51,4 +51,4 @@ bun run prev
 
 ## Dependency resolution
 
-This demo resolves `@mszr/idb-dux` (and the Instant peers) via one of three possible modes: **links**, **tarballs**, or **npm**. To switch the resolution mode, see the orchestrator scripts in the maintainer workspace's `package.json`.
+The public demo resolves `@mszr/idb-dux` from npm. Link and tarball modes are maintainer workflows in the dux workspace inside the Instant fork.

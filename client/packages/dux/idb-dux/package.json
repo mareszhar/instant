@@ -105,17 +105,6 @@
     "!dist/**/test-support/**",
     "dist"
   ],
-  "scripts": {
-    "upi": "pnpm up -i",
-    "dev": "tsc --watch --preserveWatchOutput -p tsconfig.dev.json",
-    "typecheck": "tsc --noEmit",
-    "check-exports": "npm_config_cache=.npm-cache attw --profile node16 --pack .",
-    "test": "vitest run --typecheck",
-    "test:watch": "vitest --typecheck",
-    "test:ci": "vitest run --typecheck",
-    "build:tshy": "tshy",
-    "build": "rm -rf dist && pnpm run build:tshy && pnpm run check-exports"
-  },
   "peerDependencies": {
     "@instantdb/admin": "workspace:*",
     "@instantdb/webhooks": "workspace:*",
