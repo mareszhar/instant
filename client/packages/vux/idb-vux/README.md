@@ -12,6 +12,8 @@
   <img alt="stars" src="https://img.shields.io/github/stars/instantdb/instant">
 </p>
 
+> **Deprecated.** `@mszr/idb-vux` has been superseded by [Dux](../../dux/idb-dux/README.md) (`client/packages/dux/idb-dux`), a framework-agnostic DX-first SDK. No further development will happen here.
+
 **A reactive, realtime SDK for InstantDB.** Build powerful Vue applications with first-class query ergonomics, infinite paginations, and SSR resilience.
 
 This package is a DX/UX-first Vue SDK that goes beyond the official `@instantdb/vue` surface with additive authoring and query ergonomics.

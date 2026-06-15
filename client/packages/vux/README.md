@@ -1,5 +1,7 @@
 # Vux Maintainer Workspace
 
+> **Deprecated.** Vux has been superseded by [Dux](../dux/README.md) (`client/packages/dux`), a framework-agnostic DX-first SDK. No further development will happen here.
+
 Welcome to the Vux maintainer area inside **idb**.
 
 ## Quick repo context
