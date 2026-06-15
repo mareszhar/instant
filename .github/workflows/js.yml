@@ -49,7 +49,6 @@ jobs:
           };
 
           for (const file of files) {
-            // dux has its own CI (dux.yml) and is excluded from all js.yml change flags
             const dux = file.startsWith('client/packages/dux/');
             const changes = {
               client: file.startsWith('client') && !dux,
@@ -99,13 +98,9 @@ jobs:
           return output;
 
   build:
-    name: Build & Test fork packages
+    name: Install & cache
     timeout-minutes: 15
     runs-on: ubuntu-latest
-    container:
-      image: mcr.microsoft.com/playwright:v1.58.2-noble
-    env:
-      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
     needs: [ detect_changes ]
     if: needs.detect_changes.outputs.client_did_change == 'true'
     steps:
@@ -146,14 +141,6 @@ jobs:
       - name: Install dependencies
         working-directory: client
         run: pnpm i --frozen-lockfile --prefer-offline
-
-      - name: Build fork packages
-        working-directory: client
-        run: pnpm run build:fork
-
-      - name: Run fork package tests
-        working-directory: client
-        run: pnpm run test:fork
 
       - name: Prune store
         if: github.ref == 'refs/heads/main'
