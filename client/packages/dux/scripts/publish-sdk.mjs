@@ -39,6 +39,28 @@ const log = createLogger('sdk')
 
 const VALID_TYPES = new Set(['patch', 'minor', 'major'])
 
+/**
+ * Bump a clean `x.y.z` version by release type. Done by hand rather than with
+ * `npm version`: this package lives inside the fork's pnpm workspace, and
+ * `npm version` detects that workspace root and tries to reify the whole
+ * monorepo tree (`updateWorkspaces` → arborist), which crashes on the
+ * pnpm-managed layout. A direct write matches how the rest of this script
+ * already edits package.json (snapshot/restore, dep-pinning) and never invokes
+ * npm's workspace machinery.
+ */
+function bumpVersion(current, type) {
+  const core = current.split('-')[0].split('+')[0]
+  const parts = core.split('.').map(n => Number.parseInt(n, 10))
+  if (parts.length !== 3 || parts.some(Number.isNaN))
+    throw new Error(`cannot bump non-semver version "${current}"`)
+  const [major, minor, patch] = parts
+  if (type === 'major')
+    return `${major + 1}.0.0`
+  if (type === 'minor')
+    return `${major}.${minor + 1}.0`
+  return `${major}.${minor}.${patch + 1}`
+}
+
 /** Poll npm until the just-published version resolves (registry propagation). */
 function waitForNpm(version, { timeoutMs = 180_000, intervalMs = 5_000 } = {}) {
   const deadline = Date.now() + timeoutMs
@@ -113,9 +135,11 @@ if (!capture('npm', ['whoami'], { cwd: PKG_DIR, env: { npm_config_cache: NPM_CAC
 
 let releasedVersion
 try {
-  // 3) bump our own version (persists past restore).
-  run('npm', ['version', releaseType, '--no-git-tag-version'], { cwd: PKG_DIR, stdio: 'pipe', env: { npm_config_cache: NPM_CACHE } })
-  releasedVersion = JSON.parse(fs.readFileSync(PKG_JSON, 'utf8')).version
+  // 3) bump our own version (persists past restore) — written directly, no npm.
+  const bumped = JSON.parse(originalRaw)
+  releasedVersion = bumpVersion(bumped.version, releaseType)
+  bumped.version = releasedVersion
+  fs.writeFileSync(PKG_JSON, `${JSON.stringify(bumped, null, 2)}\n`)
   log.log(`${PKG_NAME} → v${releasedVersion}`)
 
   // Restore target: bumped version, workspace deps intact.
