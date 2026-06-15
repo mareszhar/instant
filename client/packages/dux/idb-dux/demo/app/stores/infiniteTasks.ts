@@ -1,4 +1,4 @@
-export const useInfiniteTasksStore = defineStore('infinite-tasks', () => {
+export const useInfiniteTasks = defineStore('infinite-tasks', () => {
   const { db, auth } = useIdb()
   const workspaces = useWorkspaces()
   const tasks = useTasks()

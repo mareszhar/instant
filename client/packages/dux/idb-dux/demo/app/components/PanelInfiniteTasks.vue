@@ -65,6 +65,6 @@ article.card
 
 <script setup lang="ts">
 const { auth } = useIdb()
-const infiniteTasks = useInfiniteTasksStore()
+const infiniteTasks = useInfiniteTasks()
 const contextMenu = useContextMenu()
 </script>
