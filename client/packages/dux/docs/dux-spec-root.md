@@ -258,19 +258,19 @@ dux also exports `$skip` (an `undefined` constant): an `undefined` value in a `w
 
 ### 3.3 Validation
 
-The contract per level, with the intended diagnostic. Diagnostics carry stable `QERR_*` codes so editor-DX tests can assert messages, not just positions.
+The contract per level, with the intended diagnostic. Diagnostics carry stable `DUXERR_*` codes so editor-DX tests can assert messages, not just positions.
 
 **Namespace level** — top-level query keys are limited to schema namespace names.
 
-> `QERR_QUERY_ROOT_KEY_UNKNOWN: foo is not a valid top-level namespace`
+> `DUXERR_QUERY_ROOT_KEY_UNKNOWN: foo is not a valid top-level namespace`
 
 **Link traversal level** — nested query keys are limited to defined link labels up to **3 hops**; beyond 3 hops any string is accepted (avoids type-checker blowup, matches core behavior).
 
-> `QERR_QUERY_NESTED_KEY_UNKNOWN: foo is not a valid nested key on tasks`
+> `DUXERR_QUERY_NESTED_KEY_UNKNOWN: foo is not a valid nested key on tasks`
 
 **Where clause level** — keys: `id`, schema fields, **link labels**, and **linked dot-paths up to 3 hops**. The completions are *enumerated*, not merely validated: at `where: { ⌶ }` the cursor offers the namespace's fields and links **and** every traversal the schema allows — `memberships`, `memberships.user`, `memberships.user.email` are all completions, because a dot-path segment may be a field *or* a link, and a path may terminate on a link (which filters on the linked entity's `id`). `undefined` values (`$skip`) drop the clause.
 
-> `QERR_WHERE_KEY_UNKNOWN: tagName is not a valid where key on tasks`
+> `DUXERR_WHERE_KEY_UNKNOWN: tagName is not a valid where key on tasks`
 
 **Operator restrictions** (per official docs):
 
@@ -298,7 +298,7 @@ const query = db.useQuery({
 
 **Order level** — the native `order` key; direct fields and `id` only (ordering does not support linked attributes); directions `'asc' | 'desc'`.
 
-**Result-key collision level** — a top-level scope whose *resolved* key (or top-level `$m` label) hits a reserved result field is flagged with `QERR_RESULT_KEY_RESERVED`. The full contract — the reserved set, why it's caught here and not at `defineSchema` — is [§4.5](#45-result-key-collisions).
+**Result-key collision level** — a top-level scope whose *resolved* key (or top-level `$m` label) hits a reserved result field is flagged with `DUXERR_RESULT_KEY_RESERVED`. The full contract — the reserved set, why it's caught here and not at `defineSchema` — is [§4.5](#45-result-key-collisions).
 
 **Depth policy:** suggestion/validation depth is fixed at **3 hops** for where dot-paths and link traversal — not configurable (a YAGNI decision, revisited only if real schemas demand it).
 
@@ -434,7 +434,7 @@ A query's top-level output keys are spread beside the hook's own result fields �
 - **Singularization that lands on one** — `states: { $: { $only } }` singularizes to `state`; `errors` would singularize to `error`.
 - **A namespace literally named one** read plain, and a **top-level `$m` label** that is reserved.
 
-> `QERR_RESULT_KEY_RESERVED: result key 'state' is reserved — it clashes with a hook result field; rename this scope`
+> `DUXERR_RESULT_KEY_RESERVED: result key 'state' is reserved — it clashes with a hook result field; rename this scope`
 
 The fix is always the same and the message says it: rename the scope with `$as` to any non-reserved name.
 
@@ -556,7 +556,7 @@ src/
     shapeResult.ts  # pure $only/$at/$as/$m + normalization (shared by vue + admin)
     wire.ts         # strips dux-only keys → a query instaql accepts
     keys.ts         # scope-key resolution mirror (runtime twin in shapeResult)
-    validation.ts   # the one validation surface — IdbValidQuery + QERR_* arm
+    validation.ts   # the one validation surface — IdbValidQuery + DUXERR_* arm
     types.ts        # IdbQuery, IdbQueryData, IdbQueryEntity, IdbQueryOptions, …
     index.ts
   tx/
@@ -571,9 +571,9 @@ The field/link helpers live in `schema/fields.ts` (not `query/`) because both `q
 ### 8.2 Key mechanics
 
 - **`defineSchema`**: build the canonical instance through the official `i.schema(...)` constructor (so `constructor.name === 'InstantSchemaDef'` and the enumerable projection match official output *by construction*), feeding it official-dialect inputs — `i.namespace` returns a real `EntityDef`, and link `singular` is stripped before the constructor sees the links. Dux metadata is then attached non-enumerably as `$dux`. Push tooling sees the official shape; dux reads its own metadata.
-  - **Inference note (counterintuitive, load-bearing):** `i.namespace`'s `fields`/`ruleParams` and `defineSchema`'s `namespaces` are typed with *unconstrained* generics, not `extends AttrsDefs`/`extends IdbNamespacesDef`-with-`$dux`. A generic's constraint becomes the contextual type of the matching argument, and an `AttrsDefs` (or `$dux`-bearing) context silently widens unchained builder calls — a bare `i.string()` degrades to `DataAttrDef<any, …>`, collapsing literal singulars and rule-param value types. The shape is validated through a *parallel intersection arm* (a mapped type that types each non-builder member as a `QERR_SCHEMA_FIELD_INVALID` message) and the return type re-tightens via `Extract<…, AttrsDefs>`. The namespace meta is extracted from the def conditionally, never via a contextual `$dux` constraint.
+  - **Inference note (counterintuitive, load-bearing):** `i.namespace`'s `fields`/`ruleParams` and `defineSchema`'s `namespaces` are typed with *unconstrained* generics, not `extends AttrsDefs`/`extends IdbNamespacesDef`-with-`$dux`. A generic's constraint becomes the contextual type of the matching argument, and an `AttrsDefs` (or `$dux`-bearing) context silently widens unchained builder calls — a bare `i.string()` degrades to `DataAttrDef<any, …>`, collapsing literal singulars and rule-param value types. The shape is validated through a *parallel intersection arm* (a mapped type that types each non-builder member as a `DUXERR_SCHEMA_FIELD_INVALID` message) and the return type re-tightens via `Extract<…, AttrsDefs>`. The namespace meta is extracted from the def conditionally, never via a contextual `$dux` constraint.
 - **`shapeResult(rawData, querySpec, schema)`** is a pure function plus a type-level mirror (`IdbQueryData`) that computes the same transformation in type space. The function is the *only* place shaping logic exists; consumers wrap it (reactively in `/vue`, post-`await` in `/admin`). Scope-key resolution (declared singular → algorithm, honoring `options.singularize`) lives once as `SingularScopeKey<>` + its runtime twin, so the TypeScript key and the runtime key always agree.
-- **Validation** is `IdbValidQuery<Q, S>` — an intersection of the input-independent authoring shape `IdbQuery<S>` (the completion source) and an *input-mapped arm* that re-walks the user's own keys and types each violation as a stable `QERR_*` message string at the offending key (valid positions resolve to `unknown`, the intersection identity). `q`/`defineQuery` apply it as a `<const Q extends IdbValidQuery<Q, S>>` self-referential constraint; inline literals get it as a contextual type, and wrapping a factory's return in `q()` restores the same deep localization. (Operator restrictions live in the authoring `IdbWhereOps` shape, typed as their `QERR_*` message when the field doesn't support the operator.)
+- **Validation** is `IdbValidQuery<Q, S>` — an intersection of the input-independent authoring shape `IdbQuery<S>` (the completion source) and an *input-mapped arm* that re-walks the user's own keys and types each violation as a stable `DUXERR_*` message string at the offending key (valid positions resolve to `unknown`, the intersection identity). `q`/`defineQuery` apply it as a `<const Q extends IdbValidQuery<Q, S>>` self-referential constraint; inline literals get it as a contextual type, and wrapping a factory's return in `q()` restores the same deep localization. (Operator restrictions live in the authoring `IdbWhereOps` shape, typed as their `DUXERR_*` message when the field doesn't support the operator.)
 - **Singularize** ships as one runtime function and one type utility generated from the same rule set, with a shared table of irregulars — they must never disagree (locked by a type test that compares them across a word list). The list includes the deterministic-but-imperfect cases (`analyses → analyse`) the explicit `singular` override exists for.
 - **Typed tx** wraps core's `txInit()` in a typed proxy layer; dot-path link keys are detected at the type level (template-literal keys over link labels × unique fields) and compiled to `lookup()` calls at runtime. The chain owns its narrower typing rather than re-deriving the official `TransactionChunk` — that type can't be a structural supertype (its method params are contravariant) — and stays interop-safe by carrying the official `__ops`/`__etype` runtime shape `transact` consumes. `transact`/`debugTransact` accept `IdbTxChunkInput<S>` — the per-namespace union `{ [NS]: IdbTxChunk<S, NS> }[…]` — for the same contravariance reason: a chunk narrowed to one namespace (what `tx.tasks[id]…` produces) is one member of that union, where `IdbTxChunk<S>`'s default full-union `NS` would reject it. One input type, both runtimes (client `db.transact` and `adminDb.transact`).
 
@@ -581,11 +581,11 @@ The field/link helpers live in `schema/fields.ts` (not `query/`) because both `q
 
 - `q({ todos: { $: { where: { ⌶ } } } })` → fields, `id`, link labels, and linked dot-paths up to 3 hops (a path may terminate on a link)
 - inline `useQuery({ ⌶ })` → namespace completions (the contextual-typing path)
-- `q({ states: { $: { $only } } })` → `QERR_RESULT_KEY_RESERVED` on the colliding scope
+- `q({ states: { $: { $only } } })` → `DUXERR_RESULT_KEY_RESERVED` on the colliding scope
 - `i.namespace({ ⌶ })` → `singular`/`fields`/`ruleParams`
 - `db.tx.memberships[id()].link({ ⌶ })` → link labels + dot-path unique attrs
 - `.ruleParams({ ⌶ })` → schema-declared params
-- each `QERR_*` diagnostic, asserted by message at its cursor
+- each `DUXERR_*` diagnostic, asserted by message at its cursor
 
 ---
 
@@ -610,11 +610,11 @@ Done when: validation dx tests green, including inline-object completions (the c
 
 - [x] `q` (registration-bound) + `defineQuery<S>()`
 - [x] `$only` / `$skip` constants
-- [x] validation types: root keys, 3-hop traversal, where keys/dot-paths (fields + links, 3 hops, link-terminating), operator table, order rules, result-key collisions (`QERR_RESULT_KEY_RESERVED`), `QERR_*` messages
+- [x] validation types: root keys, 3-hop traversal, where keys/dot-paths (fields + links, 3 hops, link-terminating), operator table, order rules, result-key collisions (`DUXERR_RESULT_KEY_RESERVED`), `DUXERR_*` messages
 - [x] `shapeResult` pure function: normalization, `$only`/`$at`/`$as`, `$m` (`indexBy`/`groupBy`/`at`), single-pass `$m`
 - [x] type-level shaping mirror (return types match runtime keys by construction)
 - [x] `IdbQuery`, `IdbQueryOptions`, `IdbQueryData`, `IdbQueryEntity`, `IdbQuerySubquery`, `IdbQueryFields`, `IdbQueryPageInfo`
-- [x] `.dx.test.ts`: every validation level + every `QERR_*` message at its cursor; inline vs factory localization both locked
+- [x] `.dx.test.ts`: every validation level + every `DUXERR_*` message at its cursor; inline vs factory localization both locked
 - [x] `.test-d.ts`: shaping shapes ($only/$at/$as/$m, nested links, singularize modes)
 - [x] runtime suite: `shapeResult` against fixture data
 

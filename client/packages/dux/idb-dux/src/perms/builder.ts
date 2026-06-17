@@ -105,7 +105,7 @@ class NamespaceRuntime {
   ): this {
     for (const [name, node] of Object.entries(produced)) {
       if (guard && seen(name))
-        throw new Error(`QERR_PERMS_DUPLICATE_NAME: '${name}' is already defined on '${this.ns}' — use .overrideStage/.overrideBind`)
+        throw new Error(`DUXERR_PERMS_DUPLICATE_NAME: '${name}' is already defined on '${this.ns}' — use .overrideStage/.overrideBind`)
       into[name] = node
     }
     return this
@@ -231,7 +231,7 @@ class DefaultsRuntime {
   private collect(fn: (ctx: Ctx) => Record<string, ExprNode>, into: Record<string, ExprNode>) {
     for (const [name, node] of Object.entries(fn(this.ctx()))) {
       if (this.known(name))
-        throw new Error(`QERR_PERMS_DUPLICATE_NAME: '${name}' is already defined in defaults — use .overrideStage/.overrideBind`)
+        throw new Error(`DUXERR_PERMS_DUPLICATE_NAME: '${name}' is already defined in defaults — use .overrideStage/.overrideBind`)
       into[name] = node
     }
     return this
@@ -314,7 +314,7 @@ class PermsRuntime {
     const defaultBindNames = Object.keys(this.defaultBinds)
     for (const [ns, build] of Object.entries(map)) {
       if (this.schema && !namespaceExists(this.schema, ns))
-        throw new Error(`QERR_PERMS_SCHEMA: '${ns}' is not a namespace in the schema`)
+        throw new Error(`DUXERR_PERMS_SCHEMA: '${ns}' is not a namespace in the schema`)
       const nsb = new NamespaceRuntime(this.schema, ns, this.defaultStaged, defaultBindNames)
       build(nsb)
       this.nsBuilders[ns] = nsb

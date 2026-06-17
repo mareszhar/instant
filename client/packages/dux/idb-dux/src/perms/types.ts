@@ -416,7 +416,7 @@ export type NameObj = Record<string, Expr<any>>
  */
 export type NoDuplicateNames<O, Existing> = {
   [K in keyof O]: K extends keyof Existing
-    ? `QERR_PERMS_DUPLICATE_NAME: ${K & string} is already defined — use .overrideStage/.overrideBind to replace it`
+    ? `DUXERR_PERMS_DUPLICATE_NAME: ${K & string} is already defined — use .overrideStage/.overrideBind to replace it`
     : unknown
 }
 

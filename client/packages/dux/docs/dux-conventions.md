@@ -167,6 +167,6 @@ The perms context is **entity-rooted with current unmarked** — the current ent
 
 ## 11. Diagnostic codes
 
-Every dux compile-time diagnostic — a TypeScript message typed onto an offending key, or a thrown author-time error — is prefixed **`QERR_`** and shaped `QERR_<DOMAIN>_<DETAIL>`. The prefix is cross-cutting, **not** query-specific: `QUERY` is one domain among `SCHEMA`, `TX`, `PERMS`, `WHERE`, `ORDER`, `M` (the `$m` block), `RESULT`, … — which is exactly why a query code reads `QERR_QUERY_*` rather than the prefix alone. So a perms diagnostic is `QERR_PERMS_*` (e.g. `QERR_PERMS_CONFORMS`), a tx one `QERR_TX_*`, and so on.
+Every dux author-facing diagnostic code is prefixed **`DUXERR_`** and shaped `DUXERR_<DOMAIN>_<DETAIL>`. A code may appear in a TypeScript diagnostic typed onto an offending key, or in an `Error` thrown by an author-time validation path such as `.compile()`. The code is the stable message label; runtime class identity is still carried by the branded error family (`IdbError`, `IdbApiError`) where those classes apply.
 
 The codes are **stable identifiers**, part of the contract: editor-DX suites assert on them, so they read like API. Treat a rename as a breaking change.

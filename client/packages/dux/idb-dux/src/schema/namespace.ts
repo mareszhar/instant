@@ -45,7 +45,7 @@ export type IdbNamespacesDef = Record<string, EntityDefType<any, any, any>>
 export type ValidFieldBuilders<F> = {
   [K in keyof F]: F[K] extends DataAttrDef<any, any, any, any>
     ? unknown
-    : `QERR_SCHEMA_FIELD_INVALID: ${K & string} must be a field builder (i.string(), i.number(), …)`
+    : `DUXERR_SCHEMA_FIELD_INVALID: ${K & string} must be a field builder (i.string(), i.number(), …)`
 }
 
 /**

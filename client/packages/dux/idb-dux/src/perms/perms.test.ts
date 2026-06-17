@@ -256,7 +256,7 @@ describe('runtime-enum conformance — .conforms()', () => {
   it('without a runtime schema, .conforms() throws (needs definePerms(schema))', () => {
     expect(() => definePerms()
       .namespaces({ fruits: (ns: any) => ns.allow({ view: ({ e }: any) => e.name.conforms() }) } as any)
-      .compile()).toThrow(/QERR_PERMS_CONFORMS/)
+      .compile()).toThrow(/DUXERR_PERMS_CONFORMS/)
   })
 })
 

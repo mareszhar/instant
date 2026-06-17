@@ -51,7 +51,7 @@ export type NextHop<D extends Depth> = D['length'] extends MaxHops ? D : [...D, 
 /**
  * The operator object for one field. Every operator is present so the
  * completion list and the diagnostic are both intentional: operators the
- * field doesn't support are typed as the `QERR_*` message explaining why.
+ * field doesn't support are typed as the `DUXERR_*` message explaining why.
  */
 export interface IdbWhereOps<V, _IsRequired, IsIndexed> {
   $in?: readonly WireValue<V>[]
@@ -71,14 +71,14 @@ type ComparableValue<V, IsIndexed, Op extends string> = [V] extends [
 ]
   ? IsIndexed extends true
     ? WireValue<V>
-    : `QERR_WHERE_OPERATOR_INVALID: Operator ${Op} is only available for indexed fields with a checked type.`
-  : `QERR_WHERE_OPERATOR_INVALID: Operator ${Op} is only available for indexed fields with a checked type.`
+    : `DUXERR_WHERE_OPERATOR_INVALID: Operator ${Op} is only available for indexed fields with a checked type.`
+  : `DUXERR_WHERE_OPERATOR_INVALID: Operator ${Op} is only available for indexed fields with a checked type.`
 
 type StringPattern<V, IsIndexed, Op extends string> = [V] extends [string]
   ? IsIndexed extends true
     ? string
-    : `QERR_WHERE_OPERATOR_INVALID: Operator ${Op} is only available for indexed string fields.`
-  : `QERR_WHERE_OPERATOR_INVALID: Operator ${Op} is only available for indexed string fields.`
+    : `DUXERR_WHERE_OPERATOR_INVALID: Operator ${Op} is only available for indexed string fields.`
+  : `DUXERR_WHERE_OPERATOR_INVALID: Operator ${Op} is only available for indexed string fields.`
 
 type FieldWhereValue<A> = A extends DataAttrDef<infer V, infer R, infer I, any>
   ? WireValue<V> | IdbWhereOps<V, R, I> | undefined

@@ -31,7 +31,7 @@ export const noValidate: Validator = {
 }
 
 function fail(message: string): never {
-  throw new Error(`QERR_PERMS_SCHEMA: ${message}`)
+  throw new Error(`DUXERR_PERMS_SCHEMA: ${message}`)
 }
 
 function fieldExists(schema: IdbSchema, ns: string, key: string): boolean {

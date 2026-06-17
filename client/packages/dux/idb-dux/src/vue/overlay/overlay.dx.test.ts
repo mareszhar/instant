@@ -36,7 +36,7 @@ describe('overlay useQuery — editor DX', () => {
       ${prelude}
       db.useQuery({ foos: {} })
     `
-    expect(errors).toHaveError(/QERR_QUERY_ROOT_KEY_UNKNOWN: foos is not a valid top-level namespace/)
+    expect(errors).toHaveError(/DUXERR_QUERY_ROOT_KEY_UNKNOWN: foos is not a valid top-level namespace/)
   })
 
   it('flags a mistyped where value at the value', () => {
@@ -44,7 +44,7 @@ describe('overlay useQuery — editor DX', () => {
       ${prelude}
       db.useQuery({ tasks: { $: { where: { title: false } } } })
     `
-    expect(errors).toHaveError(/QERR_WHERE_VALUE_TYPE: Type 'boolean' is not assignable to field 'title' of type string/)
+    expect(errors).toHaveError(/DUXERR_WHERE_VALUE_TYPE: Type 'boolean' is not assignable to field 'title' of type string/)
   })
 
   it('queryOnce shares the same validation surface', () => {
@@ -54,7 +54,7 @@ describe('overlay useQuery — editor DX', () => {
         await db.queryOnce({ tasks: { $: { where: { tagName: 'x' } } } })
       }
     `
-    expect(errors).toHaveError(/QERR_WHERE_KEY_UNKNOWN: tagName is not a valid where key on tasks/)
+    expect(errors).toHaveError(/DUXERR_WHERE_KEY_UNKNOWN: tagName is not a valid where key on tasks/)
   })
 
   it('a clean query produces no diagnostics', () => {

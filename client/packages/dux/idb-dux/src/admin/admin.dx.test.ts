@@ -38,7 +38,7 @@ describe('admin surface — editor DX', () => {
       ${prelude}
       adminDb.query({ tasks: { $: { where: { nope: 1 } } } })
     `
-    expect(errors).toHaveError(/QERR_WHERE_KEY_UNKNOWN/)
+    expect(errors).toHaveError(/DUXERR_WHERE_KEY_UNKNOWN/)
   })
 
   it('completes the kit-shaped data plane on the awaited result', () => {

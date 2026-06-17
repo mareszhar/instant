@@ -114,7 +114,7 @@ export type IdbTxRuleParams<
       ? RuleParamsShape<RP>
       : Record<
         string,
-          `QERR_TX_RULE_PARAMS_UNDECLARED: ${NS} declares no ruleParams — declare them in i.namespace({ ruleParams })`
+          `DUXERR_TX_RULE_PARAMS_UNDECLARED: ${NS} declares no ruleParams — declare them in i.namespace({ ruleParams })`
       >
     : never
   : never
