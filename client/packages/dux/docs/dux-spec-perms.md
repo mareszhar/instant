@@ -1,4 +1,4 @@
-updated: 2026-06-12
+updated: 2026-06-17
 status: spec — contracts are binding; implementation approaches are proposals in their service
 
 # dux spec — `/perms`
@@ -16,6 +16,7 @@ Conventions: [dux-conventions.md](./dux-conventions.md) (esp. [§10 Perms vocabu
 | P3 | Expression breadth: list methods, functional helpers, `raw` | 8 | ☑ complete |
 | P4 | Action-specific contexts (`eu`/`el`/`modifiedFields` per action; `stageFor`/`bindFor`) | 8 | ☑ complete |
 | P5 | `.attrs`, `$rateLimits`, runtime diagnostics, compat-target tests | 8 | ☑ complete |
+| P6 | `.conforms()` — DRY runtime-enum membership enforcement ([§8](#8-expression-api)) | 8 | ☐ planned |
 
 Details: [§14 Phased implementation roadmap](#14-phased-implementation-roadmap).
 
@@ -535,6 +536,29 @@ Raw CEL should be explicit.
 - raw renders verbatim and yields a boolean expression by default; pass a type param (`raw<string>(...)`) for a non-boolean terminal
 - raw composes safely: it carries the lowest precedence, so any expression built around it is always parenthesized
 
+### `.conforms()` — runtime-enum membership (planned, P6)
+
+A **runtime enum** ([dux-spec-root.md §2.6](./dux-spec-root.md#26-enum-fields)) declares its allowed values in the schema. `.conforms()` enforces that a field's value is one of them — reading the values from the schema so they are declared once, not retyped in the rule. It is the DRY bridge between the schema declaration and perms; the declaration never enforces on its own, so this is where membership becomes a rule.
+
+```ts
+tasks: ns => ns.allow({
+  create: ({ b, eu }) => b.isMember.and(eu.priority.conforms()),
+  update: ({ eu }) => eu.priority.conforms(),
+  // legacy gating: only show rows that still satisfy a newer enum
+  view: ({ e }) => e.priority.conforms(),
+})
+```
+
+Contract:
+
+- **It is sugar for membership against the schema's values** — `eu.priority.conforms()` renders the CEL `newData.priority in ['low', 'medium', 'high']` (`data.*` for the current entity, `linkedData.*` for a linked one). It is exactly `eu.priority.in([...])` with the list supplied by the schema; `.in(explicitList)` remains for an ad-hoc subset.
+- **Exposed only on runtime-enum fields.** `.conforms()` exists on a field accessor only when that field is a runtime enum — there is nothing to conform to otherwise, so on any other field the method is absent (an error at the cursor, not a no-op).
+- **Every entity field, every action.** Available on `e`/`ef`, `eu`/`euf`, and `el`/`elf` (property access and string-key forms alike), in any rule — including `view`/`delete`, not just writes, so it can gate pre-existing rows against a newer enum.
+- **Refs too.** `entityRef`/`authRef`/`entityLinkedRef` whose terminal segment is a runtime-enum field expose `.conforms()`; since a ref yields a list, it renders as a list conformance (`data.ref('owner.role').all(x, x in [...])`). The user opts in per ref.
+- **Needs the schema value.** Because it reads the declared values at compile time, `.conforms()` requires `definePerms(schema)` (the runtime form). Under the type-only `definePerms()`, the values aren't present to render, so `.conforms()` is unavailable.
+
+The result is the schema-as-source-of-truth payoff without coupling: the enum is declared once in `defineSchema`, and enforcement stays explicit, opt-in, and visible in the security layer.
+
 ## 9. Action-specific stage and bind
 
 Common `.stage(...)` and `.bind(...)` callbacks receive only common context. That prevents `entityUpdated` and `entityLinked` from leaking into rules where Instant cannot evaluate them.
@@ -661,6 +685,7 @@ rateLimit.createTask.limit(auth.id)
 - unknown namespace keys are TypeScript errors
 - with `definePerms(schema)`, unknown namespaces also throw runtime errors
 - each namespace's `rp`/`ruleParams` context is typed against the `ruleParams` declaration for that namespace in `defineSchema` — unknown param keys are TypeScript errors
+- **rooms are not targetable** — the keys are `keyof schema.entities`, which excludes the `rooms` block; perms govern persisted entities, and the rules engine never runs on ephemeral presence/topics channels. This matches official idb, whose `InstantRules` is keyed the same way ([dux-spec-root.md §2.7](./dux-spec-root.md#27-rooms)).
 
 ### Field validation
 
@@ -909,3 +934,11 @@ Done when: the full example's non-action-specific rules compile and validate.
 - [x] runtime schema validation diagnostics (`definePerms(schema)` dev assertions: namespace, field, ref path, ruleParam, duplicate name)
 - [x] compat-target tests: `InstantRules` assignability + push fixture
 - [x] cyclic bind detection — delegated to Instant: the backend topologically sorts and validates the emitted `bind` block (`server/.../rule.clj`)
+
+### Phase P6 — runtime-enum conformance (global phase 8)
+
+- [ ] `.conforms()` on entity-field accessors (`e`/`ef`, `eu`/`euf`, `el`/`elf`), exposed only when the field is a runtime enum
+- [ ] `.conforms()` on refs (`entityRef`/`authRef`/`entityLinkedRef`) whose terminal is a runtime enum → list-conformance (`.all(...)`) rendering
+- [ ] reads declared values from `definePerms(schema)`; renders `… in [...]`; unavailable under the type-only entrypoint
+- [ ] `.dx.test.ts`: `.conforms()` present only on runtime-enum fields; absent (cursor error) elsewhere
+- [ ] `.test.ts` / compat: rendered CEL matches `in [...]` / `.all(...)`

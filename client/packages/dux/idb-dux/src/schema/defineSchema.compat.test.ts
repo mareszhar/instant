@@ -45,6 +45,13 @@ describe('defineSchema — compatibility targets', () => {
         reports: officialI.entity({ title: officialI.string() }),
         analyses: officialI.entity({ score: officialI.number().indexed() }),
         states: officialI.entity({ label: officialI.string().indexed() }),
+        fruits: officialI.entity({
+          // a runtime enum projects exactly like a plain indexed string —
+          // its declared values ride along non-enumerably, never to the wire
+          name: officialI.string().indexed(),
+          kind: officialI.string().optional(),
+          sku: officialI.number().unique().indexed(),
+        }),
       },
       links: {
         membershipWorkspace: {

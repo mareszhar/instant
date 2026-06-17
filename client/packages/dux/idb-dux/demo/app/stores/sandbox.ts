@@ -16,14 +16,17 @@ export const useSandbox = defineStore('sandbox', () => {
       },
     })
 
-    // EXPECTED BEHAVIOR:
-    const fruits = fruitsByName[fruitName] // ✅ CORRECT! (fruitName matches the generic)
-    const apples = fruitsByName.apple // ✅ CORRECT!
-    const bananas = fruitsByName.banana // ✅ CORRECT!
-    const oranges = fruitsByName.orange // ✅ CORRECT!
-    const mangos = fruitsByName.mango // ❌ error - 'mango' is not in the generic! ✅ CORRECT!
+    // The record is keyed by the runtime-enum union, each bucket narrowed to its
+    // key and guaranteed to be an array (empty if no rows) — never undefined.
+    const fruits = fruitsByName[fruitName] // ✅ Fruit[] (fruitName ∈ the union)
+    const apples = fruitsByName.apple // ✅ { id; name: 'apple' }[]
+    const bananas = fruitsByName.banana // ✅ { id; name: 'banana' }[]
+    const oranges = fruitsByName.orange // ✅ { id; name: 'orange' }[]
+    // @ts-expect-error 'mango' is not one of the enum's declared values
+    const mangos = fruitsByName.mango // ✅ flagged at the key
 
-    apples?.forEach(() => { console.warn('doctor shoooo') })
+    // no `?.` needed — a runtime-enum bucket is never undefined
+    apples.forEach(() => console.warn('doctor shoooo'))
 
     return { fruits, apples, bananas, oranges, mangos }
   }

@@ -11,6 +11,8 @@
  * - unique + indexed + optional fields, every value type, a non-indexed string
  * - `states`, whose algorithmic singular ('state') is a reserved result key —
  *   exercises the singularization-collision guard
+ * - `fruits`, a runtime enum (`name`) and a type-level enum (`kind`) —
+ *   exercises `$m` groupBy key/narrowing inference, present vs optional buckets
  * - rooms with presence and topics
  */
 import { defineSchema, i } from '../schema/index.js'
@@ -59,6 +61,17 @@ export const schema = defineSchema({
       // fine, but `$only`/`$at` would collide, so the guard fires at that query.
       fields: { label: i.string().indexed() },
     }),
+    fruits: i.namespace({
+      fields: {
+        // runtime enum: union inferred AND recorded at runtime → groupBy gets
+        // guaranteed, narrowed, never-undefined buckets
+        name: i.string(['apple', 'banana', 'orange']).indexed(),
+        // type-level enum: type-only → groupBy buckets are optional
+        kind: i.string<'sweet' | 'sour'>().optional(),
+        // unique number — `indexBy` keeps the field's value type as the key
+        sku: i.number().unique().indexed(),
+      },
+    }),
   },
   links: {
     membershipWorkspace: {
@@ -87,14 +100,10 @@ export const schema = defineSchema({
     },
   },
   rooms: {
-    workspace: {
-      presence: i.namespace({
-        fields: { name: i.string(), typing: i.boolean().optional() },
-      }),
-      topics: {
-        reaction: i.namespace({ fields: { emoji: i.string() } }),
-      },
-    },
+    workspace: i.room({
+      presence: { name: i.string(), typing: i.boolean().optional() },
+      topics: { reaction: { emoji: i.string() } },
+    }),
   },
 })
 

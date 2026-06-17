@@ -1,4 +1,4 @@
-updated: 2026-06-11
+updated: 2026-06-17
 status: settled law — referenced by every spec; changes here ripple everywhere
 
 # dux — conventions
@@ -53,6 +53,10 @@ The house style for every dux doc — specs, vision, and READMEs alike.
 | **field** | a *local data* attribute (string, number, boolean, date, or json — including arrays and objects) — the same word in schema (`fields:`), queries (`$: { fields }`), and perms (`entityField`) |
 | **link** | a relationship between **entities**, declared between two namespaces — which may be the same namespace (self-links are legal; verified against core's `LinkDef`) |
 | **ref** | a traversal across links (`entityRef('memberships.user.id')`, nested query keys) |
+| **room** | a realtime channel (`i.room`) — a concept wholly separate from a namespace: it holds no entities, only a `presence` shape and named `topics` ([dux-spec-root.md §2.7](./dux-spec-root.md#27-rooms)) |
+| **presence** | a room's per-peer live state — one entry per connected peer, built from fields; record-*like*, but not an entity (no `id`, not a collection member) |
+| **topic** | a named broadcast channel in a room — its shape *is* the message; published messages are transient events, never entities |
+| **runtime enum** | a field declaring its allowed values (`i.string([...])`, `i.number([...])`) — the union is inferred *and* recorded at runtime, so `groupBy` guarantees a bucket per value and perms can enforce membership via `.conforms()`. Contrast a **type-level enum** (`i.string<…>()`), which narrows the type only and accepts any TS type, not just a literal union ([dux-spec-root.md §2.6](./dux-spec-root.md#26-enum-fields)) |
 | **webhook** | a configured delivery subscription: which namespaces' changes Instant POSTs where |
 | **change** | one entity change a webhook delivers — `action` + `before`/`after` (the official SDK says "payload record"; *change* is what the thing is, and keeps **record** unclaimed so "entity = one record in a namespace" stays unambiguous) |
 | **payload** | the delivered batch of changes for one webhook event |

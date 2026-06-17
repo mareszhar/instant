@@ -23,6 +23,14 @@ describe('schema type shapes', () => {
     }>()
   })
 
+  it('runtime-enum + type-level-enum fields resolve to their value union', () => {
+    type Fruit = IdbEntity<'fruits', AppSchema>
+    // i.string([...]) — runtime enum; i.string<…>() — type-level enum
+    expectTypeOf<Fruit['name']>().toEqualTypeOf<'apple' | 'banana' | 'orange'>()
+    expectTypeOf<Fruit['kind']>().toEqualTypeOf<'sweet' | 'sour' | undefined>()
+    expectTypeOf<Fruit['sku']>().toEqualTypeOf<number>()
+  })
+
   it('IdbEntityWithLinks adds every link label, one hop, cardinality-aware', () => {
     type Report = IdbEntityWithLinks<'reports', AppSchema>
     expectTypeOf<Report['analyses']>().toEqualTypeOf<

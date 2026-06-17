@@ -155,6 +155,42 @@ describe('shapeResult — $m projections', () => {
     expect(report.analyses).toHaveLength(2)
     expect(report.analysesById[ids.analysisB]).toEqual({ id: ids.analysisB, score: 2 })
   })
+
+  it('groupBy pre-creates an empty bucket for every runtime-enum value', () => {
+    const fruits = [
+      { id: 'f1', name: 'apple', sku: 1 },
+      { id: 'f2', name: 'apple', sku: 2 },
+      { id: 'f3', name: 'banana', sku: 3 },
+    ]
+    const shaped = shapeResult(
+      { fruits },
+      { fruits: { $m: { byName: { groupBy: 'name' } } } },
+      schema,
+    )
+    expect(shaped.byName).toEqual({
+      apple: [fruits[0], fruits[1]],
+      banana: [fruits[2]],
+      orange: [], // no rows, but the enum universe guarantees the bucket
+    })
+  })
+
+  it('groupBy on a boolean field always yields both buckets', () => {
+    const shaped = shapeResult(
+      { tasks: [{ id: 't1', isDone: true }] },
+      { tasks: { $m: { byStatus: { groupBy: 'isDone' } } } },
+      schema,
+    )
+    expect(shaped.byStatus).toEqual({ true: [{ id: 't1', isDone: true }], false: [] })
+  })
+
+  it('groupBy on a non-enum field has only the buckets the data fills', () => {
+    const shaped = shapeResult(
+      { fruits: [{ id: 'f1', kind: 'sweet' }] },
+      { fruits: { $m: { byKind: { groupBy: 'kind' } } } },
+      schema,
+    )
+    expect(shaped.byKind).toEqual({ sweet: [{ id: 'f1', kind: 'sweet' }] })
+  })
 })
 
 describe('shapeResult — singularize modes', () => {

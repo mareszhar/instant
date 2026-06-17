@@ -57,6 +57,23 @@ describe('schema authoring — editor DX', () => {
     `
     expect(errors).toHaveError(/not assignable/)
   })
+
+  it('i.room({ ⌶ }) completes only presence and topics — no namespace knobs', () => {
+    const { completions } = project.query`
+      import { i } from '@mszr/idb-dux'
+      i.room({ ${cursor} })
+    `
+    // a room is not a namespace: no singular, no ruleParams
+    expect(completions).toEqualCompletions(['presence', 'topics'])
+  })
+
+  it('flags a non-builder presence field on the offending field', () => {
+    const { errors } = project.check`
+      import { i } from '@mszr/idb-dux'
+      i.room({ presence: { name: 'not-a-builder' } })
+    `
+    expect(errors).toHaveError(/not assignable/)
+  })
 })
 
 describe('registration — editor DX', () => {

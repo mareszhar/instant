@@ -12,6 +12,15 @@ const qa = defineQuery<AppSchema>()
 type Task = IdbQueryEntity<'tasks', {}, AppSchema>
 type Workspace = IdbQueryEntity<'workspaces', {}, AppSchema>
 type Analysis = IdbQueryEntity<'analyses', {}, AppSchema>
+type Fruit = IdbQueryEntity<'fruits', {}, AppSchema>
+
+type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never
+
+/**
+ * A canonical entity with one field narrowed to a single value of its group —
+ * the shape `$m` groupBy gives each bucket (a grouped optional field is present).
+ */
+type Narrow<E, K extends keyof E, V> = Expand<Omit<E, K> & { [P in K]: V }>
 
 describe('idbQueryData — the shaping mirror', () => {
   it('normalizes top-level scopes to entity arrays', () => {
@@ -71,18 +80,48 @@ describe('idbQueryData — the shaping mirror', () => {
       tasks: {
         $m: {
           tasksById: { indexBy: 'id' },
-          tasksByStatus: { groupBy: 'isDone' },
           latestTask: { at: -1 },
         },
       },
     })
     type Data = IdbQueryData<typeof query, AppSchema>
-    expectTypeOf<Data>().toEqualTypeOf<{
-      tasks: Task[]
-      tasksById: Record<string, Task>
-      tasksByStatus: Record<string, Task[]>
-      latestTask: Task | undefined
+    expectTypeOf<Data['tasks']>().toEqualTypeOf<Task[]>()
+    expectTypeOf<Data['tasksById']>().toEqualTypeOf<Record<string, Task>>()
+    expectTypeOf<Data['latestTask']>().toEqualTypeOf<Task | undefined>()
+  })
+
+  it('$m groupBy on a runtime enum keys by the union, narrows, never undefined', () => {
+    const query = qa({ fruits: { $m: { byName: { groupBy: 'name' } } } })
+    type Data = IdbQueryData<typeof query, AppSchema>
+    expectTypeOf<Data['byName']>().toEqualTypeOf<{
+      apple: Narrow<Fruit, 'name', 'apple'>[]
+      banana: Narrow<Fruit, 'name', 'banana'>[]
+      orange: Narrow<Fruit, 'name', 'orange'>[]
     }>()
+    // a valid key yields an array, never undefined
+    expectTypeOf<Data['byName']['apple']>().toEqualTypeOf<Narrow<Fruit, 'name', 'apple'>[]>()
+  })
+
+  it('$m groupBy on a boolean field guarantees both buckets, narrowed', () => {
+    const query = qa({ tasks: { $m: { byStatus: { groupBy: 'isDone' } } } })
+    type Data = IdbQueryData<typeof query, AppSchema>
+    expectTypeOf<Data['byStatus']['true']>().toEqualTypeOf<Narrow<Task, 'isDone', true>[]>()
+    expectTypeOf<Data['byStatus']['false']>().toEqualTypeOf<Narrow<Task, 'isDone', false>[]>()
+  })
+
+  it('$m groupBy on a type-level enum narrows but keeps buckets optional', () => {
+    const query = qa({ fruits: { $m: { byKind: { groupBy: 'kind' } } } })
+    type Data = IdbQueryData<typeof query, AppSchema>
+    expectTypeOf<Data['byKind']>().toEqualTypeOf<{
+      sweet?: Narrow<Fruit, 'kind', 'sweet'>[]
+      sour?: Narrow<Fruit, 'kind', 'sour'>[]
+    }>()
+  })
+
+  it('$m indexBy keeps the field value type as the key', () => {
+    const query = qa({ fruits: { $m: { bySku: { indexBy: 'sku' } } } })
+    type Data = IdbQueryData<typeof query, AppSchema>
+    expectTypeOf<Data['bySku']>().toEqualTypeOf<Record<number, Fruit>>()
   })
 
   it('projects nested $m siblings inside the parent entity', () => {

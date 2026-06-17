@@ -105,7 +105,7 @@ function shapeScopeInto(
   const value = shapeChildren(raw, node, ns, schema)
 
   if (node.$m && Array.isArray(value))
-    applyMSiblings(out, value, node.$m as Record<string, MTransform>)
+    applyMSiblings(out, value, node.$m as Record<string, MTransform>, ns, schema)
 
   const pick = dollar.$only === true ? 0 : typeof dollar.$at === 'number' ? dollar.$at : null
   const picked = pick !== null && Array.isArray(value) ? value.at(pick) : value
@@ -166,17 +166,27 @@ function subtreeReshapes(node: unknown): boolean {
   return Object.keys(record).some(k => k !== '$' && k !== '$m' && subtreeReshapes(record[k]))
 }
 
-/** All `$m` projections for one scope, computed in a single pass. */
+/**
+ * All `$m` projections for one scope, computed in a single pass. A `groupBy`
+ * over a field whose value universe is known — a runtime enum's declared values,
+ * or a boolean's two literals — pre-creates an empty bucket per value, so every
+ * group the type promises is a present array (never `undefined`).
+ */
 function applyMSiblings(
   out: AnyRecord,
   entities: AnyRecord[],
   transforms: Record<string, MTransform>,
+  ns: string,
+  schema: IdbSchema,
 ): void {
   const labels = Object.entries(transforms)
   for (const [label, transform] of labels) {
-    out[label] = typeof transform.at === 'number'
-      ? entities.at(transform.at)
-      : {}
+    if (typeof transform.at === 'number')
+      out[label] = entities.at(transform.at)
+    else if (transform.groupBy !== undefined)
+      out[label] = emptyGroups(groupUniverse(schema, ns, transform.groupBy))
+    else
+      out[label] = {}
   }
   for (const entity of entities) {
     for (const [label, transform] of labels) {
@@ -192,6 +202,29 @@ function applyMSiblings(
       }
     }
   }
+}
+
+/**
+ * The known value universe of a groupBy field: a runtime enum's declared
+ * values, both booleans for a boolean field, else none (data decides the keys).
+ */
+function groupUniverse(schema: IdbSchema, ns: string, field: string): (string | number | boolean)[] {
+  const attr = schema.entities[ns]?.attrs?.[field] as
+    | { valueType?: string, duxEnumValues?: readonly (string | number)[] }
+    | undefined
+  if (attr?.duxEnumValues !== undefined)
+    return [...attr.duxEnumValues]
+  if (attr?.valueType === 'boolean')
+    return [true, false]
+  return []
+}
+
+/** An object pre-seeded with an empty array under each universe value's key. */
+function emptyGroups(universe: (string | number | boolean)[]): AnyRecord {
+  const groups: AnyRecord = {}
+  for (const value of universe)
+    groups[String(value)] = []
+  return groups
 }
 
 /**

@@ -36,7 +36,10 @@ export const schema = defineSchema({
     // >>> FOR SANDBOX EXPERIMENTS (START) <<<
     fruits: i.namespace({
       fields: {
-        name: i.string<'apple' | 'banana' | 'orange'>().indexed(),
+        // A runtime enum: the union is inferred AND recorded at runtime, so a
+        // `$m` groupBy on `name` gets a guaranteed, narrowed, never-undefined
+        // bucket per value. (`i.string<'apple' | …>()` narrows the type only.)
+        name: i.string(['apple', 'banana', 'orange']).indexed(),
       },
     }),
     // >>> FOR SANDBOX EXPERIMENTS (END) <<<
@@ -60,21 +63,15 @@ export const schema = defineSchema({
     },
   },
   rooms: {
-    workspace: {
-      presence: i.namespace({
-        fields: {
-          name: i.string(),
-          typing: i.boolean().optional(),
-        },
-      }),
-      topics: {
-        reaction: i.namespace({
-          fields: {
-            emoji: i.string(),
-          },
-        }),
+    workspace: i.room({
+      presence: {
+        name: i.string(),
+        typing: i.boolean().optional(),
       },
-    },
+      topics: {
+        reaction: { emoji: i.string() },
+      },
+    }),
   },
 })
 

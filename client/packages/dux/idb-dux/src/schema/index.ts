@@ -21,6 +21,7 @@ export type {
   IdbRegisteredSchema,
   IdbUnknownSchema,
 } from './register.js'
+export type { IdbRoomConfig, IdbRoomDef } from './room.js'
 export { singularize } from './singularize.js'
 export type { Singularize } from './singularize.js'
 export type {

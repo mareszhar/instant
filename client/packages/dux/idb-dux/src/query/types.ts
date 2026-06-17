@@ -23,6 +23,7 @@ import type {
   UniqueFieldKeys,
   WireValue,
 } from '../schema/fields.js'
+import type { IdbEnumFieldMarker } from '../schema/namespace.js'
 import type { IdbRegisteredSchema } from '../schema/register.js'
 import type { IdbNamespaceName } from '../schema/types.js'
 import type { Expand, UnionToIntersection } from '../schema/util.js'
@@ -168,9 +169,12 @@ export type IdbQueryFields<
 > = (FieldKeys<S, NS> | 'id')[]
 
 /**
- * One `$m` transform:
- * - `indexBy` — a unique field (or `id`); yields `Record<string, Entity>`
- * - `groupBy` — a primitive field; yields `Record<string, Entity[]>`
+ * One `$m` transform (its result type is `MValue`):
+ * - `indexBy` — a unique field (or `id`); a record keyed by the field's value
+ *   type, looked-up entries possibly absent
+ * - `groupBy` — a primitive field; a record keyed by the field's value type,
+ *   each bucket narrowed to its key (present for a runtime-enum/boolean field,
+ *   optional otherwise)
  * - `at` — a position (negative from the end); yields `Entity | undefined`
  */
 export type IdbMTransform<S extends IdbSchema, NS extends string>
@@ -278,19 +282,93 @@ type ChildData<
     ? ShapedEntity<S, LinkTarget<S, NS, L>, Node> | undefined
     : ShapedEntity<S, LinkTarget<S, NS, L>, Node>[]
 
-type MValue<T, E> = T extends { indexBy: any }
-  ? Record<string, E>
-  : T extends { groupBy: any }
-    ? Record<string, E[]>
-    : T extends { at: number }
-      ? E | undefined
-      : never
+/**
+ * The runtime record key for a field value — object keys are strings, so a
+ * boolean groups under `'true'`/`'false'` (what `String(value)` produces); a
+ * branded number keeps its brand.
+ */
+type RecordKey<V> = V extends boolean ? `${V}` : V extends string | number ? V : never
+
+/** `E` with its grouped field narrowed to the one value of its group. */
+type NarrowEntity<E, K extends string, Val> = Expand<Omit<E, K> & { [P in K]: Val }>
+
+/**
+ * Whether a value type is a *full* primitive (`string`/`number`/`boolean`)
+ * rather than a finite literal union. Boolean counts as full: its universe is
+ * its two literals, which the runtime always materializes.
+ */
+type IsFullPrimitive<V>
+  = [string] extends [V] ? true
+    : [number] extends [V] ? true
+        : [boolean] extends [V] ? true
+            : false
+
+/** Whether a field declares its values at runtime (a runtime enum). */
+type IsRuntimeEnum<Attr> = Attr extends IdbEnumFieldMarker ? true : false
+
+/** The value type a `$m` key addresses — `id` is implicit, not in `attrs`. */
+type MFieldValue<S extends IdbSchema, NS extends string, K extends string>
+  = K extends 'id' ? string : AttrValue<AttrsOf<S, NS>[K]>
+
+/** groupBy buckets — every value present, each entity narrowed to its key. */
+type GroupsPresent<V, E, K extends string> = {
+  [Val in V & (string | number | boolean) as RecordKey<Val>]: NarrowEntity<E, K, Val>[]
+}
+
+/** groupBy buckets — optional, since a value with no rows is genuinely absent. */
+type GroupsMaybe<V, E, K extends string> = {
+  [Val in V & (string | number | boolean) as RecordKey<Val>]?: NarrowEntity<E, K, Val>[]
+}
+
+/**
+ * A *type-level enum* (`i.string<'a' | 'b'>()`) — finite keys the type can name
+ * but the runtime can't pre-create, so its groupBy buckets are optional. A
+ * runtime enum is runtime-backed, and a full primitive is open or boolean — both
+ * let `GroupsPresent` stand (known keys for a runtime enum/boolean, an index
+ * signature for `string`/`number`).
+ */
+type IsPhantomUnion<Attr, V>
+  = IsRuntimeEnum<Attr> extends true ? false
+    : IsFullPrimitive<V> extends true ? false
+      : true
+
+/**
+ * `groupBy` keyed by the field's value type, each bucket narrowed to its key.
+ * Buckets are guaranteed present (never `undefined`) when the runtime can
+ * enumerate the field's universe — a runtime enum's declared values, or a
+ * boolean's two literals. A type-level enum can't be enumerated, so its buckets
+ * are optional; a full `string`/`number` is an index signature (`| undefined`
+ * under `noUncheckedIndexedAccess` — the honest open keyspace).
+ */
+type GroupByValue<S extends IdbSchema, NS extends string, K extends string, E>
+  = MFieldValue<S, NS, K> extends infer V
+    ? IsPhantomUnion<AttrsOf<S, NS>[K], V> extends true
+      ? GroupsMaybe<V, E, K>
+      : GroupsPresent<V, E, K>
+    : never
+
+/** `indexBy` keyed by the field's value type; a looked-up entry may be absent. */
+type IndexByValue<S extends IdbSchema, NS extends string, K extends string, E>
+  = MFieldValue<S, NS, K> extends infer V
+    ? IsFullPrimitive<V> extends true
+      ? Record<RecordKey<V>, E>
+      : Partial<Record<RecordKey<V>, E>>
+    : never
+
+type MValue<S extends IdbSchema, NS extends string, T, E>
+  = T extends { indexBy: infer K extends string }
+    ? IndexByValue<S, NS, K, E>
+    : T extends { groupBy: infer K extends string }
+      ? GroupByValue<S, NS, K, E>
+      : T extends { at: number }
+        ? E | undefined
+        : never
 
 /** The `$m` sibling keys a scope contributes beside its own result key. */
 type MSiblings<S extends IdbSchema, NS extends string, Node> = Node extends {
   $m: infer M
 }
-  ? { -readonly [Label in keyof M]: MValue<M[Label], ShapedEntity<S, NS, Node>> }
+  ? { -readonly [Label in keyof M]: MValue<S, NS, M[Label], ShapedEntity<S, NS, Node>> }
   : {}
 
 type ChildrenMSiblings<S extends IdbSchema, NS extends string, Node> = [

@@ -136,6 +136,24 @@ describe('query authoring — completions', () => {
       completions.filter(name => !name.startsWith('QERR_M_INDEXBY_NOT_UNIQUE')),
     ).toEqualCompletions(['inviteCode', 'id'])
   })
+
+  it('groupBy completes primitive fields', () => {
+    const { completions } = project.query`
+      ${prelude}
+      q({ fruits: { $m: { byName: { groupBy: '${cursor}' } } } })
+    `
+    expect(completions).toContainCompletions(['name', 'kind', 'sku'])
+  })
+
+  it('a runtime-enum groupBy bucket keys by the declared values', () => {
+    const { completions } = project.query`
+      ${prelude}
+      import type { IdbQueryData } from '@mszr/idb-dux'
+      declare const data: IdbQueryData<{ fruits: { $m: { byName: { groupBy: 'name' } } } }>
+      data.byName.${cursor}
+    `
+    expect(completions).toContainCompletions(['apple', 'banana', 'orange'])
+  })
 })
 
 describe('query authoring — diagnostics at the cursor', () => {
@@ -251,6 +269,16 @@ describe('query authoring — diagnostics at the cursor', () => {
       q({ tasks: { $m: { byTitle: { indexBy: 'title' } } } })
     `
     expect(errors).toHaveError(/QERR_M_INDEXBY_NOT_UNIQUE: indexBy requires a unique field on tasks/)
+  })
+
+  it('flags a runtime-enum groupBy bucket keyed outside its declared values', () => {
+    const { errors } = project.check`
+      ${prelude}
+      import type { IdbQueryData } from '@mszr/idb-dux'
+      declare const data: IdbQueryData<{ fruits: { $m: { byName: { groupBy: 'name' } } } }>
+      data.byName.mango
+    `
+    expect(errors).toHaveError(/Property 'mango' does not exist/)
   })
 
   it('flags valid queries clean — the canonical good query', () => {

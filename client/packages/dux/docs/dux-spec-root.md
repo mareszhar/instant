@@ -1,4 +1,4 @@
-updated: 2026-06-11
+updated: 2026-06-17
 status: spec — contracts are binding; implementation approaches are proposals in their service
 
 # dux spec — the root (`@mszr/idb-dux`)
@@ -36,7 +36,7 @@ The root entrypoint exports:
 | Export | What it is |
 |---|---|
 | `defineSchema(config)` | the schema authority: namespaces, fields, links, rooms, ruleParams, options |
-| `i` | dux's authoring dialect: `i.namespace` + the field builders (`i.string()`, `i.date()`, …) — there is no `i.entity`/`i.schema`; one dialect, one vocabulary |
+| `i` | dux's authoring dialect: `i.namespace`, `i.room`, + the field builders (`i.string()`, `i.date()`, …) — there is no `i.entity`/`i.schema`; one dialect, one vocabulary |
 | `q` / `defineQuery<S>()` | schema-aware query authoring — `q` is ready-made via registration |
 | `$only`, `$skip` | authoring constants ([§3.2](#32-only-and-skip)) |
 | `id`, `lookup` | re-exports, official names kept |
@@ -107,10 +107,10 @@ export const schema = defineSchema({
     },
   },
   rooms: {
-    workspace: {
-      presence: i.namespace({ fields: { name: i.string(), typing: i.boolean().optional() } }),
-      topics: { reaction: i.namespace({ fields: { emoji: i.string() } }) },
-    },
+    workspace: i.room({
+      presence: { name: i.string(), typing: i.boolean().optional() },
+      topics: { reaction: { emoji: i.string() } },
+    }),
   },
   options: {
     singularize: 'auto', // 'auto' | 'off' | 'explicit' — inherited by every dux init
@@ -167,6 +167,54 @@ One declaration; from then on every `Idb*` type utility and the exported `q` def
 ### 2.5 Dates
 
 `i.date()` fields are typed as the wire format on every surface — client, admin, webhook payloads — matching official defaults (upstream's `useDateObjects` is opt-in, and JSON payloads can't carry `Date`s anyway). A schema-level `options` entry can lift this later if a concrete need appears ([dux-vision.md §7](./dux-vision.md#7-deferred-intentions)).
+
+### 2.6 Enum fields
+
+A field's values can be restricted in two ways, and the distinction is load-bearing:
+
+- A **type-level enum** narrows the field *for the type system only* — `i.string<'a' | 'b'>()`. The generic accepts **any** valid TypeScript type, not just a literal union: a branded string, a template-literal string, a branded number (`i.number<Cents>()`), a precise `i.json<T>()` shape. It costs nothing at runtime and is erased before runtime.
+- A **runtime enum** declares its allowed values *as an array* — `i.string([...])` / `i.number([...])`. Only an enumerable value set fits here (that's the whole point), so this form is enum-only:
+
+```ts
+fruits: i.namespace({
+  fields: {
+    name: i.string(['apple', 'banana', 'orange']).indexed(),
+    grade: i.number([1, 2, 3]),
+  },
+}),
+```
+
+A runtime enum does everything a type-level enum does — `name` is `'apple' | 'banana' | 'orange'` everywhere it flows (entity, tx `create`/`update`, query results) — **and** records the values at runtime (non-enumerably, so they never reach the wire: a runtime enum projects to CLI push / platform validation identically to a plain `i.string().indexed()`).
+
+That runtime record is what a type-level enum can't offer, and it unlocks two things:
+
+- the never-`undefined` `groupBy` guarantee ([§4.4](#44-additional-projections--m)) — dux can enumerate the universe, so it pre-creates an empty bucket per value
+- DRY enforcement in perms — `definePerms` can read the declared values to enforce membership without you retyping them ([dux-spec-perms.md §8](./dux-spec-perms.md#8-expression-api))
+
+**The declaration never enforces by itself.** A runtime enum is a schema/DX fact, not a backend guarantee — Instant validates only base types, exactly as it does for a type-level enum. Membership is enforced only where you say so, in perms (`.conforms()`), which keeps security explicit and migration-safe. **Choose the runtime form when you want the guarantee or DRY enforcement; the type-level form when you only want narrowing (or a non-enumerable type).**
+
+Like every builder, runtime enums chain — `.indexed()`, `.optional()`, `.unique()` — and the declaration survives the chain.
+
+### 2.7 Rooms
+
+A **room** is a realtime channel — a wholly separate concept from a namespace. It has a `presence` shape (one live entry per peer) and named `topic` shapes (one per broadcast message), declared with `i.room`:
+
+```ts
+rooms: {
+  workspace: i.room({
+    presence: { name: i.string(), typing: i.boolean().optional() },
+    topics: { reaction: { emoji: i.string() } },
+  }),
+},
+```
+
+`presence` and each topic are plain **field maps** — built from the same field builders as a namespace, but that is the only thing they share. A room is *not* a namespace and holds no entities:
+
+- **No entities.** You can't create or link records in a room. Presence is one entry per connected peer (record-*like*, with fields, but never an `id`'d member of a collection); a topic message is a transient event. Neither is an entity.
+- **Never queried or transacted.** A room has no presence in `useQuery`/`q`/`db.tx`; it surfaces only through the room hooks ([dux-spec-vue.md](./dux-spec-vue.md)), typed via `IdbRoomPresence` / `IdbRoomTopics`.
+- **Never singularized or perm-governed.** Because a room is never read as a result or run through the rules engine, `i.room` exposes only `presence` and `topics` — no `singular`, no `ruleParams`. Rooms are not perm-targetable: `definePerms`' `.namespaces({})` keys are `keyof schema.entities`, which excludes the `rooms` block, matching official idb (`InstantRules` is keyed the same way — [dux-spec-perms.md §12](./dux-spec-perms.md#12-validation)).
+
+`i.room` builds the `RoomDef` core expects under the hood (presence/topics as entity-defs — core's transport detail), so the room hooks and `IdbRoom*` extractors work unchanged; that detail never surfaces in dux's vocabulary.
 
 ---
 
@@ -342,7 +390,7 @@ const { todos, todosById, todosByStatus } = db.useQuery({
     $: { where: { workspace: workspaceId } },
     $m: {
       todosById: { indexBy: 'id' }, // Record<string, Todo>
-      todosByStatus: { groupBy: 'isDone' }, // Record<string, Todo[]>
+      todosByStatus: { groupBy: 'isDone' }, // { true: DoneTodo[]; false: OpenTodo[] }
     },
   },
 })
@@ -351,8 +399,17 @@ const { todos, todosById, todosByStatus } = db.useQuery({
 Transforms:
 
 - `indexBy: UniqueAttrKey` — the attribute must be `.unique()` in schema; yields `Record<AttrValue, Entity>` (non-unique would silently drop records)
-- `groupBy: PrimitiveFieldKey` — the field type must be `string | number | boolean`; yields `Record<AttrValue, Entity[]>` (objects/JSON aren't serializable as record keys)
+- `groupBy: PrimitiveFieldKey` — the field type must be `string | number | boolean`; yields a record **keyed by the field's value type**, each bucket's entities **narrowed to its key** (objects/JSON aren't serializable as record keys)
 - `at: number` — same semantics as `$at`, but as a new labeled sibling; exposes the full array *and* a pinned position simultaneously
+
+**The keys and buckets carry the schema's field generics — losing them was a bug, not a simplification.** A `groupBy: 'name'` on a field typed `'apple' | 'banana' | 'orange'` yields a record keyed by exactly that union (`.mango` is a cursor error, not a silent miss), and the `apple` bucket's entities are narrowed to `name: 'apple'`. `indexBy` keeps the unique field's value type as the key — `number` stays `number`, a branded number keeps its brand.
+
+**When is a bucket guaranteed present (never `undefined`)?** Only when the runtime can *see* the field's whole value universe and pre-create every bucket as `[]`:
+
+- a **runtime enum** ([§2.6](#26-enum-fields)) — its declared values are recorded at runtime, so every value gets a present, narrowed array
+- a **boolean** field — its universe is `true`/`false`, always materialized
+
+A **type-level enum** (`i.string<'a' | 'b'>()`) narrows the type but records nothing at runtime, so the runtime can't promise an absent value's bucket — those buckets are optional (`Bucket | undefined` on access), which is the honest contract. A full `string`/`number` field is an open keyspace: an index signature, `| undefined` on access under `noUncheckedIndexedAccess`.
 
 ```ts
 const { todos, latestTodo } = db.useQuery({

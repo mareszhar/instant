@@ -1,5 +1,6 @@
 import type { AttrsDefs, DataAttrDef, EntityDef as EntityDefType } from '@instantdb/core'
 import { i as officialI } from '@instantdb/core'
+import { room } from './room.js'
 
 /**
  * The dux metadata a namespace declaration carries into `defineSchema`,
@@ -37,10 +38,11 @@ export type IdbNamespaceDef<
 export type IdbNamespacesDef = Record<string, EntityDefType<any, any, any>>
 
 /**
- * The validation arm for `fields`/`ruleParams`: non-builder members carry
- * the diagnostic on the offending key; valid members contribute nothing.
+ * The validation arm for `fields`/`ruleParams` (and room `presence`/`topics`):
+ * non-builder members carry the diagnostic on the offending key; valid members
+ * contribute nothing.
  */
-type ValidFieldBuilders<F> = {
+export type ValidFieldBuilders<F> = {
   [K in keyof F]: F[K] extends DataAttrDef<any, any, any, any>
     ? unknown
     : `QERR_SCHEMA_FIELD_INVALID: ${K & string} must be a field builder (i.string(), i.number(), …)`
@@ -103,14 +105,107 @@ function namespace<
 }
 
 /**
- * dux's authoring dialect: `i.namespace` plus the official field builders.
- * There is no `i.entity` / `i.schema` / `i.graph` — one dialect, one
- * vocabulary; the builders themselves are the official implementations.
+ * The marker a **runtime enum** carries: its declared values. A type-only
+ * (phantom) enum — `i.string<'a' | 'b'>()` — narrows the type but records
+ * nothing, so `groupBy` can only promise an optional bucket per value; a runtime
+ * enum lets the runtime *see* the universe and pre-create a present, narrowed
+ * bucket for every value. The values double as the type-level detector (their
+ * presence *is* the marker), so there is no separate phantom flag.
+ *
+ * Docs: [dux-spec-root.md §2.6](../../docs/dux-spec-root.md#26-enum-fields), §4.4
+ */
+export interface IdbEnumFieldMarker {
+  readonly duxEnumValues: readonly (string | number)[]
+}
+
+/**
+ * A **runtime enum** field def. It *is* an official `DataAttrDef` — every core
+ * type utility and the wire projection treat it as one — that additionally
+ * carries its declared values and re-types its builder methods so the values
+ * survive `.indexed()`/`.optional()`/`.unique()` chaining. (`DataAttrDef` is a
+ * type-only export from core, so this is a typed view over a tagged instance,
+ * not a subclass.)
+ *
+ * The override methods come first so they win call resolution; the full
+ * `DataAttrDef` is intersected in so `V` stays inferrable (it is phantom in
+ * `DataAttrDef` — present only in method returns) and the type is still a
+ * `DataAttrDef` to every core utility.
+ */
+export type IdbEnumAttrDef<
+  V,
+  R extends boolean,
+  I extends boolean,
+  U extends boolean = false,
+> = {
+  optional: () => IdbEnumAttrDef<V, false, I, U>
+  unique: () => IdbEnumAttrDef<V, R, I, true>
+  indexed: () => IdbEnumAttrDef<V, R, true, U>
+  clientRequired: () => IdbEnumAttrDef<V, true, I, U>
+} & IdbEnumFieldMarker & DataAttrDef<V, R, I, U>
+
+type AnyDataAttrDef = DataAttrDef<any, any, any, any>
+
+const CHAIN_METHODS = ['optional', 'unique', 'indexed', 'clientRequired'] as const
+
+/**
+ * Tag a field def as a runtime enum with its declared values. The values ride
+ * along non-enumerably (so `JSON.stringify(schema)` — what CLI push and platform
+ * validation consume — stays wire-clean), and each builder method is wrapped to
+ * re-tag its result, because core's methods construct a fresh def that would
+ * otherwise drop the tag. `shapeResult` reads `duxEnumValues` to pre-create
+ * groups; `definePerms`' `.conforms()` will read it to enforce membership.
+ */
+function markEnum<T extends AnyDataAttrDef>(def: T, values: readonly (string | number)[]): T {
+  Object.defineProperty(def, 'duxEnumValues', { value: values, enumerable: false, configurable: true })
+  for (const method of CHAIN_METHODS) {
+    const original = (def as Record<string, unknown>)[method]
+    if (typeof original !== 'function')
+      continue
+    Object.defineProperty(def, method, {
+      value: (...args: unknown[]) => markEnum(original.apply(def, args) as AnyDataAttrDef, values),
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    })
+  }
+  return def
+}
+
+/**
+ * A string field. Pass a values array (`i.string(['a', 'b'])`) to declare a
+ * **runtime enum** — the union is inferred *and* recorded at runtime, so
+ * `groupBy` yields guaranteed, narrowed, never-`undefined` groups. The
+ * type-level form (`i.string<'a' | 'b'>()`) narrows the type only, and accepts
+ * any type — a branded or template string, a union — not just enums.
+ */
+function string<Type extends string = string>(): DataAttrDef<Type, true, false>
+function string<const E extends string>(values: readonly E[]): IdbEnumAttrDef<E, true, false>
+function string(values?: readonly string[]): AnyDataAttrDef {
+  return values === undefined ? officialI.string() : markEnum(officialI.string(), values)
+}
+
+/**
+ * A number field. Pass a values array (`i.number([1, 2, 3])`) to declare a
+ * **runtime enum** (see `string`). The type-level form narrows only and accepts
+ * any number type — a literal union or a branded number (`i.number<Cents>()`).
+ */
+function number<Type extends number = number>(): DataAttrDef<Type, true, false>
+function number<const E extends number>(values: readonly E[]): IdbEnumAttrDef<E, true, false>
+function number(values?: readonly number[]): AnyDataAttrDef {
+  return values === undefined ? officialI.number() : markEnum(officialI.number(), values)
+}
+
+/**
+ * dux's authoring dialect: `i.namespace` and `i.room` plus the field builders.
+ * There is no `i.entity` / `i.schema` / `i.graph` — one dialect, one vocabulary.
+ * `string` and `number` add the runtime-enum form ([§2.6]); the rest are the
+ * official implementations verbatim.
  */
 export const i = {
   namespace,
-  string: officialI.string,
-  number: officialI.number,
+  room,
+  string,
+  number,
   boolean: officialI.boolean,
   date: officialI.date,
   json: officialI.json,
