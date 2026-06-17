@@ -18,6 +18,7 @@ import type {
   LinkLabels,
   LinkTarget,
 } from '../schema/fields.js'
+import type { IdbEnumFieldMarker } from '../schema/namespace.js'
 import type { IdbRegisteredSchema } from '../schema/register.js'
 import type { IdbNamespaceName } from '../schema/types.js'
 import type { Expand } from '../schema/util.js'
@@ -31,10 +32,28 @@ export type FieldValue<S extends IdbSchema, NS extends string, K extends string>
   = K extends 'id' ? string
     : K extends FieldKeys<S, NS> ? AttrValue<AttrsOf<S, NS>[K]> : never
 
-/** Property-access view of an entity: `id` plus every field, each an `Expr`. */
+/**
+ * `.conforms()` — the runtime-enum membership check ([dux-spec-perms.md §8]).
+ * Mixed into a field/ref expr only when the field is a runtime enum, so it is
+ * an error at the cursor anywhere else.
+ */
+export interface Conforms { conforms: () => Expr<boolean> }
+
+/** Whether an attr def is a runtime enum — `[never]` guards a non-field terminal (`id`). */
+type IsEnumDef<D> = [D] extends [never] ? false : D extends IdbEnumFieldMarker ? true : false
+
+/** A field expr — gains `.conforms()` when the field is a runtime enum. */
+export type FieldExpr<S extends IdbSchema, NS extends string, K extends string>
+  = K extends 'id'
+    ? Expr<string>
+    : IsEnumDef<AttrsOf<S, NS>[K]> extends true
+      ? Expr<FieldValue<S, NS, K>> & Conforms
+      : Expr<FieldValue<S, NS, K>>
+
+/** Property-access view of an entity: `id` plus every field, each a `FieldExpr`. */
 export type EntityExpr<S extends IdbSchema, NS extends string> = Expand<
   { id: Expr<string> } & {
-    [K in FieldKeys<S, NS>]: Expr<FieldValue<S, NS, K>>
+    [K in FieldKeys<S, NS>]: FieldExpr<S, NS, K>
   }
 >
 
@@ -75,10 +94,39 @@ export type RefTerminal<
     : never
   : never
 
+/** The attr def a ref path terminates in — `never` for an `id` terminal (not a field). */
+export type RefTerminalDef<
+  S extends IdbSchema,
+  NS extends string,
+  P extends string,
+> = P extends `${infer L}.${infer Rest}`
+  ? L extends LinkLabels<S, NS>
+    ? Rest extends FieldKeys<S, LinkTarget<S, NS, L>>
+      ? AttrsOf<S, LinkTarget<S, NS, L>>[Rest]
+      : Rest extends RefAttr<S, LinkTarget<S, NS, L>>
+        ? never
+        : RefTerminalDef<S, LinkTarget<S, NS, L>, Rest>
+    : never
+  : never
+
+/** A ref expr — gains `.conforms()` when its terminal is a runtime enum. */
+export type RefExpr<S extends IdbSchema, NS extends string, P extends string>
+  = IsEnumDef<RefTerminalDef<S, NS, P>> extends true
+    ? ListExpr<RefTerminal<S, NS, P>> & Conforms
+    : ListExpr<RefTerminal<S, NS, P>>
+
 /** Auth refs start from `$users`, spelled `$user.`-prefixed (Instant's form). */
 export type AuthRefPath<S extends IdbSchema> = `$user.${RefPath<S, '$users'>}`
 type AuthRefTerminal<S extends IdbSchema, P extends string>
   = P extends `$user.${infer Rest}` ? RefTerminal<S, '$users', Rest> : never
+
+/** An auth-ref expr — gains `.conforms()` when its terminal is a runtime enum. */
+export type AuthRefExpr<S extends IdbSchema, P extends string>
+  = P extends `$user.${infer Rest}`
+    ? IsEnumDef<RefTerminalDef<S, '$users', Rest>> extends true
+      ? ListExpr<AuthRefTerminal<S, P>> & Conforms
+      : ListExpr<AuthRefTerminal<S, P>>
+    : ListExpr<AuthRefTerminal<S, P>>
 
 // ==========
 // ruleParams resolution
@@ -176,10 +224,10 @@ export interface CommonCtx<
   RL,
 > {
   auth: AuthExpr<S>
-  ar: <P extends AuthRefPath<S>>(path: P) => ListExpr<AuthRefTerminal<S, P>>
+  ar: <P extends AuthRefPath<S>>(path: P) => AuthRefExpr<S, P>
   e: EntityExpr<S, NS>
-  ef: <K extends FieldKeys<S, NS>>(key: K) => Expr<FieldValue<S, NS, K>>
-  er: <P extends RefPath<S, NS>>(path: P) => ListExpr<RefTerminal<S, NS, P>>
+  ef: <K extends FieldKeys<S, NS>>(key: K) => FieldExpr<S, NS, K>
+  er: <P extends RefPath<S, NS>>(path: P) => RefExpr<S, NS, P>
   rp: <K extends RuleParamKeys<S, NS>>(key: K) => Expr<RuleParamValue<S, NS, K>>
   req: RequestExpr
   f: Fns
@@ -198,21 +246,21 @@ export type WriteCtx<S extends IdbSchema, NS extends string, St, Bn, RL>
 export type UpdateCtx<S extends IdbSchema, NS extends string, St, Bn, RL>
   = WriteCtx<S, NS, St, Bn, RL> & {
     eu: EntityExpr<S, NS>
-    euf: <K extends FieldKeys<S, NS>>(key: K) => Expr<FieldValue<S, NS, K>>
+    euf: <K extends FieldKeys<S, NS>>(key: K) => FieldExpr<S, NS, K>
   }
 
 /** Link/unlink context — common plus the linked entity, typed per link label. */
 export type LinkCtx<S extends IdbSchema, NS extends string, L extends string, St, Bn, RL>
   = CommonCtx<S, NS, St, Bn, RL> & {
     el: EntityExpr<S, LinkTarget<S, NS, L>>
-    elf: <K extends FieldKeys<S, LinkTarget<S, NS, L>>>(key: K) => Expr<FieldValue<S, LinkTarget<S, NS, L>, K>>
-    elr: <P extends RefPath<S, LinkTarget<S, NS, L>>>(path: P) => ListExpr<RefTerminal<S, LinkTarget<S, NS, L>, P>>
+    elf: <K extends FieldKeys<S, LinkTarget<S, NS, L>>>(key: K) => FieldExpr<S, LinkTarget<S, NS, L>, K>
+    elr: <P extends RefPath<S, LinkTarget<S, NS, L>>>(path: P) => RefExpr<S, LinkTarget<S, NS, L>, P>
   }
 
 /** The loose context for `.defaults` — no namespace, so reads are string-keyed. */
 export interface DefaultCtx<S extends IdbSchema, St, Bn, RL> {
   auth: AuthExpr<S>
-  ar: <P extends AuthRefPath<S>>(path: P) => ListExpr<AuthRefTerminal<S, P>>
+  ar: <P extends AuthRefPath<S>>(path: P) => AuthRefExpr<S, P>
   ef: (key: string) => Expr<unknown>
   er: (path: string) => ListExpr<unknown>
   rp: (key: string) => Expr<unknown>
@@ -228,7 +276,7 @@ export interface DefaultCtx<S extends IdbSchema, St, Bn, RL> {
 /** The narrow context for `.attrs` — no entity, no refs (spec §5). */
 export interface AttrsCtx<S extends IdbSchema, RL> {
   auth: AuthExpr<S>
-  ar: <P extends AuthRefPath<S>>(path: P) => ListExpr<AuthRefTerminal<S, P>>
+  ar: <P extends AuthRefPath<S>>(path: P) => AuthRefExpr<S, P>
   req: RequestExpr
   f: Fns
   ops: Fns

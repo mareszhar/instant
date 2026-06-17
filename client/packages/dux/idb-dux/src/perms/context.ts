@@ -11,9 +11,13 @@
  * alias the backend resolves from the emitted `bind` block.
  */
 import type { ExprNode } from './ast.js'
+import type { Enums } from './enums.js'
 import type { Validator } from './validate.js'
-import { atom, coerce, raw as rawNode } from './ast.js'
+import { atom, coerce, enumAtom, raw as rawNode } from './ast.js'
+import { noEnums } from './enums.js'
 import { noValidate } from './validate.js'
+
+type EnumOf = (key: string) => readonly (string | number)[] | undefined
 
 /** The mutable state a namespace/defaults builder threads into its callbacks. */
 export interface ContextState {
@@ -23,21 +27,30 @@ export interface ContextState {
   binds: Record<string, ExprNode>
 }
 
+/** A field atom — `enumAtom` when the field is a runtime enum, so `.conforms()` resolves. */
+function fieldAtom(root: string, key: string, enumOf?: EnumOf): ExprNode {
+  const cel = `${root}.${key}`
+  const values = enumOf?.(key)
+  return values ? enumAtom(cel, values, false) : atom(cel)
+}
+
 /** Property access over a CEL root: `entityProxy('data').title` → `data.title`. */
-function entityProxy(root: string, check?: (key: string) => void): any {
+function entityProxy(root: string, check?: (key: string) => void, enumOf?: EnumOf): any {
   return new Proxy({}, {
     get: (_t, key: string) => {
       check?.(key)
-      return atom(`${root}.${key}`)
+      return fieldAtom(root, key, enumOf)
     },
   })
 }
 
 /** `data.ref(...)` / `auth.ref(...)` / `linkedData.ref(...)` — always a list. */
-function refFn(root: string, check?: (path: string) => void) {
+function refFn(root: string, check?: (path: string) => void, enumOf?: EnumOf) {
   return (path: string) => {
     check?.(path)
-    return atom(`${root}.ref('${path}')`)
+    const cel = `${root}.ref('${path}')`
+    const values = enumOf?.(path)
+    return values ? enumAtom(cel, values, true) : atom(cel)
   }
 }
 
@@ -82,33 +95,33 @@ function rateLimitProxy(): any {
  * Build the full context. The same object serves common, write, update,
  * link/unlink, default, and attrs callbacks — types gate visibility.
  */
-export function makeContext(state: ContextState, v: Validator = noValidate): any {
+export function makeContext(state: ContextState, v: Validator = noValidate, enums: Enums = noEnums): any {
   const fns = makeFns()
   return {
-    auth: entityProxy('auth'),
-    ar: refFn('auth', v.authRef),
-    e: entityProxy('data', v.field),
+    auth: entityProxy('auth', undefined, enums.authField),
+    ar: refFn('auth', v.authRef, enums.authRef),
+    e: entityProxy('data', v.field, enums.field),
     ef: (key: string) => {
       v.field(key)
-      return atom(`data.${key}`)
+      return fieldAtom('data', key, enums.field)
     },
-    er: refFn('data', v.ref),
+    er: refFn('data', v.ref, enums.ref),
     rp: (key: string) => {
       v.ruleParam(key)
       return atom(`ruleParams.${key}`)
     },
     req: entityProxy('request'),
-    eu: entityProxy('newData', v.field),
+    eu: entityProxy('newData', v.field, enums.field),
     euf: (key: string) => {
       v.field(key)
-      return atom(`newData.${key}`)
+      return fieldAtom('newData', key, enums.field)
     },
-    el: entityProxy('linkedData', v.linkedField),
+    el: entityProxy('linkedData', v.linkedField, enums.linkedField),
     elf: (key: string) => {
       v.linkedField(key)
-      return atom(`linkedData.${key}`)
+      return fieldAtom('linkedData', key, enums.linkedField)
     },
-    elr: refFn('linkedData', v.linkedRef),
+    elr: refFn('linkedData', v.linkedRef, enums.linkedRef),
     f: fns,
     ops: fns,
     raw: (cel: string) => rawNode(cel),

@@ -24,6 +24,8 @@ export const schema = defineSchema({
       fields: {
         email: i.string().unique().indexed().optional(),
         name: i.string().indexed().optional(),
+        // a runtime enum on a linked namespace — exercises ref/auth `.conforms()`
+        role: i.string(['admin', 'member']).optional(),
       },
     }),
     workspaces: i.namespace({

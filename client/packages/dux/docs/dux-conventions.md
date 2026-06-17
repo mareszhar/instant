@@ -24,6 +24,7 @@ dux holds itself to all three because the official surface doesn't: three brand 
 - [8. The rename table](#8-the-rename-table)
 - [9. Coexisting with official packages](#9-coexisting-with-official-packages)
 - [10. Perms vocabulary](#10-perms-vocabulary)
+- [11. Diagnostic codes](#11-diagnostic-codes)
 
 ---
 
@@ -156,10 +157,16 @@ The pattern and the non-obvious calls. Each spec carries its surface's *complete
 
 ## 9. Coexisting with official packages
 
-dux never claims the official specifiers, so coexistence is always available. When a module imports both dux and an official package that export the same name (e.g. a tool importing `@mszr/idb-dux` and `@instantdb/platform`, each exporting an `i`), the standard ESM answer applies: alias at import (`import { i as pi } from '@instantdb/platform'`). dux's `i` carries *only* the dux dialect (`i.namespace` + the field builders — no `i.entity`, no `i.schema`), so two same-named objects are never half-interchangeable lookalikes that invite confusion.
+dux never claims the official specifiers, so coexistence is always available. When a module imports both dux and an official package that export the same name (e.g. a tool importing `@mszr/idb-dux` and `@instantdb/platform`, each exporting an `i`), the standard ESM answer applies: alias at import (`import { i as pi } from '@instantdb/platform'`). dux's `i` carries *only* the dux dialect (`i.namespace`, `i.room`, + the field builders — no `i.entity`, no `i.schema`), so two same-named objects are never half-interchangeable lookalikes that invite confusion.
 
 ## 10. Perms vocabulary
 
 The domain term is **perms**, everywhere: `definePerms`, `/perms`, `instant.perms.ts` (CLI-fixed anyway), output type `IdbPerms`. "Rules" is CEL/dashboard vocabulary; the word survives only in prose for a single allow entry. The compile point is **`.compile()`** — it says what happens (authoring AST → CEL strings) and its return type says what you get.
 
 The perms context is **entity-rooted with current unmarked** — the current entity is *the* entity, so it carries no marker; only the *updated* and *linked* states do: `entity`/`e`, `entityField`/`ef`, `entityRef`/`er`; `entityUpdated`/`eu`, `entityUpdatedField`/`euf` (no updated-ref — Instant doesn't support `newData.ref`); `entityLinked`/`el`, `entityLinkedField`/`elf`, `entityLinkedRef`/`elr`. Every `e*` shorthand is entity-family: the second letter says *which* entity (none = current, `u` = updated, `l` = linked), the suffix says *how you read it* (`f` = field by string key, `r` = ref traversal). CEL's `data`/`newData`/`linkedData` are compile targets only — they never appear in the authoring surface. Full table: [dux-spec-perms.md](./dux-spec-perms.md).
+
+## 11. Diagnostic codes
+
+Every dux compile-time diagnostic — a TypeScript message typed onto an offending key, or a thrown author-time error — is prefixed **`QERR_`** and shaped `QERR_<DOMAIN>_<DETAIL>`. The prefix is cross-cutting, **not** query-specific: `QUERY` is one domain among `SCHEMA`, `TX`, `PERMS`, `WHERE`, `ORDER`, `M` (the `$m` block), `RESULT`, … — which is exactly why a query code reads `QERR_QUERY_*` rather than the prefix alone. So a perms diagnostic is `QERR_PERMS_*` (e.g. `QERR_PERMS_CONFORMS`), a tx one `QERR_TX_*`, and so on.
+
+The codes are **stable identifiers**, part of the contract: editor-DX suites assert on them, so they read like API. Treat a rename as a breaking change.

@@ -28,6 +28,7 @@ describe('defineSchema — compatibility targets', () => {
         $users: officialI.entity({
           email: officialI.string().unique().indexed().optional(),
           name: officialI.string().indexed().optional(),
+          role: officialI.string().optional(),
         }),
         workspaces: officialI.entity({
           name: officialI.string().indexed(),

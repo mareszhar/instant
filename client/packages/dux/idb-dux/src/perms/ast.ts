@@ -82,13 +82,44 @@ const ATOM = 5
 
 const BRAND = Symbol('idb-perms-expr')
 
+/**
+ * What a runtime-enum field/ref accessor attaches so `.conforms()` can render:
+ * the declared values, and whether the node is a list (a ref → list conformance
+ * via `.all`) or a scalar (a field → `in`).
+ */
+export interface ConformsInfo {
+  values: readonly (string | number)[]
+  list: boolean
+}
+
 /** The one runtime node behind both `Expr` and `ListExpr`. */
 export class ExprNode {
   readonly [BRAND] = true
-  constructor(readonly cel: string, readonly prec: number) {}
+  constructor(
+    readonly cel: string,
+    readonly prec: number,
+    /** Set only on a runtime-enum field/ref accessor — powers `.conforms()`. */
+    readonly conformsTo?: ConformsInfo,
+  ) {}
 
   render(): string {
     return this.cel
+  }
+
+  /**
+   * Membership against the field's schema-declared runtime-enum values — a
+   * scalar field renders `<field> in [...]`, a ref (list) renders
+   * `<ref>.all(item, item in [...])`. Exposed by the type layer only on
+   * runtime-enum accessors; the throw is the backstop for a bypass.
+   */
+  conforms(): ExprNode {
+    if (this.conformsTo === undefined) {
+      throw new Error(
+        'QERR_PERMS_CONFORMS: .conforms() requires a runtime-enum field and definePerms(schema)',
+      )
+    }
+    const { values, list } = this.conformsTo
+    return list ? this.every(item => item.in(values)) : this.in(values)
   }
 
   private op(operator: string, value: unknown, prec: number): ExprNode {
@@ -191,6 +222,11 @@ export function coerce(value: unknown): ExprNode {
 /** A bare CEL atom — identifiers, property/field access, calls. */
 export function atom(cel: string): ExprNode {
   return new ExprNode(cel, ATOM)
+}
+
+/** An atom for a runtime-enum field/ref — carries the values `.conforms()` reads. */
+export function enumAtom(cel: string, values: readonly (string | number)[], list: boolean): ExprNode {
+  return new ExprNode(cel, ATOM, { values, list })
 }
 
 /** A raw, user-authored CEL string — always wrapped when composed. */

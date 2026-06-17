@@ -15,6 +15,7 @@ export type {
   AttrsBuilder,
   AuthExpr,
   CommonCtx,
+  Conforms,
   DefaultsBuilder,
   EntityAction,
   EntityExpr,

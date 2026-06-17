@@ -18,6 +18,7 @@ import type { IdbRegisteredSchema } from '../schema/register.js'
 import type { ExprNode } from './ast.js'
 import type { IdbPermsRateLimits, PermsBuilder } from './types.js'
 import { makeContext } from './context.js'
+import { makeEnums, noEnums } from './enums.js'
 import { makeValidator, namespaceExists, noValidate } from './validate.js'
 
 type RuleValue = boolean | ExprNode | ((ctx: any) => boolean | ExprNode)
@@ -82,7 +83,10 @@ class NamespaceRuntime {
     const validator = this.schema
       ? makeValidator(this.schema, this.ns, linkTarget)
       : noValidate
-    return makeContext({ staged, binds: this.binds }, validator)
+    const enums = this.schema
+      ? makeEnums(this.schema, this.ns, linkTarget)
+      : noEnums
+    return makeContext({ staged, binds: this.binds }, validator, enums)
   }
 
   private mergedStaged(action: string): Record<string, ExprNode> {
@@ -210,9 +214,14 @@ class DefaultsRuntime {
   readonly binds: Record<string, ExprNode> = {}
   allowOut: Record<string, any> = {}
 
+  constructor(private readonly schema: IdbSchema | undefined) {}
+
   private ctx(): Ctx {
-    // The default context is namespace-loose; the type layer narrows it.
-    return makeContext({ staged: this.staged, binds: this.binds }, noValidate)
+    // The default context is namespace-loose; the type layer narrows it. Enums
+    // are `$users`-rooted only (no namespace), so `auth`/`ar` `.conforms()`
+    // resolves while field/ref reads stay loose.
+    const enums = this.schema ? makeEnums(this.schema) : noEnums
+    return makeContext({ staged: this.staged, binds: this.binds }, noValidate, enums)
   }
 
   private known(name: string): boolean {
@@ -256,7 +265,8 @@ class AttrsRuntime {
   constructor(private readonly schema: IdbSchema | undefined) {}
 
   allow(input: any) {
-    const ctx = makeContext({ staged: {}, binds: {} }, noValidate)
+    const enums = this.schema ? makeEnums(this.schema) : noEnums
+    const ctx = makeContext({ staged: {}, binds: {} }, noValidate, enums)
     const block = typeof input === 'function' ? input(ctx) : input
     if (block.create !== undefined)
       this.out.create = resolveRule(block.create, ctx)
@@ -286,7 +296,7 @@ class PermsRuntime {
   }
 
   defaults(fn: (d: DefaultsRuntime) => DefaultsRuntime) {
-    const d = new DefaultsRuntime()
+    const d = new DefaultsRuntime(this.schema)
     fn(d)
     this.hasDefaults = true
     this.defaultStaged = d.staged

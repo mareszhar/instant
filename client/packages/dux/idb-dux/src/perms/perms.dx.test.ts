@@ -67,6 +67,34 @@ describe('definePerms — completions', () => {
     // assignee → $users
     expect(completions).toContainCompletions(['id', 'email', 'name'])
   })
+
+  it('completes conforms on a runtime-enum field', () => {
+    const { completions } = project.query`
+      ${prelude}
+      export default definePerms().namespaces({
+        fruits: ns => ns.bind(({ e }) => { e.name.${cursor}; return {} }),
+      })
+    `
+    expect(completions).toContainCompletion('conforms')
+  })
+
+  it('omits conforms on a plain field and a type-level enum', () => {
+    const plain = project.query`
+      ${prelude}
+      export default definePerms().namespaces({
+        tasks: ns => ns.bind(({ e }) => { e.title.${cursor}; return {} }),
+      })
+    `
+    expect(plain.completions).not.toContainCompletion('conforms')
+    // `kind` is `i.string<…>()` — narrowed type, no runtime values to conform to
+    const typeLevel = project.query`
+      ${prelude}
+      export default definePerms().namespaces({
+        fruits: ns => ns.bind(({ e }) => { e.kind.${cursor}; return {} }),
+      })
+    `
+    expect(typeLevel.completions).not.toContainCompletion('conforms')
+  })
 })
 
 describe('definePerms — diagnostics at the cursor', () => {

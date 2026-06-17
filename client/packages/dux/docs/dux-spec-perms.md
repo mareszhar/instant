@@ -16,7 +16,7 @@ Conventions: [dux-conventions.md](./dux-conventions.md) (esp. [§10 Perms vocabu
 | P3 | Expression breadth: list methods, functional helpers, `raw` | 8 | ☑ complete |
 | P4 | Action-specific contexts (`eu`/`el`/`modifiedFields` per action; `stageFor`/`bindFor`) | 8 | ☑ complete |
 | P5 | `.attrs`, `$rateLimits`, runtime diagnostics, compat-target tests | 8 | ☑ complete |
-| P6 | `.conforms()` — DRY runtime-enum membership enforcement ([§8](#8-expression-api)) | 8 | ☐ planned |
+| P6 | `.conforms()` — DRY runtime-enum membership enforcement ([§8](#8-expression-api)) | 8 | ☑ complete |
 
 Details: [§14 Phased implementation roadmap](#14-phased-implementation-roadmap).
 
@@ -536,7 +536,7 @@ Raw CEL should be explicit.
 - raw renders verbatim and yields a boolean expression by default; pass a type param (`raw<string>(...)`) for a non-boolean terminal
 - raw composes safely: it carries the lowest precedence, so any expression built around it is always parenthesized
 
-### `.conforms()` — runtime-enum membership (planned, P6)
+### `.conforms()` — runtime-enum membership
 
 A **runtime enum** ([dux-spec-root.md §2.6](./dux-spec-root.md#26-enum-fields)) declares its allowed values in the schema. `.conforms()` enforces that a field's value is one of them — reading the values from the schema so they are declared once, not retyped in the rule. It is the DRY bridge between the schema declaration and perms; the declaration never enforces on its own, so this is where membership becomes a rule.
 
@@ -553,9 +553,9 @@ Contract:
 
 - **It is sugar for membership against the schema's values** — `eu.priority.conforms()` renders the CEL `newData.priority in ['low', 'medium', 'high']` (`data.*` for the current entity, `linkedData.*` for a linked one). It is exactly `eu.priority.in([...])` with the list supplied by the schema; `.in(explicitList)` remains for an ad-hoc subset.
 - **Exposed only on runtime-enum fields.** `.conforms()` exists on a field accessor only when that field is a runtime enum — there is nothing to conform to otherwise, so on any other field the method is absent (an error at the cursor, not a no-op).
-- **Every entity field, every action.** Available on `e`/`ef`, `eu`/`euf`, and `el`/`elf` (property access and string-key forms alike), in any rule — including `view`/`delete`, not just writes, so it can gate pre-existing rows against a newer enum.
-- **Refs too.** `entityRef`/`authRef`/`entityLinkedRef` whose terminal segment is a runtime-enum field expose `.conforms()`; since a ref yields a list, it renders as a list conformance (`data.ref('owner.role').all(x, x in [...])`). The user opts in per ref.
-- **Needs the schema value.** Because it reads the declared values at compile time, `.conforms()` requires `definePerms(schema)` (the runtime form). Under the type-only `definePerms()`, the values aren't present to render, so `.conforms()` is unavailable.
+- **Every entity field, every action.** Available on `e`/`ef`, `eu`/`euf`, `el`/`elf`, and `auth` (property access and string-key forms alike), in any rule — including `view`/`delete`, not just writes, so it can gate pre-existing rows against a newer enum.
+- **Refs too.** `er`/`ar`/`elr` whose terminal segment is a runtime-enum field expose `.conforms()`; since a ref yields a list, it renders as a list conformance (`data.ref('assignee.role').all(item, item in [...])`). The user opts in per ref.
+- **Needs the schema value.** Because it reads the declared values at compile time, `.conforms()` requires `definePerms(schema)` (the runtime form). The type layer exposes it on any runtime-enum accessor; under the type-only `definePerms()` there are no values to render, so `.compile()` throws `QERR_PERMS_CONFORMS` — pass the schema.
 
 The result is the schema-as-source-of-truth payoff without coupling: the enum is declared once in `defineSchema`, and enforcement stays explicit, opt-in, and visible in the security layer.
 
@@ -937,8 +937,8 @@ Done when: the full example's non-action-specific rules compile and validate.
 
 ### Phase P6 — runtime-enum conformance (global phase 8)
 
-- [ ] `.conforms()` on entity-field accessors (`e`/`ef`, `eu`/`euf`, `el`/`elf`), exposed only when the field is a runtime enum
-- [ ] `.conforms()` on refs (`entityRef`/`authRef`/`entityLinkedRef`) whose terminal is a runtime enum → list-conformance (`.all(...)`) rendering
-- [ ] reads declared values from `definePerms(schema)`; renders `… in [...]`; unavailable under the type-only entrypoint
-- [ ] `.dx.test.ts`: `.conforms()` present only on runtime-enum fields; absent (cursor error) elsewhere
-- [ ] `.test.ts` / compat: rendered CEL matches `in [...]` / `.all(...)`
+- [x] `.conforms()` on entity-field accessors (`e`/`ef`, `eu`/`euf`, `el`/`elf`, `auth`), exposed only when the field is a runtime enum
+- [x] `.conforms()` on refs (`er`/`ar`/`elr`) whose terminal is a runtime enum → list-conformance (`.all(...)`) rendering
+- [x] reads declared values from `definePerms(schema)`; renders `… in [...]`; throws under the type-only entrypoint (no values to render)
+- [x] `.dx.test.ts`: `.conforms()` present only on runtime enums; absent on plain and type-level-enum fields
+- [x] `.test.ts`: rendered CEL matches `in [...]` (scalar) / `.all(item, item in [...])` (ref)

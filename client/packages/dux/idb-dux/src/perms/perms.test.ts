@@ -222,6 +222,44 @@ describe('expression breadth — raw + deterministic parens', () => {
   })
 })
 
+describe('runtime-enum conformance — .conforms()', () => {
+  /** Compile one rule on any namespace/action and return its CEL. */
+  function rule(ns: string, action: string, build: (ctx: any) => any): string {
+    const rules = definePerms(schema)
+      .namespaces({ [ns]: (b: any) => b.allow({ [action]: build }) } as any)
+      .compile() as any
+    return rules[ns].allow[action]
+  }
+
+  it('a runtime-enum field renders membership against the declared values', () => {
+    expect(rule('fruits', 'view', ({ e }) => e.name.conforms()))
+      .toBe('data.name in [\'apple\', \'banana\', \'orange\']')
+    expect(rule('fruits', 'update', ({ eu }) => eu.name.conforms()))
+      .toBe('newData.name in [\'apple\', \'banana\', \'orange\']')
+  })
+
+  it('a ref to a runtime-enum terminal renders a list conformance', () => {
+    expect(rule('tasks', 'view', ({ er }) => er('assignee.role').conforms()))
+      .toBe('data.ref(\'assignee.role\').all(item, item in [\'admin\', \'member\'])')
+  })
+
+  it('auth reads the authed user\'s runtime-enum field', () => {
+    expect(rule('tasks', 'view', ({ auth }) => auth.role.conforms()))
+      .toBe('auth.role in [\'admin\', \'member\']')
+  })
+
+  it('composes like any boolean expression', () => {
+    expect(rule('fruits', 'view', ({ e, f }) => f.and(e.name.conforms(), e.kind.eq('sweet'))))
+      .toBe('data.name in [\'apple\', \'banana\', \'orange\'] && data.kind == \'sweet\'')
+  })
+
+  it('without a runtime schema, .conforms() throws (needs definePerms(schema))', () => {
+    expect(() => definePerms()
+      .namespaces({ fruits: (ns: any) => ns.allow({ view: ({ e }: any) => e.name.conforms() }) } as any)
+      .compile()).toThrow(/QERR_PERMS_CONFORMS/)
+  })
+})
+
 describe('rate limits', () => {
   it('passes the config through and renders rl usage', () => {
     const rules = definePerms(schema)

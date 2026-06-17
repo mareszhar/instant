@@ -44,20 +44,34 @@ function ruleParamExists(schema: IdbSchema, ns: string, key: string): boolean {
   return Boolean(schema.$dux?.namespaces?.[ns]?.ruleParams?.[key])
 }
 
-/** Walk a `link(.link)*.attr` path; the terminal must be an attribute. */
-function refValid(schema: IdbSchema, ns: string, path: string): boolean {
+/**
+ * Walk a `link(.link)*.attr` path to the namespace + field its terminal lives
+ * on. Returns `undefined` if any link label along the way is unknown. Shared by
+ * ref validation and ref-enum lookup ([enums.ts]) so the traversal lives once.
+ */
+export function refTerminal(
+  schema: IdbSchema,
+  ns: string,
+  path: string,
+): { ns: string, field: string } | undefined {
   const parts = path.split('.')
-  const terminal = parts.pop()
-  if (terminal === undefined)
-    return false
+  const field = parts.pop()
+  if (field === undefined)
+    return undefined
   let current = ns
   for (const label of parts) {
     const target = schema.entities[current]?.links?.[label]?.entityName
     if (!target)
-      return false
+      return undefined
     current = target
   }
-  return fieldExists(schema, current, terminal)
+  return { ns: current, field }
+}
+
+/** Walk a `link(.link)*.attr` path; the terminal must be an attribute. */
+function refValid(schema: IdbSchema, ns: string, path: string): boolean {
+  const terminal = refTerminal(schema, ns, path)
+  return terminal ? fieldExists(schema, terminal.ns, terminal.field) : false
 }
 
 /** Does the schema declare this namespace? */

@@ -7,6 +7,7 @@ import type { AppSchema } from '@test'
 import type {
   ActionCtx,
   CommonCtx,
+  Conforms,
   EntityExpr,
   Expr,
   LinkCtx,
@@ -92,5 +93,29 @@ describe('action-specific contexts', () => {
       .toEqualTypeOf<ListExpr<string>>()
     expectTypeOf<'eu' extends keyof ActionCtx<AppSchema, 'tasks', {}, {}, {}, 'create'> ? true : false>()
       .toEqualTypeOf<false>()
+  })
+})
+
+describe('runtime-enum conformance — .conforms()', () => {
+  type FruitsCommon = CommonCtx<AppSchema, 'fruits', {}, {}, {}>
+  type FruitsUpdate = UpdateCtx<AppSchema, 'fruits', {}, {}, {}>
+
+  it('exposes conforms on a runtime-enum field only', () => {
+    // `name` is a runtime enum — conforms on property access and string key, on e and eu
+    expectTypeOf(({} as FruitsCommon).e.name).toExtend<Conforms>()
+    expectTypeOf(({} as FruitsCommon).ef('name')).toExtend<Conforms>()
+    expectTypeOf(({} as FruitsUpdate).eu.name).toExtend<Conforms>()
+    // `kind` is a type-level enum (`i.string<…>()`) — narrowed but not runtime-backed
+    expectTypeOf(({} as FruitsCommon).e.kind).not.toExtend<Conforms>()
+    // a plain field never has it
+    expectTypeOf(({} as TasksCommon).e.title).not.toExtend<Conforms>()
+  })
+
+  it('exposes conforms on a ref/auth-ref whose terminal is a runtime enum', () => {
+    expectTypeOf(({} as TasksCommon).er('assignee.role')).toExtend<Conforms>()
+    expectTypeOf(({} as TasksCommon).er('assignee.email')).not.toExtend<Conforms>()
+    expectTypeOf(({} as TasksCommon).auth.role).toExtend<Conforms>()
+    expectTypeOf(({} as TasksCommon).ar('$user.memberships.user.role')).toExtend<Conforms>()
+    expectTypeOf(({} as TasksCommon).ar('$user.memberships.user.email')).not.toExtend<Conforms>()
   })
 })

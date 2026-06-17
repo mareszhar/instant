@@ -54,7 +54,7 @@ These live at the root — not behind a subpath — because they are the shared 
 
 A schema declaration should read in the vocabulary the rest of dux (and Instant's own documentation) speaks — **namespaces** holding **fields** — and should be the *single home* for everything that describes a namespace: its fields, its singular name, and its rule params. Nothing namespace-shaped should ever live in a second config file.
 
-```ts
+```TS
 import { defineSchema, i } from '@mszr/idb-dux'
 
 export const schema = defineSchema({
@@ -155,7 +155,7 @@ reportAnalyses: {
 
 ### 2.4 Registration — tell dux your schema once
 
-```ts
+```TS
 // instant.schema.ts (continued)
 declare module '@mszr/idb-dux' {
   interface IdbRegister { schema: typeof schema }
@@ -175,7 +175,7 @@ A field's values can be restricted in two ways, and the distinction is load-bear
 - A **type-level enum** narrows the field *for the type system only* — `i.string<'a' | 'b'>()`. The generic accepts **any** valid TypeScript type, not just a literal union: a branded string, a template-literal string, a branded number (`i.number<Cents>()`), a precise `i.json<T>()` shape. It costs nothing at runtime and is erased before runtime.
 - A **runtime enum** declares its allowed values *as an array* — `i.string([...])` / `i.number([...])`. Only an enumerable value set fits here (that's the whole point), so this form is enum-only:
 
-```ts
+```TS
 fruits: i.namespace({
   fields: {
     name: i.string(['apple', 'banana', 'orange']).indexed(),
@@ -199,7 +199,7 @@ Like every builder, runtime enums chain — `.indexed()`, `.optional()`, `.uniqu
 
 A **room** is a realtime channel — a wholly separate concept from a namespace. It has a `presence` shape (one live entry per peer) and named `topic` shapes (one per broadcast message), declared with `i.room`:
 
-```ts
+```TS
 rooms: {
   workspace: i.room({
     presence: { name: i.string(), typing: i.boolean().optional() },
@@ -224,7 +224,7 @@ rooms: {
 
 Authoring a query should give you completions and errors *at the offending key*, whether the query is written inline at a call site, named and shared between callers, or built dynamically. The wire output is always a query `instaql` already accepts — the dux-only keys are stripped before forwarding.
 
-```ts
+```TS
 import { q } from '@mszr/idb-dux' // schema known via registration — no defineQuery<AppSchema>() step
 
 // share one query among multiple callers
@@ -283,7 +283,7 @@ The contract per level, with the intended diagnostic. Diagnostics carry stable `
 
 Value types are validated against field types with errors on the value, not the call:
 
-```ts
+```TS
 const query = db.useQuery({
   todos: {
     $: {
@@ -314,7 +314,7 @@ The data plane returns data you can use without massaging — no `?? []`, no `[0
 
 Top-level namespaces arrive as `Entity[]`, never `undefined`:
 
-```ts
+```TS
 const { todos } = db.useQuery({ todos: {} })
 // todos.value: Todo[] — always an array, never undefined
 
@@ -324,7 +324,7 @@ const { todos } = await db.queryOnce({ todos: {} })
 
 **Nested `has: 'one'` links are already singular** — Instant natively returns them as `Entity | undefined`; dux preserves this, no massaging applied:
 
-```ts
+```TS
 const { todos } = db.useQuery({ todos: { assignee: {} } })
 // todos.value[0].assignee: User | undefined
 ```
@@ -342,7 +342,7 @@ The `$:` object accepts two layers of keys:
 - `$at: 0` — "give me the element at position 0"
 - `$at: -1` — "give me the last element"; any integer works, negative counts from the end
 
-```ts
+```TS
 import { $only } from '@mszr/idb-dux'
 
 const { workspace } = db.useQuery({
@@ -366,7 +366,7 @@ const { user } = db.useQuery({
 - **Top-level namespace key**: the namespace's `singular` from `i.namespace()`, falling back to the default English algorithm
 - **Nested link label key**: the link label's `singular` from the schema's links, falling back to the algorithm
 
-```ts
+```TS
 const { report } = db.useQuery({
   reports: {
     $: { where: { id: reportId }, $only }, // top-level: namespace singular
@@ -384,7 +384,7 @@ The TypeScript return type and the runtime key always match — they derive from
 
 For derived views of the same data — indexed maps, grouped collections, pinned positions — `$m` creates new **sibling keys** without affecting the default scope key. The original data is always returned alongside. `$m` is object-keyed: the key is the output label, the value is the transform config — duplicate labels are impossible and naming is forced.
 
-```ts
+```TS
 const { todos, todosById, todosByStatus } = db.useQuery({
   todos: {
     $: { where: { workspace: workspaceId } },
@@ -411,7 +411,7 @@ Transforms:
 
 A **type-level enum** (`i.string<'a' | 'b'>()`) narrows the type but records nothing at runtime, so the runtime can't promise an absent value's bucket — those buckets are optional (`Bucket | undefined` on access), which is the honest contract. A full `string`/`number` field is an open keyspace: an index signature, `| undefined` on access under `noUncheckedIndexedAccess`.
 
-```ts
+```TS
 const { todos, latestTodo } = db.useQuery({
   todos: { $: { where: { workspace: id } }, $m: { latestTodo: { at: -1 } } },
 })
@@ -450,7 +450,7 @@ The fix is always the same and the message says it: rename the scope with `$as` 
 
 The tx chain should be typed end-to-end from the schema — including the two places the official chain goes untyped (verified in core's `instatx.ts`/`schemaTypes.ts`): `RuleParams` is `{ [key: string]: any }`, and a `lookup()` travels through `.link()` as an untyped string.
 
-```ts
+```TS
 // dot-path link keys: the label completes, unique fields narrow, the value is typed;
 // compiles to the official lookup() form under the hood
 db.tx.memberships[id()].link({ 'workspace.inviteCode': inviteCode })
@@ -478,7 +478,7 @@ The same machinery types both runtimes: the client `db.tx` and the admin `adminD
 
 Deriving types from the schema should cost zero repetition (registration, [§2.4](#24-registration--tell-dux-your-schema-once)) and cover the shapes apps actually need: the bare entity, the entity with its links, an entity shaped by a query, and a full query's data shape.
 
-```ts
+```TS
 type Todo = IdbEntity<'todos'>
 // id + fields only — links live BETWEEN entities, so the plain entity has none
 
