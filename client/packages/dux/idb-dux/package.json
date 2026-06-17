@@ -12,6 +12,17 @@
   "bugs": {
     "url": "https://github.com/mareszhar/idb-dux/issues"
   },
+  "keywords": [
+    "instantdb",
+    "database",
+    "realtime",
+    "permissions",
+    "typescript",
+    "vue",
+    "nuxt",
+    "intellisense",
+    "dx"
+  ],
   "sideEffects": false,
   "exports": {
     "./package.json": "./package.json",
