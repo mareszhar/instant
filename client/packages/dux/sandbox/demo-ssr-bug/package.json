@@ -17,19 +17,19 @@
   },
   "dependencies": {
     "@mszr/idb-dux": "link:@mszr/idb-dux",
-    "nuxt": "^4.4.6",
-    "vue": "^3.5.34",
-    "vue-router": "^5.0.7"
+    "nuxt": "^4.4.8",
+    "vue": "^3.5.38",
+    "vue-router": "^5.1.0"
   },
   "devDependencies": {
     "@pinia/nuxt": "^0.11.3",
-    "@vue/language-plugin-pug": "^3.3.0",
+    "@vue/language-plugin-pug": "^3.3.5",
     "@vueuse/core": "^14.3.0",
     "@vueuse/nuxt": "^14.3.0",
     "pinia": "^3.0.4",
     "pug": "^3.0.4",
     "stylus": "^0.64.0",
     "typescript": "^6.0.3",
-    "vue-tsc": "^3.3.0"
+    "vue-tsc": "^3.3.5"
   }
 }
