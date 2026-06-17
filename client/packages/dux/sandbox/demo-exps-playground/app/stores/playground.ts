@@ -1,4 +1,4 @@
-export const useSandbox = defineStore('sandbox', () => {
+export const useSandbox = defineStore('playground', () => {
   const { db } = useIdb()
 
   function createFruit() {

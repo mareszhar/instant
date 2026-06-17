@@ -32,17 +32,6 @@ export const schema = defineSchema({
         createdAt: i.date().indexed(),
       },
     }),
-
-    // >>> FOR SANDBOX EXPERIMENTS (START) <<<
-    fruits: i.namespace({
-      fields: {
-        // A runtime enum: the union is inferred AND recorded at runtime, so a
-        // `$m` groupBy on `name` gets a guaranteed, narrowed, never-undefined
-        // bucket per value. (`i.string<'apple' | …>()` narrows the type only.)
-        name: i.string(['apple', 'banana', 'orange']).indexed(),
-      },
-    }),
-    // >>> FOR SANDBOX EXPERIMENTS (END) <<<
   },
   links: {
     membershipWorkspace: {
