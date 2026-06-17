@@ -184,6 +184,10 @@ On every rebase window (when the fork syncs with upstream `instantdb/instant`):
 
 ### 6.0 The command surface
 
+#### Local commit guardrail
+
+The workspace versions its Git hooks in `.githooks/`. `postinstall` installs them when Git config is writable; `pnpm run git:hooks:install` does the same explicitly. The pre-commit hook runs `pnpm run lint` for staged changes under `client/packages/dux`, so local commits hit the same lint boundary as the publish gate.
+
 Three publishable artifacts, three parallel verbs — each command is its own named entry, so there are **no flags to remember** and no bare `release`:
 
 | Command | Does |

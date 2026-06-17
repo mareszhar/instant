@@ -5,6 +5,8 @@
   "private": true,
   "description": "Maintainer workspace for @mszr/idb-dux",
   "scripts": {
+    "postinstall": "node scripts/install-git-hooks.mjs --optional",
+    "git:hooks:install": "node scripts/install-git-hooks.mjs",
     "upi": "pnpm up -i",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
