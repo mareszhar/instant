@@ -12,8 +12,8 @@ This directory is the **internal baseline** for `/vue` — a near-verbatim mirro
 
 | baseline file | upstream source |
 |---|---|
-| `InstantDuxDatabase.ts` | `src/InstantVueDatabase.ts` |
-| `InstantDuxRoom.ts` | `src/InstantVueRoom.ts` |
+| `IdbDuxDatabase.ts` | `src/InstantVueDatabase.ts` |
+| `IdbDuxRoom.ts` | `src/InstantVueRoom.ts` |
 | `useInfiniteQuery.ts` | `src/useInfiniteQuery.ts` |
 | `utils.ts` | `src/utils.ts` |
 | `version.ts` | `src/version.ts` |
@@ -25,7 +25,7 @@ This directory is the **internal baseline** for `/vue` — a near-verbatim mirro
 
 1. **`ssr`** — SSR-resilience floor: every reactive hook guards its reactor subscription on `isClient()`, returning inert state on the server. The `isClient()` helper in `utils.ts` is dux's own addition.
 2. **`components`** — components ship as `.ts` render functions rather than `.vue` SFCs (no SFC compile step; boundary-lint-visible source).
-3. Class/handle renames (`InstantVue*` → `InstantDux*`) and the framework version tag (`@mszr/idb-dux`).
+3. Class/handle renames (`InstantVue*` → `IdbDux*`) and the framework version tag (`@mszr/idb-dux`).
 
 ## Re-vendoring
 

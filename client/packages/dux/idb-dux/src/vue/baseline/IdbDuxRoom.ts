@@ -1,5 +1,5 @@
 // Vendored from @instantdb/vue/src/InstantVueRoom.ts — see UPSTREAM.md.
-// Deltas: class/handle rename (InstantVueRoom → InstantDuxRoom) and the SSR
+// Deltas: class/handle rename (InstantVueRoom → IdbDuxRoom) and the SSR
 // floor guards on each reactor subscription.
 import type {
   InstantCoreDatabase,
@@ -61,7 +61,7 @@ export function useTopicEffect<
   RoomType extends keyof RoomSchema,
   TopicType extends keyof RoomSchema[RoomType]['topics'],
 >(
-  room: InstantDuxRoom<any, RoomSchema, RoomType>,
+  room: IdbDuxRoom<any, RoomSchema, RoomType>,
   topic: TopicType,
   onEvent: (
     event: RoomSchema[RoomType]['topics'][TopicType],
@@ -97,7 +97,7 @@ export function usePublishTopic<
   RoomType extends keyof RoomSchema,
   TopicType extends keyof RoomSchema[RoomType]['topics'],
 >(
-  room: InstantDuxRoom<any, RoomSchema, RoomType>,
+  room: IdbDuxRoom<any, RoomSchema, RoomType>,
   topic: TopicType,
 ): (data: RoomSchema[RoomType]['topics'][TopicType]) => void {
   watchEffect((onCleanup) => {
@@ -135,7 +135,7 @@ export function usePresence<
   RoomType extends keyof RoomSchema,
   Keys extends keyof RoomSchema[RoomType]['presence'],
 >(
-  room: InstantDuxRoom<any, RoomSchema, RoomType>,
+  room: IdbDuxRoom<any, RoomSchema, RoomType>,
   opts: PresenceOpts<RoomSchema[RoomType]['presence'], Keys> = {},
 ): PresenceHandle<RoomSchema[RoomType]['presence'], Keys> {
   const initial = (room.core._reactor.getPresence(
@@ -199,7 +199,7 @@ export function useSyncPresence<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 >(
-  room: InstantDuxRoom<any, RoomSchema, RoomType>,
+  room: IdbDuxRoom<any, RoomSchema, RoomType>,
   data: MaybeRefOrGetter<Partial<RoomSchema[RoomType]['presence']>>,
 ): void {
   watchEffect((onCleanup) => {
@@ -238,7 +238,7 @@ export function useTypingIndicator<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 >(
-  room: InstantDuxRoom<any, RoomSchema, RoomType>,
+  room: IdbDuxRoom<any, RoomSchema, RoomType>,
   inputName: string,
   opts: TypingIndicatorOpts = {},
 ): TypingIndicatorHandle<RoomSchema[RoomType]['presence']> {
@@ -328,7 +328,7 @@ export const rooms = {
 // ------------
 // Class
 
-export class InstantDuxRoom<
+export class IdbDuxRoom<
   Schema extends InstantSchemaDef<any, any, any>,
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,

@@ -16,6 +16,7 @@ dux holds itself to all three because the official surface doesn't: three brand 
 - [0. Language conventions](#0-language-conventions)
 - [1. Vocabulary](#1-vocabulary)
 - [2. Values vs types](#2-values-vs-types)
+- [2.1. The `IdbDux` prefix](#21-the-idbdux-prefix)
 - [3. The result pattern](#3-the-result-pattern)
 - [4. The primary-read rule](#4-the-primary-read-rule)
 - [5. Native keys and wrapped verbs](#5-native-keys-and-wrapped-verbs)
@@ -73,6 +74,12 @@ One exception: error classes (`IdbError`) keep the brand — `e instanceof IdbEr
 **Types are `Idb`-prefixed and domain-scoped:** root nouns may stand alone (`IdbClient`), and supporting types use `Idb<Domain><Thing>` (`IdbClientConfig`, `IdbQueryEntity`, `IdbTxUpdate`). Domains are `Client`, `Query`, `Tx`, `Perms`, `Auth`, `Room`, `Storage`, `Webhook`, `Admin` (with `Platform`, `Migration` reserved for the deferred platform track). **Schema is the unmarked root domain**: a type read directly off the schema goes unmarked (`IdbEntity`, `IdbSchema`). Anything unmarked = "straight from your schema."
 
 If idb ever ships an API whose name collides with a dux value, its purpose almost certainly overlaps ours (a future official `defineSchema` would… define a schema) — we absorb the new capability into ours and keep shipping ours. Only a collision with *zero* purpose overlap forces a rename: rare, and a find-and-replace when it happens.
+
+### 2.1. The IdbDux prefix
+
+Every shipped class that needs a project-specific name — because it is not a generic Instant/IDB term (`IdbDuxDatabase`, `IdbDuxRoom`, …) — is named `IdbDux*`, never bare `Dux*`. The maintainer forks several libraries this way (idb-dux, h3-dux, …); a bare `Dux*` name is ambiguous the moment two of those forks are imported into the same project, while `IdbDux*` says which one at the name itself.
+
+This applies to the **shipped surface only** — types, classes, and runtime values that appear in public APIs and user-facing error messages. `dux` stays the plain, simple word for this repo, this workspace, and this doc set (`dux/`, "the dux branch", `dux-vision`, `dux-spec`, …).
 
 ## 3. The result pattern
 

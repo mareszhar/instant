@@ -23,8 +23,8 @@ const officialDir = resolve(here, '../../vue/src')
 
 /** baseline file → official source file(s). Mirrors UPSTREAM.md's file map. */
 const FILE_MAP = {
-  'InstantDuxDatabase.ts': 'InstantVueDatabase.ts',
-  'InstantDuxRoom.ts': 'InstantVueRoom.ts',
+  'IdbDuxDatabase.ts': 'InstantVueDatabase.ts',
+  'IdbDuxRoom.ts': 'InstantVueRoom.ts',
   'useInfiniteQuery.ts': 'useInfiniteQuery.ts',
   'utils.ts': 'utils.ts',
   'version.ts': 'version.ts',

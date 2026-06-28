@@ -4,12 +4,12 @@ import { createMockCore, ids, schema } from '@test'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { effectScope, isReactive, nextTick } from 'vue'
 import { $only } from '../../query/index.js'
-import { InstantDuxDatabase } from '../baseline/index.js'
+import { IdbDuxDatabase } from '../baseline/index.js'
 import { IdbClient } from './db.js'
 
 function makeClient(opts?: Parameters<typeof createMockCore>[0]) {
   const mock = createMockCore(opts)
-  const baseline = new InstantDuxDatabase(mock.core)
+  const baseline = new IdbDuxDatabase(mock.core)
   const db = new IdbClient<AppSchema>(baseline as any, schema)
   return { db, mock }
 }

@@ -9,11 +9,11 @@
 import type { RoomsOf } from '@instantdb/core'
 import type { AppSchema } from '@test'
 import type { UnwrapNestedRefs } from 'vue'
-import type { InstantDuxRoom } from '../InstantDuxRoom.js'
+import type { IdbDuxRoom } from '../IdbDuxRoom.js'
 import type { Cursors } from './Cursors.js'
 import { expectTypeOf, it } from 'vitest'
 
-type Room = InstantDuxRoom<AppSchema, RoomsOf<AppSchema>, 'workspace'>
+type Room = IdbDuxRoom<AppSchema, RoomsOf<AppSchema>, 'workspace'>
 type CursorsRoomProp = NonNullable<InstanceType<typeof Cursors>['$props']['room']>
 
 it('Cursors accepts a room handle plain or reactive/Pinia-wrapped', () => {

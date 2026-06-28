@@ -11,7 +11,7 @@
  * room's schema.
  */
 import type { PresenceOpts, RoomSchemaShape } from '@instantdb/core'
-import type { InstantDuxRoom, TypingIndicatorOpts } from '../../baseline/index.js'
+import type { IdbDuxRoom, TypingIndicatorOpts } from '../../baseline/index.js'
 import {
   usePresence as baselineUsePresence,
   useTypingIndicator as baselineUseTypingIndicator,
@@ -26,7 +26,7 @@ function usePresence<
   RoomType extends keyof RoomSchema,
   Keys extends keyof RoomSchema[RoomType]['presence'],
 >(
-  room: InstantDuxRoom<any, RoomSchema, RoomType>,
+  room: IdbDuxRoom<any, RoomSchema, RoomType>,
   opts?: PresenceOpts<RoomSchema[RoomType]['presence'], Keys>,
 ) {
   const handle = baselineUsePresence(room, opts)
@@ -47,7 +47,7 @@ function useTypingIndicator<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 >(
-  room: InstantDuxRoom<any, RoomSchema, RoomType>,
+  room: IdbDuxRoom<any, RoomSchema, RoomType>,
   inputName: string,
   opts?: TypingIndicatorOpts,
 ) {

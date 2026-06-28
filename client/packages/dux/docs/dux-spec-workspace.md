@@ -163,7 +163,7 @@ The model is [dux-vision.md §5](./dux-vision.md#5-how-dux-stays-alive); these a
 
 ### 5.2 The drift check
 
-`scripts/check-baseline-drift.mjs` reads the vendored commit from `baseline/UPSTREAM.md` and asks git **what changed in each mapped `client/packages/vue/src/*` source since that commit** (the official source sits right beside us in this fork — the reason dux develops here). The signal is git history, not a textual diff: the baseline is reformatted to dux's lint style and carries fenced deltas, so byte-equality with upstream is never expected and a content diff would be pure noise. It prints, per mapped baseline file, "official source for `InstantDuxDatabase.ts` changed since last vendor; review N commit(s)" with the commit list, and exits non-zero so CI gates on it. Re-vendoring is a deliberate step, never an accident discovered months later.
+`scripts/check-baseline-drift.mjs` reads the vendored commit from `baseline/UPSTREAM.md` and asks git **what changed in each mapped `client/packages/vue/src/*` source since that commit** (the official source sits right beside us in this fork — the reason dux develops here). The signal is git history, not a textual diff: the baseline is reformatted to dux's lint style and carries fenced deltas, so byte-equality with upstream is never expected and a content diff would be pure noise. It prints, per mapped baseline file, "official source for `IdbDuxDatabase.ts` changed since last vendor; review N commit(s)" with the commit list, and exits non-zero so CI gates on it. Re-vendoring is a deliberate step, never an accident discovered months later.
 
 ### 5.3 The fork-rebase ritual
 

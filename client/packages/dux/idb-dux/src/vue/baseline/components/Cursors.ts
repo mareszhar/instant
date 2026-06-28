@@ -4,7 +4,7 @@ import type { ComputedRef, PropType } from 'vue'
 // `.vue` SFC. Behavior matches the SFC: publish the local cursor on
 // pointer/touch move, render peer cursors from presence.
 import { computed, defineComponent, h, toValue } from 'vue'
-import { usePresence } from '../InstantDuxRoom.js'
+import { usePresence } from '../IdbDuxRoom.js'
 import Cursor from './Cursor.js'
 
 interface CursorPresence {
@@ -16,12 +16,12 @@ interface CursorPresence {
 }
 
 // DUX-DELTA(types): the runtime `room` prop is the loose room handle, not a
-// concrete `InstantDuxRoom`. The official SFC infers `RoomSchema`/`RoomType`
+// concrete `IdbDuxRoom`. The official SFC infers `RoomSchema`/`RoomType`
 // per use; a `.ts` render fn can't express inferring generic props, and a
 // concrete room would reject one read back through Vue/Pinia reactivity (which
 // unwraps its deep `core`/reactor types). `core` is left loose so the handle
 // assigns however it's stored — no `markRaw` ceremony at the call site. It
-// stays assignable *to* `InstantDuxRoom<any, any, any>` for the internal
+// stays assignable *to* `IdbDuxRoom<any, any, any>` for the internal
 // `usePresence` call.
 interface GenericRoom {
   type: ComputedRef<string> | string

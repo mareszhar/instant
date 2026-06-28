@@ -206,7 +206,7 @@ Room shapes are schema-typed from the `rooms` block in `defineSchema` ([root spe
 
 Their props take the **public db** — the overlay client `init`/`defineDb` returns — since that is the only db a user holds (the vision's single public surface). `SignedIn`/`SignedOut` type `db` as the minimal auth-gate surface (anything exposing `useAuth()`), so the overlay client satisfies it without the vendored components reaching up into the overlay layer.
 
-The same restraint applies to `Cursors`' `room` prop: it is the loose room handle, not a concrete `InstantDuxRoom`. A `.ts` render fn can't infer generic props the way the official SFC does, and pinning the prop to a concrete room would reject a room read back through Vue/Pinia reactivity (which unwraps its deep `core`/reactor types) — forcing a `markRaw` at every call site. The loose prop accepts the handle however it is stored, so passing a room straight out of a Pinia store needs no ceremony (locked by a `.test-d.ts`).
+The same restraint applies to `Cursors`' `room` prop: it is the loose room handle, not a concrete `IdbDuxRoom`. A `.ts` render fn can't infer generic props the way the official SFC does, and pinning the prop to a concrete room would reject a room read back through Vue/Pinia reactivity (which unwraps its deep `core`/reactor types) — forcing a `markRaw` at every call site. The loose prop accepts the handle however it is stored, so passing a room straight out of a Pinia store needs no ceremony (locked by a `.test-d.ts`).
 
 ### 7.4 Errors
 
@@ -251,8 +251,8 @@ The floor is forward-compatible with the ceiling by construction: inert server s
 src/vue/
   baseline/          # near-verbatim mirror of @instantdb/vue (deltas fenced)
     UPSTREAM.md      # vendored-from commit stamp
-    InstantDuxDatabase.ts   # the baseline db class + init (DUX-DELTA(ssr) guards)
-    InstantDuxRoom.ts       # room class + hooks
+    IdbDuxDatabase.ts   # the baseline db class + init (DUX-DELTA(ssr) guards)
+    IdbDuxRoom.ts       # room class + hooks
     useInfiniteQuery.ts
     utils.ts                # tryOnScopeDispose + isClient() (the SSR predicate)
     version.ts
@@ -279,7 +279,7 @@ Done when: parity harness green against official `@instantdb/vue`; drift check w
 
 - [x] vendor `@instantdb/vue` sources into `vue/baseline/` (db class, room class, `useInfiniteQuery`, components)
 - [x] apply + fence the SSR-resilience deltas (`DUX-DELTA(ssr)`)
-- [x] apply + fence the remaining deltas (`InstantVue*` → `InstantDux*` rename, the framework version tag, components as `.ts` render fns); the baseline is internal-only and re-exports no deprecated aliases
+- [x] apply + fence the remaining deltas (`InstantVue*` → `IdbDux*` rename, the framework version tag, components as `.ts` render fns); the baseline is internal-only and re-exports no deprecated aliases
 - [x] stamp `baseline/UPSTREAM.md` with the vendored commit
 - [x] wire `scripts/check-baseline-drift.mjs` ([workspace spec](./dux-spec-workspace.md))
 - [x] parity harness: canonical scenarios replayed against official db + baseline, identical reactive output

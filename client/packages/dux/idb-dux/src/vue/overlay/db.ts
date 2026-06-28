@@ -3,7 +3,7 @@ import type { IdbQueryData, IdbQueryOptions, IdbValidQuery } from '../../query/i
 import type { IdbSchema } from '../../schema/defineSchema.js'
 import type { IdbRegisteredSchema } from '../../schema/register.js'
 import type { IdbTx, IdbTxChunkInput } from '../../tx/index.js'
-import type { InstantDuxDatabase } from '../baseline/index.js'
+import type { IdbDuxDatabase } from '../baseline/index.js'
 import type {
   IdbAuthResult,
   IdbAuthUser,
@@ -36,10 +36,10 @@ export class IdbClient<S extends IdbSchema = IdbRegisteredSchema> {
   /** Rooms hooks — stateful ones return the result pattern ([§6]). */
   public readonly rooms = overlayRooms
 
-  readonly #baseline: InstantDuxDatabase<S>
+  readonly #baseline: IdbDuxDatabase<S>
   readonly #schema: IdbSchema
 
-  constructor(baseline: InstantDuxDatabase<S>, schema: IdbSchema | undefined) {
+  constructor(baseline: IdbDuxDatabase<S>, schema: IdbSchema | undefined) {
     this.#baseline = baseline
     this.#schema = shapingSchema(schema)
   }
@@ -65,7 +65,7 @@ export class IdbClient<S extends IdbSchema = IdbRegisteredSchema> {
   getLocalId = (name: string): Promise<string> => this.#baseline.getLocalId(name)
 
   room = ((type?: any, id?: any) => this.#baseline.room(type, id)) as
-    InstantDuxDatabase<S>['room']
+    IdbDuxDatabase<S>['room']
 
   // ----- the data plane -----
 

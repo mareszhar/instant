@@ -10,7 +10,7 @@
 import { InstantVueDatabase } from '@instantdb/vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick } from 'vue'
-import { InstantDuxDatabase } from './InstantDuxDatabase.js'
+import { IdbDuxDatabase } from './IdbDuxDatabase.js'
 
 function createMockCore() {
   let queryCb: ((r: any) => void) | null = null
@@ -68,7 +68,7 @@ function pair() {
   const baseline = createMockCore()
   return {
     official: { db: new InstantVueDatabase(official.core as any), mock: official },
-    baseline: { db: new InstantDuxDatabase(baseline.core as any), mock: baseline },
+    baseline: { db: new IdbDuxDatabase(baseline.core as any), mock: baseline },
   }
 }
 

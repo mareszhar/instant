@@ -3,22 +3,22 @@
 export { SignedIn, SignedOut } from './components/auth.js'
 export { Cursor } from './components/Cursor.js'
 export { Cursors } from './components/Cursors.js'
-export { init, InstantDuxDatabase } from './InstantDuxDatabase.js'
-export type { UseAuthReturn, UseQueryReturn } from './InstantDuxDatabase.js'
+export { IdbDuxDatabase, init } from './IdbDuxDatabase.js'
+export type { UseAuthReturn, UseQueryReturn } from './IdbDuxDatabase.js'
 export {
-  InstantDuxRoom,
+  IdbDuxRoom,
   rooms,
   usePresence,
   usePublishTopic,
   useSyncPresence,
   useTopicEffect,
   useTypingIndicator,
-} from './InstantDuxRoom.js'
+} from './IdbDuxRoom.js'
 export type {
   PresenceHandle,
   TypingIndicatorHandle,
   TypingIndicatorOpts,
-} from './InstantDuxRoom.js'
+} from './IdbDuxRoom.js'
 export { useInfiniteQuery } from './useInfiniteQuery.js'
 export type { InfiniteQueryResult } from './useInfiniteQuery.js'
 export { isClient, tryOnScopeDispose } from './utils.js'

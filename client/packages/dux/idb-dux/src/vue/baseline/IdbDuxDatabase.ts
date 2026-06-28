@@ -1,5 +1,5 @@
 // Vendored from @instantdb/vue/src/InstantVueDatabase.ts — see UPSTREAM.md.
-// Deltas: class rename (InstantVueDatabase → InstantDuxDatabase), the SSR
+// Deltas: class rename (InstantVueDatabase → IdbDuxDatabase), the SSR
 // floor guards on every reactive hook, and the framework version tag.
 import type {
   Auth,
@@ -30,7 +30,7 @@ import {
   weakHash,
 } from '@instantdb/core'
 import { computed, ref, shallowRef, toValue, watch } from 'vue'
-import { InstantDuxRoom, rooms } from './InstantDuxRoom.js'
+import { IdbDuxRoom, rooms } from './IdbDuxRoom.js'
 import { useInfiniteQuery } from './useInfiniteQuery.js'
 import { isClient, tryOnScopeDispose } from './utils.js'
 import version from './version.js'
@@ -55,7 +55,7 @@ export interface UseAuthReturn {
   error: ShallowRef<{ message: string } | undefined>
 }
 
-export class InstantDuxDatabase<
+export class IdbDuxDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
   UseDates extends boolean = false,
   Rooms extends RoomSchemaShape = RoomsOf<Schema>,
@@ -264,7 +264,7 @@ export class InstantDuxDatabase<
       () => (toValue(type) ?? '_defaultRoomType') as RoomType,
     )
     const _id = computed(() => toValue(id) ?? '_defaultRoomId')
-    return new InstantDuxRoom<Schema, Rooms, RoomType>(this.core, _type, _id)
+    return new IdbDuxRoom<Schema, Rooms, RoomType>(this.core, _type, _id)
   }
 
   rooms = rooms
@@ -280,9 +280,9 @@ export function init<
   config: Omit<InstantConfig<Schema, UseDates>, 'useDateObjects'> & {
     useDateObjects?: UseDates
   },
-): InstantDuxDatabase<Schema, UseDates> {
+): IdbDuxDatabase<Schema, UseDates> {
   const coreDb = core_init<Schema, UseDates>(config, undefined, undefined, {
     '@mszr/idb-dux': version,
   })
-  return new InstantDuxDatabase<Schema, UseDates>(coreDb)
+  return new IdbDuxDatabase<Schema, UseDates>(coreDb)
 }
