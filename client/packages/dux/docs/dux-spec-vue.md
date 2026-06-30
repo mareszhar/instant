@@ -51,7 +51,7 @@ The enhanced behavior is the only public surface. All hooks are SSR-resilient; a
 | `IdbRooms`, `IdbRoomPresence<'room'>`, `IdbRoomTopics<'room'>` | room type extractors, re-exported from the root ([§6](#6-rooms)) |
 | `id`, `lookup` | re-exports keep their official names |
 
-Deprecated official type aliases are not re-exported. `createInstantRouteHandler` is a *server* route handler — it lives on the server planes (`/admin`, `/nuxt`), not on the client surface ([dux-spec-nuxt.md §3](./dux-spec-nuxt.md#3-defineauthsynchandler)); plane separation keeps it off `/vue`.
+Deprecated official type aliases are not re-exported. `createInstantRouteHandler` is a *server* route handler — it lives on the server planes (`/admin`, `/server`), not on the client surface ([dux-spec-server.md §5](./dux-spec-server.md#5-defineauthsynchandler)); plane separation keeps it off `/vue`.
 
 ---
 
@@ -61,7 +61,7 @@ Deprecated official type aliases are not re-exported. `createInstantRouteHandler
 
 `init(config)` builds the db eagerly, for apps whose config is available at module load. But app IDs often resolve at runtime (framework runtime config, environment indirection) — that pattern deserves first-class support instead of a hand-rolled lazy-init-and-memoize dance in every app:
 
-```ts
+```TS
 import { defineDb } from '@mszr/idb-dux/vue'
 
 export const useDb = defineDb({
@@ -88,7 +88,7 @@ Reactive results must serve three reading styles without ceremony, all views ove
 - **`.refs`** for composable passthrough,
 - **`.state`** for `.value`-free script reads.
 
-```ts
+```TS
 // state is most useful as a renamed scope:
 const { state: auth } = db.useAuth()
 const userLabel = computed(() => auth.user?.email ?? 'guest') // no .value
@@ -119,7 +119,7 @@ The static fields a query result spreads beside its data — `isLoading`, `error
 
 `state` objects are `markRaw` plain objects with getter properties over the underlying refs. Pinia does not treat them as hydratable; writing to a `state` property fails at the property level; Vue effects track correctly through the getters because each getter reads a reactive source. No user configuration needed.
 
-```ts
+```TS
 export const useIdb = defineStore('idb', () => {
   const db = useDb()
   const { state: auth } = db.useAuth()
@@ -136,7 +136,7 @@ export const useIdb = defineStore('idb', () => {
 
 Query results arrive ready to use — destructure top-level scopes directly, no unwrapping:
 
-```ts
+```TS
 const { workspace, todos } = db.useQuery({
   workspaces: { $: { where: { id: workspaceId }, $only } }, // Ref<Workspace | undefined>
   todos: {}, // Ref<Todo[]>
@@ -148,7 +148,7 @@ All shaping (`$only`/`$at`/`$as`/`$m`, array normalization, singularization) and
 
 **Reactive inputs.** Queries accept plain objects, `MaybeRefOrGetter`s, and factories. A factory returning `null` pauses the subscription — combined with `$skip` for dropping individual clauses, conditional data flows read top-to-bottom:
 
-```ts
+```TS
 export const useTasks = defineStore('tasks', () => {
   const { db, auth } = useIdb()
   const workspaces = useWorkspaces()
@@ -234,7 +234,7 @@ The floor is forward-compatible with the ceiling by construction: inert server s
 
 - **Permitted deltas, exhaustively:** (1) SSR-resilience guards, (2) tighter types / dropped deprecated aliases, (3) overlay wiring. Every delta is fenced:
 
-  ```ts
+  ```TS
   // DUX-DELTA(ssr): inert guard so the hook doesn't crash on server.
   if (!isClient())
     return inertQueryState()

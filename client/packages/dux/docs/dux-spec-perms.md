@@ -49,7 +49,7 @@ Details: [§14 Phased implementation roadmap](#14-phased-implementation-roadmap)
 
 ## 2. Package surface and entrypoints
 
-```ts
+```TS
 import { definePerms } from '@mszr/idb-dux/perms'
 ```
 
@@ -59,7 +59,7 @@ import { definePerms } from '@mszr/idb-dux/perms'
 
 With the schema registered ([conventions §7](./dux-conventions.md#7-schema-registration)), no generic is needed. Use this when the schema value isn't available or only TypeScript validation is wanted:
 
-```ts
+```TS
 import { definePerms } from '@mszr/idb-dux/perms'
 
 export default definePerms() // registered schema; definePerms<OtherSchema>() for explicit
@@ -76,7 +76,7 @@ export default definePerms() // registered schema; definePerms<OtherSchema>() fo
 
 ### Runtime schema (preferred)
 
-```ts
+```TS
 import { definePerms } from '@mszr/idb-dux/perms'
 import { schema } from './instant.schema'
 
@@ -95,7 +95,7 @@ export default definePerms(schema)
 
 ## 3. Authoring shape
 
-```ts
+```TS
 export default definePerms(schema)
   .attrs(a => a.allow({ create: false }))
   .defaults(d => d
@@ -146,7 +146,7 @@ ns
 
 `stage` creates **authoring-local** values. They are not emitted into the final object unless referenced by a bind, allow rule, field rule, or another emitted expression.
 
-```ts
+```TS
 workspaces: ns => ns
   .stage(({ rp, e }) => ({
     inviteCode: rp('inviteCode'),
@@ -167,7 +167,7 @@ workspaces: ns => ns
 
 `bind` creates **emitted** InstantDB bind aliases.
 
-```ts
+```TS
 tasks: ns => ns
   .bind(({ auth, er }) => ({
     isSignedIn: auth.id.neq(null),
@@ -277,7 +277,7 @@ Why link/unlink sometimes need a nested context:
 
 Field-level rules are a sibling builder step rather than hidden inside `allow`.
 
-```ts
+```TS
 $users: ns => ns
   .bind(({ auth, e, er }) => ({
     isSelf: auth.id.eq(e.id),
@@ -301,7 +301,7 @@ Field keys autocomplete from the namespace's fields, excluding `id` if Instant k
 
 `attrs` controls whether new namespaces and attributes can be created on the fly.
 
-```ts
+```TS
 definePerms(schema)
   .attrs(attrs => attrs.allow({ create: false }))
   .compile()
@@ -315,7 +315,7 @@ definePerms(schema)
 
 `defaults` maps to the top-level `$default` namespace.
 
-```ts
+```TS
 definePerms(schema)
   .defaults(d => d
     .bind(({ auth }) => ({
@@ -389,7 +389,7 @@ The API avoids collisions between fields and helper methods.
 
 ### Direct field access
 
-```ts
+```TS
 ctx.entity.title.eq('hello')
 ctx.e.title.eq('hello')
 ctx.entityUpdated.title.neq(ctx.entity.title)
@@ -402,7 +402,7 @@ Direct access autocompletes from the relevant namespace's fields.
 
 ### String field access
 
-```ts
+```TS
 ctx.entityField('title')
 ctx.ef('title')
 ctx.entityUpdatedField('title')
@@ -419,7 +419,7 @@ Use this when:
 
 ### Linked ref access
 
-```ts
+```TS
 ctx.entityRef('workspace.memberships.user.id')
 ctx.er('workspace.memberships.user.id')
 ctx.entityLinkedRef('profile.id')
@@ -439,7 +439,7 @@ Rules:
 
 This avoids the field-named-`ref` collision:
 
-```ts
+```TS
 ctx.entity.ref.eq('abc') // a field literally named "ref"
 ctx.entityRef('owner.id') // CEL data.ref('owner.id')
 ```
@@ -450,7 +450,7 @@ Expressions support both fluent and functional composition.
 
 ### Fluent methods
 
-```ts
+```TS
 auth.id.neq(null)
 e.title.eq('hello')
 e.createdAt.lt(req.time)
@@ -466,7 +466,7 @@ String-like methods: `.startsWith(value)` `.endsWith(value)` `.includes(value)` 
 
 `entityRef`, `authRef`, `entityLinkedRef`, and list-like attrs return list expressions.
 
-```ts
+```TS
 er('memberships.user.id').contains(auth.id)
 er('memberships.user.id').isEmpty()
 er('memberships.user.id').isNonEmpty()
@@ -486,13 +486,13 @@ List methods:
 
 Example with a JSON-array terminal attribute:
 
-```ts
+```TS
 er('ownedRole.types').some(types => types.contains('admin'))
 ```
 
 This is intentionally different from:
 
-```ts
+```TS
 er('ownedRole.types').contains('admin')
 ```
 
@@ -540,7 +540,7 @@ Raw CEL should be explicit.
 
 A **runtime enum** ([dux-spec-root.md §2.6](./dux-spec-root.md#26-enum-fields)) declares its allowed values in the schema. `.conforms()` enforces that a field's value is one of them — reading the values from the schema so they are declared once, not retyped in the rule. It is the DRY bridge between the schema declaration and perms; the declaration never enforces on its own, so this is where membership becomes a rule.
 
-```ts
+```TS
 tasks: ns => ns.allow({
   create: ({ b, eu }) => b.isMember.and(eu.priority.conforms()),
   update: ({ eu }) => eu.priority.conforms(),
@@ -567,7 +567,7 @@ When aliasing action-specific logic is needed, use action-specific forms.
 
 Action-specific staged values:
 
-```ts
+```TS
 posts: ns => ns
   .stageFor('update', ({ e, eu }) => ({
     titleChanged: eu.title.neq(e.title),
@@ -579,7 +579,7 @@ posts: ns => ns
 
 Action-specific binds:
 
-```ts
+```TS
 posts: ns => ns
   .bind(({ auth, e }) => ({
     isOwner: auth.id.eq(e.ownerId),
@@ -594,7 +594,7 @@ posts: ns => ns
 
 For link/unlink:
 
-```ts
+```TS
 memberships: ns => ns
   .bindFor('link', 'user', ({ auth, el }) => ({
     linksSelf: el.id.eq(auth.id),
@@ -655,7 +655,7 @@ The official rules shape supports `$rateLimits`. The authoring API exposes both 
 
 Configuration:
 
-```ts
+```TS
 definePerms(schema)
   .rateLimits({
     createTask: {
@@ -707,7 +707,7 @@ rateLimit.createTask.limit(auth.id)
 
 Invalid usage fails at the cursor (principle 3):
 
-```ts
+```TS
 allow({
   view: ({ eu }) => eu.title.eq('x'),
   //      ^^ entityUpdated is not available in view
@@ -733,7 +733,7 @@ allow({
 
 The canonical app shape: users, workspaces, memberships, and tasks.
 
-```ts
+```TS
 import { definePerms } from '@mszr/idb-dux/perms'
 import { schema } from './instant.schema'
 
@@ -844,7 +844,7 @@ Expected output shape:
 
 Each helper returns a small immutable expression node:
 
-```ts
+```TS
 interface Expr<T> {
   kind: string
   type: T

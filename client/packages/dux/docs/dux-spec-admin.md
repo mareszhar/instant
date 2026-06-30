@@ -32,7 +32,7 @@ Details: [§7 Phased implementation roadmap](#7-phased-implementation-roadmap).
 
 The **full official admin surface** is covered — every method has a decided treatment ([§6](#6-treatments-and-renames)); nothing official is reachable only by abandoning dux. The whole subpath is **wrap-and-map**: `@instantdb/admin` stays an external optional peer; dux instantiates and composes its objects; renames live in the boundary module.
 
-```ts
+```TS
 import { init } from '@mszr/idb-dux/admin'
 
 const adminDb = init({ appId, adminToken, schema })
@@ -54,7 +54,7 @@ The server reads the same way the client does — **one data plane, shaped once*
 
 - **`query(q, opts?)`** — the primary read owns the bare name ([conventions §4](./dux-conventions.md#4-the-primary-read-rule)). Applies the full shaping contract from the [root spec](./dux-spec-root.md#4-result-shaping): array normalization, `$only`/`$at`/`$as`/`$m`, singularization. `opts` carries schema-typed `ruleParams`.
 
-  ```ts
+  ```TS
   const { workspace } = await adminDb.query(q({
     workspaces: { $: { where: { id: workspaceId }, $only } },
   }))
@@ -74,7 +74,7 @@ Admin returns **plain shaped data** — the `-Data/-State/-Refs` result pattern 
 ## 5. `asUser` and the pass-throughs
 
 - **`asUser({ email | token | guest })`** — returns the same dux admin db, permission-scoped. Everything above stays dux-shaped *by construction*, because the scoped db is built from the same composition.
-- **`auth.*`** — pass-through: `createToken`, `verifyToken`, the magic-code quartet (`generateMagicCode` is the custom-email hook), `deleteUser`, `signOut`, `getUserFromRequest` keep official verbs. `getUserFromRequest` reads the official full-user cookie; the dux-native server-auth path is `/nuxt`'s kit with its token-only cookie ([dux-spec-nuxt.md](./dux-spec-nuxt.md)).
+- **`auth.*`** — pass-through: `createToken`, `verifyToken`, the magic-code quartet (`generateMagicCode` is the custom-email hook), `deleteUser`, `signOut`, `getUserFromRequest` keep official verbs. `getUserFromRequest` reads the official full-user cookie; the dux-native server-auth path is `/server`'s kit with its token-only cookie ([dux-spec-server.md](./dux-spec-server.md)).
 - **`storage.*` / `streams.*` / `rooms.getPresence`** — pass-through verbs, renamed types (`IdbStorage*`, `IdbStream*`, room presence via `IdbRoom*`). Official `@instantdb/resumable-stream` works with a dux `adminDb` — a tested compatibility target, not a wrap.
 - **`webhooks`** — the `/webhooks` surface ([dux-spec-webhooks.md](./dux-spec-webhooks.md)), admin-token wired: `adminDb.webhooks.manager.create({ url, namespaces: ['tasks'], actions: ['create'] })`.
 

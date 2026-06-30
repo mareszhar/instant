@@ -32,14 +32,16 @@ npm install @mszr/idb-dux
 npm install vue                          # for /vue
 npm install @instantdb/admin             # for /admin
 npm install @instantdb/webhooks          # for /webhooks
-npm install @instantdb/admin @instantdb/webhooks h3   # for /nuxt
+npm install @instantdb/admin @instantdb/webhooks       # for /server
+npm install @instantdb/admin @instantdb/webhooks h3    # + the /h3 (or /h3-v1) adapter
+# swap h3 for hono or elysia to use those adapters instead
 ```
 
 The root and `/perms` need no peers.
 
 ## The shape
 
-One package, six entrypoints. The root is the framework-agnostic foundation; everything else is a thin overlay on it.
+One package, one framework-agnostic root, and thin overlays on it — including a server plane that works the same whether you reach for h3, Hono, or Elysia.
 
 | Entrypoint | What it is |
 |---|---|
@@ -48,9 +50,10 @@ One package, six entrypoints. The root is the framework-agnostic foundation; eve
 | `@mszr/idb-dux/admin` | the full server surface over `@instantdb/admin` |
 | `@mszr/idb-dux/webhooks` | webhook handling + management — admin-free by design |
 | `@mszr/idb-dux/vue` | the Vue client: `init`, `defineDb`, the enhanced db, components — SSR-resilient by default |
-| `@mszr/idb-dux/nuxt` | utils for nuxt server: `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler` |
+| `@mszr/idb-dux/server` | the server plane's framework-agnostic core + adapter port: `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler` |
+| `@mszr/idb-dux/h3-v1` · `/h3` · `/hono` · `/elysia` | thin adapters — the same three utilities, native to your framework (`/h3` covers h3 v2, Nitro 3, and h3-dux) |
 
-`sideEffects: false` and disjoint module graphs mean a Vue-only app pays zero bytes for the server planes, and a webhook-only worker installs nothing from the Vue stack. Subpath-only dependencies (`vue`, `h3`, `@instantdb/admin`, `@instantdb/webhooks`) are optional peers — you install only what your entrypoints need.
+`sideEffects: false` and disjoint module graphs mean a Vue-only app pays zero bytes for the server planes, and a webhook-only worker installs nothing from the Vue stack. Subpath-only dependencies (`vue`, `h3`, `hono`, `elysia`, `@instantdb/admin`, `@instantdb/webhooks`) are optional peers — you install only what your entrypoints need.
 
 ## A taste
 

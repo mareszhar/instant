@@ -21,7 +21,7 @@ This is the hub. It holds the philosophy, the design principles, the scope edge,
 
 ## 1. What dux is
 
-`@mszr/idb-dux` is one package with six entrypoints: a framework-agnostic foundation at the root, and five thin overlays — `/vue`, `/perms`, `/admin`, `/webhooks`, `/nuxt` — each delightful on its own terms.
+`@mszr/idb-dux` is one package: a framework-agnostic foundation at the root, the overlays `/vue`, `/perms`, `/admin`, `/webhooks`, and a server plane — a framework-agnostic core `/server` with thin adapters `/h3-v1`, `/h3`, `/hono`, `/elysia`. Each entrypoint is delightful on its own terms.
 
 ### 1.1 The organizing insight: two planes
 
@@ -98,7 +98,7 @@ And dux-only behaviors are optimized as first-class features, not conveniences: 
 
 ### 9. Plane separation is load-bearing
 
-The framework-agnostic layers never import a framework; only `/vue` may import `vue`, only `/nuxt` may import `h3`. Enforced by lint ([§4.3](#43-boundaries-are-lint-rules)), not discipline. The agnostic plane — authoring *and* the server surfaces — is most of the garden.
+The framework-agnostic layers never import a framework; only `/vue` may import `vue`, and only the server adapters (`/h3-v1`, `/h3`, `/hono`, `/elysia`) may import their framework — `/server` itself imports none. Enforced by lint ([§4.3](#43-boundaries-are-lint-rules)), not discipline. The agnostic plane — authoring *and* the server surfaces — is most of the garden.
 
 ### 10. The baseline is a mirror, not a fork
 
@@ -153,7 +153,7 @@ dux is a walled garden, and a garden's wall is a promise: **opting in must never
 | App teams | dashboard feature — no client/server SDK surface exists to reimagine (`getOrgs` ships with the deferred platform track) |
 | Storage | client `db.storage` + `/admin` `storage` — *considered* pass-throughs: official verbs kept, types renamed |
 | Streams | client `db.streams` + `/admin` `streams` pass-through; `resumable-stream` compat-tested |
-| Webhooks | **`/webhooks`** + `adminDb.webhooks` + `/nuxt` `defineWebhookHandler` |
+| Webhooks | **`/webhooks`** + `adminDb.webhooks` + `/server` `defineWebhookHandler` |
 | Stripe Payments | backend/dashboard feature; its `$`-namespaces flow through the ordinary data plane like any namespace |
 | Admin HTTP API | `/admin` is its typed face; raw HTTP remains for other stacks |
 | (Experimental) Next.js SSR | the SSR ceiling — gated on upstream stability ([§7](#7-deferred-intentions)) |
@@ -162,7 +162,7 @@ dux is a walled garden, and a garden's wall is a promise: **opting in must never
 
 - **It is the textbook case for dux's thesis.** The official types are schema-aware but charge the schema generic at every call site (`WebhookEntity<Schema, NS>`, `WebhookHandlers<Schema>`) — exactly the repetition schema registration erases. And the official authoring path routes through `typedHandlers`/`combineHandlers` helpers; dux's `defineWebhookHandlers` gets full per-change narrowing on a *plain object literal* (contextual typing), so the helpers dissolve.
 - **One mental model, literally one type.** A webhook change's `before`/`after` **is** `IdbEntity<'ns'>` — verified: official `WebhookEntity` resolves to id + fields with no links, exactly `IdbEntity`'s shape. A webhook handler and a query reading the same namespace see the same entity type.
-- **It's a subpath, not an `/admin` feature, for dependency isolation.** *Handling* webhooks (verify signature → fetch payload → dispatch) needs no admin token and no `@instantdb/admin` — verification uses Instant's public JWKS, and payload fetches use the token the webhook body carries. A worker that only receives webhooks installs the `@instantdb/webhooks` peer and nothing else. *Management* (`webhooks.manager`) needs the token; `/admin` wires it and exposes the same surface at `adminDb.webhooks`. `/nuxt` adds only the h3 glue; all verification mechanics stay in `/webhooks`.
+- **It's a subpath, not an `/admin` feature, for dependency isolation.** *Handling* webhooks (verify signature → fetch payload → dispatch) needs no admin token and no `@instantdb/admin` — verification uses Instant's public JWKS, and payload fetches use the token the webhook body carries. A worker that only receives webhooks installs the `@instantdb/webhooks` peer and nothing else. *Management* (`webhooks.manager`) needs the token; `/admin` wires it and exposes the same surface at `adminDb.webhooks`. The server adapters add only the route glue; all verification mechanics stay in `/webhooks`.
 
 ### 3.4 Why `/platform` is deferred (and what's true meanwhile)
 
@@ -190,8 +190,13 @@ The naming contract already reserves the domains this track will need: `IdbPlatf
 @mszr/idb-dux/admin     the full admin surface; owns @instantdb/admin (optional peer)
 @mszr/idb-dux/webhooks  webhook handling + management; owns @instantdb/webhooks
                         (optional peer); admin-free by design
-@mszr/idb-dux/nuxt      defineServerKit, defineAuthSyncHandler, defineWebhookHandler
-                        (optional peers admin + webhooks + h3)
+@mszr/idb-dux/server    the server plane's framework-agnostic core + adapter port:
+                        defineServerKit, defineAuthSyncHandler, defineWebhookHandler
+                        (optional peers admin + webhooks; no framework peer)
+@mszr/idb-dux/h3-v1     h3 v1 adapter — Nuxt 4 / Nitro 2          (peer h3@^1.15)
+@mszr/idb-dux/h3        h3 v2 adapter — standalone / Nitro 3 / h3-dux (peer h3@^2)
+@mszr/idb-dux/hono      Hono adapter                              (peer hono@^4)
+@mszr/idb-dux/elysia    Elysia adapter                            (peer elysia@^1)
 ```
 
 **The root is not empty — it is the framework-agnostic plane.** The schema file, the shared `q`, the entity type utilities are framework-neutral and cross the client/server boundary: both client stores and server routes import them. They belong at the root so neither side has to reach into `/vue` or `/admin` to get them. (`/query` is deliberately not its own subpath: `q`/`defineQuery` and the type utilities are the shared authoring foundation — they live at the root with schema. Keep the subpath count minimal; every subpath is a maintenance and docs surface.)
@@ -229,11 +234,15 @@ Everything flows outward from schema. Inner layers never import outer layers.
                              adminDb.webhooks             │
                                  │                        │
                                  ▼                        ▼
-                               nuxt  ← h3/nitro glue: defineServerKit, defineAuthSyncHandler,
-                                       defineWebhookHandler (peers: admin + webhooks + h3)
+                            server  ← framework-agnostic glue: defineServerKit,
+                                       defineAuthSyncHandler, defineWebhookHandler
+                                       (peers: admin + webhooks; no framework)
+                                 │
+                                 ▼
+                  h3-v1 · h3 · hono · elysia  ← thin adapters; each imports one framework
 ```
 
-Read it as **three groups**: the *authoring plane* (schema, query·tx, perms — universal: importable anywhere, no secrets, no framework), the *server plane* (webhooks, admin — still framework-agnostic, but token/crypto-scoped and never bundled client-side), and the *framework overlays* (vue for the client, nuxt for the server — the only two places a framework may be imported). The server plane is a subdivision *within* the agnostic plane, surfaced because the boundary rules need the finer grain.
+Read it as **three groups**: the *authoring plane* (schema, query·tx, perms — universal: importable anywhere, no secrets, no framework), the *server plane* (webhooks, admin, and `/server` — still framework-agnostic, but token/crypto-scoped and never bundled client-side), and the *framework overlays* (`/vue` for the client, the server adapters for the server — the only places a framework may be imported). The server plane is a subdivision *within* the agnostic plane, surfaced because the boundary rules need the finer grain.
 
 The DRY wins all come from query and schema being shared, not re-derived per surface:
 
@@ -252,13 +261,13 @@ Plane separation is a *rule the linter checks*, not a habit. The workspace ESLin
 
 ### 4.4 Bundle size and dependency stance
 
-For client bundle size, subpaths are entirely sufficient — a Vue-only user pays zero bytes for admin/webhooks/nuxt, and a webhook-only worker pays zero bytes for Vue/admin/nuxt. Three mechanisms stack:
+For client bundle size, subpaths are entirely sufficient — a Vue-only user pays zero bytes for admin/webhooks/server, and a webhook-only worker pays zero bytes for Vue/admin/server. Three mechanisms stack:
 
 1. **Disjoint module graphs.** Separate entry points: if a client module never imports `/admin`, its code never enters the graph.
 2. **`sideEffects: false`.** Lets bundlers drop any imported-but-unused module instead of conservatively keeping it. (No upstream idb package sets it today — a real, free improvement.)
 3. **ESM + named exports.** Everything Rollup/Vite/esbuild need for complete dead-code elimination.
 
-What subpaths do *not* solve, optional peers do: peer dependencies are package-level, not subpath-level. Every subpath-only dependency — `vue`, `h3`, `@instantdb/admin`, `@instantdb/webhooks` — is an optional peer (`peerDependenciesMeta.optional`). A root-only user is never asked for Vue; a webhook-only worker installs `@instantdb/webhooks` and nothing from the Vue/admin/Nuxt stack.
+What subpaths do *not* solve, optional peers do: peer dependencies are package-level, not subpath-level. Every subpath-only dependency — `vue`, `h3`, `hono`, `elysia`, `@instantdb/admin`, `@instantdb/webhooks` — is an optional peer (`peerDependenciesMeta.optional`). A root-only user is never asked for Vue; a webhook-only worker installs `@instantdb/webhooks` and nothing from the Vue/admin/server stack. (The `h3` peer spans `^1.15 || ^2`; the `/h3-v1` and `/h3` subpaths are import-isolated, so an app resolves only the major it installed.)
 
 **The peer rule, stated once:** needed by every dux user → dependency (`@instantdb/core`, `@instantdb/version`); needed only by a subpath → optional peer.
 
@@ -272,7 +281,7 @@ Hold at one package until a **forcing function** appears (the `react-common` pre
 |---|---|
 | A second client overlay ships (`/react`, `/solid`) that needs the agnostic core | Promote `schema` + `query` to an internal core package |
 | Perms' TS machinery measurably slows the editor for vue-only users | Split `@mszr/idb-dux-perms` |
-| `/nuxt` needs to version independently of the client | Split `@mszr/idb-dux-nuxt` |
+| `/server` (or an adapter) needs to version independently of the client | Split `@mszr/idb-dux-server` |
 
 Because the source is already layered with lint-enforced seams, each split is *move a folder + add a `package.json` + repoint imports* — mechanical, hours not weeks. That reversibility is the foresight. The deferred platform track, if it lands, is the likeliest first candidate to be *born* as its own package — it serves a different audience on a different cadence.
 
@@ -289,7 +298,7 @@ Every surface declares its tier before it ships (principle 11):
 | | **vendor-and-mark** | **wrap-and-map** |
 |---|---|---|
 | When | internal behavioral deltas are required | composition over the public surface suffices |
-| Used by | `/vue` baseline | `/admin`, `/webhooks`, `/nuxt` |
+| Used by | `/vue` baseline | `/admin`, `/webhooks`, `/server` + adapters |
 | The official code | copied into `vue/baseline/`, deltas fenced and labelled | stays an external package (optional peer); dux instantiates and composes its objects |
 | Renames live in | fenced deltas | the boundary module — type aliases + thin functions, zero forked internals |
 | Drift visibility | `check-baseline-drift` + `UPSTREAM.md` vendor stamp | upstream API changes break the wrap points *loudly at typecheck* (the workspace dependency moves in place on fork rebase); parity/dx suites lock the mapped behavior |
@@ -302,7 +311,7 @@ A third category — **compatibility targets** — covers official tools dux doe
 
 `/vue`'s `baseline/` is a near-verbatim copy of `@instantdb/vue`. The *only* permitted deltas: (1) SSR-resilience guards, (2) tighter types / dropped deprecated aliases, (3) wiring into the overlay. Every delta is fenced and labelled:
 
-```ts
+```TS
 // DUX-DELTA(ssr): inert guard so the hook doesn't crash on server.
 if (!isClient())
   return inertQueryState()
@@ -360,7 +369,7 @@ Sequenced so each step is independently testable and nothing depends on a surfac
 | 4. Vue overlay | `useQuery` & friends via `shapeResult`; refs+state; `defineDb`; components | [vue](./dux-spec-vue.md) | ☑ complete |
 | 5. Webhooks | optional-config `init`, `defineWebhookHandlers`, `IdbWebhook*` types | [webhooks](./dux-spec-webhooks.md) | ☑ complete |
 | 6. Admin | owned `init`, shaped `query`/`subscribeQuery`, typed tx/debug, `asUser`, pass-throughs, `adminDb.webhooks` | [admin](./dux-spec-admin.md) | ☑ complete |
-| 7. Nuxt | `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler` | [nuxt](./dux-spec-nuxt.md) | ☑ complete |
+| 7. Server | `/server` core + adapter port; `/h3-v1`, `/h3`, `/hono`, `/elysia`: `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler` | [server](./dux-spec-server.md) | ☐ redesign (shipped as `/nuxt`) |
 | 8. Perms | the `definePerms` pipeline | [perms](./dux-spec-perms.md) | ☑ complete |
 | 9. Demo + lock | one Nuxt demo exercising the five interactively-demoable entrypoints (`/webhooks` guaranteed by suites, not demoed — [workspace §7.2](./dux-spec-workspace.md#72-webhooks-the-documented-exception)); CI wiring | [workspace](./dux-spec-workspace.md) | ☑ complete |
 | 10. SSR hydration | server results serialized → client cache hydrated before subscriptions | [vue](./dux-spec-vue.md) | ☐ gated on upstream |
@@ -382,7 +391,7 @@ One hub (this doc), one cross-cutting law, one spec per entrypoint, one maintain
 | [dux-spec-perms.md](./dux-spec-perms.md) | `/perms`: the `definePerms` pipeline |
 | [dux-spec-admin.md](./dux-spec-admin.md) | `/admin`: shaped query + subscribeQuery, typed tx + debug, `asUser`, pass-throughs, `adminDb.webhooks` |
 | [dux-spec-webhooks.md](./dux-spec-webhooks.md) | `/webhooks`: init, `defineWebhookHandlers`, the pipeline verbs, manager, `IdbWebhook*` types |
-| [dux-spec-nuxt.md](./dux-spec-nuxt.md) | `/nuxt`: server kit, auth sync, `defineWebhookHandler` |
+| [dux-spec-server.md](./dux-spec-server.md) | `/server` + adapters (`/h3-v1`, `/h3`, `/hono`, `/elysia`): server kit, auth sync, `defineWebhookHandler`, cross-platform transport |
 | [dux-spec-workspace.md](./dux-spec-workspace.md) | maintainer manual: testing methodology, sustainability tiers, boundary rules, drift check, publishing, fork-rebase |
 
 Every spec keeps an **implementation status** table at the top and a **phased implementation roadmap** at the end; the status table tracks phases, the roadmap tracks each phase's deliverables. Specs are **contract-driven**: they state the desired behavior and why it matters first, then propose a concrete implementation approach. The approach is a thoughtful proposal, not a requirement — if reality teaches a better way to honor the contract, the implementation moves and the spec's proposal is corrected; the contracts headlining it remain.

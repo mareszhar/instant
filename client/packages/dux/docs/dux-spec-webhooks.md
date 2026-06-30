@@ -32,7 +32,7 @@ Details: [§8 Phased implementation roadmap](#8-phased-implementation-roadmap).
 
 `/webhooks` is its own subpath — not an `/admin` feature — for **dependency isolation**: *handling* webhooks (verify signature → fetch payload → dispatch) needs no admin token and no `@instantdb/admin`. Signature verification uses Instant's public JWKS; payload fetches use the token the webhook body carries. A worker that only receives webhooks installs the `@instantdb/webhooks` optional peer and nothing else.
 
-*Management* (`manager`) does need the token; `/admin` wires it and exposes the same surface at `adminDb.webhooks` ([dux-spec-admin.md](./dux-spec-admin.md)). `/nuxt` adds only the route glue ([dux-spec-nuxt.md](./dux-spec-nuxt.md)); all verification mechanics stay here.
+*Management* (`manager`) does need the token; `/admin` wires it and exposes the same surface at `adminDb.webhooks` ([dux-spec-admin.md](./dux-spec-admin.md)). The server adapters add only the route glue ([dux-spec-server.md](./dux-spec-server.md)); all verification mechanics stay here.
 
 The whole surface is **wrap-and-map** over `@instantdb/webhooks`: composition over its public surface, renames at the boundary module, zero forked internals.
 
@@ -44,7 +44,7 @@ A **webhook** delivers **payloads** of **changes** ([conventions §1](./dux-conv
 
 ## 3. `init(config?)`
 
-```ts
+```TS
 import { init } from '@mszr/idb-dux/webhooks'
 
 const webhooks = init()
@@ -67,7 +67,7 @@ Payload and handler types flow from schema registration — registration supplie
 
 Authoring handlers is a **plain object literal** with full per-change narrowing — no helper functions, no schema generics at the call site:
 
-```ts
+```TS
 import { defineWebhookHandlers } from '@mszr/idb-dux/webhooks'
 
 export const handlers = defineWebhookHandlers({
@@ -115,7 +115,7 @@ The verbs are renamed from the official surface where the official name is inacc
 
 Subscription CRUD + delivery-event inspection. **Every method name kept verbatim** — already precise: `list`, `create`, `update`, `delete`, `enable`, `disable`, `listEvents`, `getEvent`, `getPayload`, `resendEvent`.
 
-```ts
+```TS
 const webhooks = init({ appId, adminToken })
 await webhooks.manager.create({ url, namespaces: ['tasks'], actions: ['create'] })
 ```
