@@ -1,16 +1,15 @@
 import type { AppSchema } from '@test'
 /**
- * Type-shape plane for `/nuxt`: the kit's keys narrow per mode, so a route
+ * Type-shape plane for `/h3-v1`: the kit's keys narrow per mode, so a route
  * declares its auth strictness and the types follow — no manual narrowing,
- * `userDb` only where asked.
+ * `userDb` only where asked. The factory is typed to `H3Event`.
  */
 import type { H3Event } from 'h3'
-import type { IdbAdminClient, IdbAuthUser } from '../admin/index.js'
-import type { IdbServerKitFactory } from './types.js'
+import type { IdbAdminClient, IdbAuthUser, IdbServerKitFactory } from '../server/index.js'
 import { describe, expectTypeOf, it } from 'vitest'
 
 declare const event: H3Event
-declare const useKit: IdbServerKitFactory<AppSchema>
+declare const useKit: IdbServerKitFactory<AppSchema, H3Event>
 
 describe('server kit — mode-narrowed keys', () => {
   it('no mode yields just the admin db', async () => {

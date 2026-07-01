@@ -11,12 +11,12 @@ Conventions: [dux-conventions.md](./dux-conventions.md) · Principles: [dux-visi
 
 | Phase | Scope | Status |
 |---|---|---|
-| S1 | `/server` core + the adapter port; request-scoped state | ☐ planned |
-| S2 | `/h3-v1` adapter (Nuxt 4 / Nitro 2; replaces `/nuxt`) | ☐ planned |
-| S3 | `/h3` adapter (h3 v2 / Nitro 3 / **h3-dux**) | ☐ planned |
-| S4 | `tokenFrom` transports: cookie · bearer · cookieOrBearer · custom | ☐ planned |
-| S5 | `/hono` adapter | ☐ planned |
-| S6 | `/elysia` adapter | ☐ planned |
+| S1 | `/server` core + the adapter port; request-scoped state | ☑ complete |
+| S2 | `/h3-v1` adapter (Nuxt 4 / Nitro 2; replaces `/nuxt`) | ☑ complete |
+| S3 | `/h3` adapter (h3 v2 / Nitro 3 / **h3-dux**) | ☐ planned — needs the `h3@^2` peer (cannot co-install with v1) |
+| S4 | `tokenFrom` transports: cookie · bearer · cookieOrBearer · custom | ☑ complete |
+| S5 | `/hono` adapter | ☐ planned — needs the `hono` peer installed |
+| S6 | `/elysia` adapter | ☐ planned — needs the `elysia` peer installed |
 | S7 | Client bearer-transport pattern documented end-to-end | ☐ planned |
 
 Details: [§11 Phased roadmap](#11-phased-roadmap).
@@ -421,30 +421,34 @@ New config fields on this surface: `tokenFrom` (on `defineServerKit`), and `cook
 
 ## 11. Phased roadmap
 
-### S1 — `/server` core + adapter port
+### S1 — `/server` core + adapter port ☑
 
-Done when: the three `create*` cores run against a test adapter; request-scoped state works via both native and `WeakMap` substrates.
+Done when: the three `create*` cores run against a test adapter; request-scoped state works via the adapter's state bag.
 
-- [ ] `IdbDuxServerAdapter<Ctx>` port; `IdbServerRequestReader`; `IdbServerCookieOptions`
-- [ ] `createServerKit` (modes, verify+cache, admin memo), `createAuthSyncHandler`, `createWebhookHandler`
-- [ ] the shared conformance suite, parameterized over an adapter
+- [x] `IdbDuxServerAdapter<Ctx>` port; `IdbServerRequestReader`; `IdbServerCookieOptions`
+- [x] `createServerKit` (modes, verify+cache, admin memo), `createAuthSyncHandler`, `createWebhookHandler`
+- [x] core suite over a mock adapter (`server/server.test.ts`); the shared parameterized harness is extracted once a second adapter lands (S5/S6), per YAGNI
 
-### S2 — `/h3-v1` adapter (replaces `/nuxt`)
+### S2 — `/h3-v1` adapter (replaces `/nuxt`) ☑
 
 Done when: the prior `/nuxt` behavior is reproduced on the new core, suite green.
 
-- [ ] h3 v1 adapter (the ~9 ops); `defineEventHandler`-wrapped handlers
-- [ ] `/nuxt` subpath removed; demo retargeted to `/h3-v1`
+- [x] h3 v1 adapter (the ~9 ops); `defineEventHandler`-wrapped handlers
+- [x] `/nuxt` subpath removed; package exports, tsconfig paths, vitest aliases, boundary lint repointed
+- [x] real-lifecycle suite (`h3-v1/h3-v1.test.ts`) + mode-narrowing type plane
+- [ ] demo retargeted from `/nuxt` to `/h3-v1` (lands with the demo phase)
 
 ### S3 — `/h3` adapter (h3 v2 / h3-dux)
+
+Blocked in this workspace: h3 v1 and v2 cannot co-install under one `h3` dep name. Lands when a v2 fixture (alias/separate workspace) is set up; the adapter file itself is ~40 lines over the existing port.
 
 - [ ] h3 v2 adapter — `event.req.text()`, `event.res.status`, bare-function handlers
 - [ ] h3-dux verified to ride `/h3` unchanged (`H3DuxEvent` ⊑ `H3Event`)
 
-### S4 — `tokenFrom` transports
+### S4 — `tokenFrom` transports ☑
 
-- [ ] `'cookie'` / `'bearer'` / `'cookieOrBearer'`, the object overrides, the resolver fn
-- [ ] suite: cookie-only, bearer-only, and mixed requests against one route
+- [x] `'cookie'` / `'bearer'` / `'cookieOrBearer'`, the object overrides, the resolver fn
+- [x] suite: cookie-only, bearer-only, and mixed requests against one route
 
 ### S5 — `/hono` adapter
 

@@ -76,14 +76,24 @@
         "default": "./dist/commonjs/webhooks/index.js"
       }
     },
-    "./nuxt": {
+    "./server": {
       "import": {
-        "types": "./dist/esm/nuxt/index.d.ts",
-        "default": "./dist/esm/nuxt/index.js"
+        "types": "./dist/esm/server/index.d.ts",
+        "default": "./dist/esm/server/index.js"
       },
       "require": {
-        "types": "./dist/commonjs/nuxt/index.d.ts",
-        "default": "./dist/commonjs/nuxt/index.js"
+        "types": "./dist/commonjs/server/index.d.ts",
+        "default": "./dist/commonjs/server/index.js"
+      }
+    },
+    "./h3-v1": {
+      "import": {
+        "types": "./dist/esm/h3-v1/index.d.ts",
+        "default": "./dist/esm/h3-v1/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/h3-v1/index.d.ts",
+        "default": "./dist/commonjs/h3-v1/index.js"
       }
     }
   },
@@ -107,7 +117,8 @@
       "./perms": "./src/perms/index.ts",
       "./admin": "./src/admin/index.ts",
       "./webhooks": "./src/webhooks/index.ts",
-      "./nuxt": "./src/nuxt/index.ts"
+      "./server": "./src/server/index.ts",
+      "./h3-v1": "./src/h3-v1/index.ts"
     }
   },
   "files": [

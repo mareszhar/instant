@@ -1,17 +1,15 @@
 /**
- * Runtime plane for `/nuxt`: the three utilities driven through h3's real
- * request lifecycle (`createApp` + `toWebHandler`). The `/admin` and
- * `/webhooks` layers are mocked — their mechanics have their own suites — so
- * here we exercise the h3 wiring: mode-narrowed kit assembly with request-scoped
- * caching, the token-only auth-sync cookie, and the verify → fetch → dispatch
- * webhook route with its 2xx/4xx mapping.
+ * Runtime plane for `/h3-v1`: the three utilities driven through h3 v1's real
+ * request lifecycle (`createApp` + `toWebHandler`). The core logic and the full
+ * transport matrix are proven framework-free in `server/server.test.ts`; here we
+ * confirm the h3 v1 adapter wires correctly — real cookies in and out, real
+ * `Set-Cookie` attributes, real status codes — including the bearer path that
+ * only the adapter's header read exercises.
  */
 import { schema } from '@test'
 import { createApp, defineEventHandler, toWebHandler } from 'h3'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineAuthSyncHandler } from './defineAuthSyncHandler.js'
-import { defineServerKit } from './defineServerKit.js'
-import { defineWebhookHandler } from './defineWebhookHandler.js'
+import { defineAuthSyncHandler, defineServerKit, defineWebhookHandler } from './index.js'
 
 const mocks = vi.hoisted(() => {
   const verifyToken = vi.fn()
@@ -42,19 +40,8 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-describe('defineServerKit — modes + caching', () => {
-  it('no mode performs no auth work', async () => {
-    const useKit = defineServerKit(kitConfig)
-    const handler = appWith(defineEventHandler(async (event) => {
-      const { adminDb } = await useKit(event)
-      return { hasAdmin: !!adminDb }
-    }))
-    const res = await handler(new Request('http://x/'))
-    expect(await res.json()).toEqual({ hasAdmin: true })
-    expect(mocks.verifyToken).not.toHaveBeenCalled()
-  })
-
-  it('user? verifies the cookie and resolves the user when present', async () => {
+describe('defineServerKit — through the h3 lifecycle', () => {
+  it('user? resolves the user from the cookie', async () => {
     mocks.verifyToken.mockResolvedValue({ id: 'u1' })
     const useKit = defineServerKit(kitConfig)
     const handler = appWith(defineEventHandler(async (event) => {
@@ -66,18 +53,19 @@ describe('defineServerKit — modes + caching', () => {
     expect(mocks.verifyToken).toHaveBeenCalledWith('rt')
   })
 
-  it('user? leaves the user undefined when no cookie is present', async () => {
+  it('default transport falls back to the Authorization bearer header', async () => {
+    mocks.verifyToken.mockResolvedValue({ id: 'u1' })
     const useKit = defineServerKit(kitConfig)
     const handler = appWith(defineEventHandler(async (event) => {
       const { user } = await useKit(event, 'user?')
       return { user: user ?? null }
     }))
-    const res = await handler(new Request('http://x/'))
-    expect(await res.json()).toEqual({ user: null })
-    expect(mocks.verifyToken).not.toHaveBeenCalled()
+    const res = await handler(new Request('http://x/', { headers: { authorization: 'Bearer rt-bearer' } }))
+    expect(await res.json()).toEqual({ user: { id: 'u1' } })
+    expect(mocks.verifyToken).toHaveBeenCalledWith('rt-bearer')
   })
 
-  it('user throws 401 when auth is missing or invalid', async () => {
+  it('user throws a real 401 when auth is missing', async () => {
     const useKit = defineServerKit(kitConfig)
     const handler = appWith(defineEventHandler(async (event) => {
       await useKit(event, 'user')
@@ -87,23 +75,12 @@ describe('defineServerKit — modes + caching', () => {
     expect(res.status).toBe(401)
   })
 
-  it('caches the verification across repeated kit calls in one request', async () => {
+  it('caches one verification across repeated kit calls in a request', async () => {
     mocks.verifyToken.mockResolvedValue({ id: 'u1' })
     const useKit = defineServerKit(kitConfig)
     const handler = appWith(defineEventHandler(async (event) => {
       await useKit(event, 'user?')
       await useKit(event, 'user')
-      return { ok: true }
-    }))
-    await handler(new Request('http://x/', { headers: { cookie: 'instant_token_app=rt' } }))
-    expect(mocks.verifyToken).toHaveBeenCalledTimes(1)
-  })
-
-  it('shares one verification across concurrent kit calls', async () => {
-    mocks.verifyToken.mockResolvedValue({ id: 'u1' })
-    const useKit = defineServerKit(kitConfig)
-    const handler = appWith(defineEventHandler(async (event) => {
-      await Promise.all([useKit(event, 'user?'), useKit(event, 'user?')])
       return { ok: true }
     }))
     await handler(new Request('http://x/', { headers: { cookie: 'instant_token_app=rt' } }))
@@ -171,7 +148,7 @@ describe('defineAuthSyncHandler — token-only cookie', () => {
 })
 
 describe('defineWebhookHandler — verify → fetch → dispatch', () => {
-  const handlers = { tasks: { create: vi.fn() } } as any
+  const handlers = { tasks: { create: vi.fn() } } as never
 
   it('answers 200 and dispatches the fetched payload', async () => {
     mocks.verify.mockResolvedValue({ payloadUrl: 'u', token: 't' })

@@ -369,7 +369,7 @@ Sequenced so each step is independently testable and nothing depends on a surfac
 | 4. Vue overlay | `useQuery` & friends via `shapeResult`; refs+state; `defineDb`; components | [vue](./dux-spec-vue.md) | ☑ complete |
 | 5. Webhooks | optional-config `init`, `defineWebhookHandlers`, `IdbWebhook*` types | [webhooks](./dux-spec-webhooks.md) | ☑ complete |
 | 6. Admin | owned `init`, shaped `query`/`subscribeQuery`, typed tx/debug, `asUser`, pass-throughs, `adminDb.webhooks` | [admin](./dux-spec-admin.md) | ☑ complete |
-| 7. Server | `/server` core + adapter port; `/h3-v1`, `/h3`, `/hono`, `/elysia`: `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler` | [server](./dux-spec-server.md) | ☐ redesign (shipped as `/nuxt`) |
+| 7. Server | `/server` core + adapter port; `/h3-v1`, `/h3`, `/hono`, `/elysia`: `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler` | [server](./dux-spec-server.md) | ◧ `/server` + `/h3-v1` shipped; `/h3`·`/hono`·`/elysia` pending peers |
 | 8. Perms | the `definePerms` pipeline | [perms](./dux-spec-perms.md) | ☑ complete |
 | 9. Demo + lock | one Nuxt demo exercising the five interactively-demoable entrypoints (`/webhooks` guaranteed by suites, not demoed — [workspace §7.2](./dux-spec-workspace.md#72-webhooks-the-documented-exception)); CI wiring | [workspace](./dux-spec-workspace.md) | ☑ complete |
 | 10. SSR hydration | server results serialized → client cache hydrated before subscriptions | [vue](./dux-spec-vue.md) | ☐ gated on upstream |
