@@ -671,7 +671,7 @@ function formatFilesWithWorkspaceEslint(vueRoot, filePaths) {
  * @param {object} param0 Destructured options object.
  * @param {string} param0.demoRoot Absolute path to the demo root (directory containing `package.json`).
  * @param {string} param0.mode Dependency resolution mode selected by the caller (`links`, `tarballs`, `npm`).
- * @param {string} param0.vueRoot Absolute path to `client/packages/vux` workspace root.
+ * @param {string} param0.vueRoot Absolute path to the dux workspace root.
  * @returns Absolute file paths touched during patching (after optional eslint formatting).
  */
 export function patchDemoLinkModeViteConfig({

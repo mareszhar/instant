@@ -111,6 +111,8 @@ watch(isLoading, loading => console.log('loading:', loading))
 
 `state` is not useful as a direct accessor (`state.todos` and `todos.value` are equivalent); its value is as a remapped scope name — `const { state: auth } = db.useAuth()` reads as `auth.user`, `auth.isLoading` throughout a store or composable.
 
+Because `state` is a stable raw object, reactivity is collected only when a specific getter property is read. Watch `() => auth.user` or `() => auth.user?.id`, not `() => auth`; and do not destructure properties from `state` when the detached value must stay reactive. Detached reactive values are the job of the top-level refs or `.refs` (`const { isLoading } = db.useQuery(...)`, `{ ...result.refs }`).
+
 The shapes are typed `Idb<Domain>Result` with `-Data`/`-State`/`-Refs` subparts (`IdbQueryResult`, `IdbAuthResult`, `IdbConnectionResult`, `IdbLocalIdResult`, and the presence/typing hooks — shapes inferred per room, no separately-named alias) — learn one, know all ([conventions §3](./dux-conventions.md#3-the-result-pattern)).
 
 The static fields a query result spreads beside its data — `isLoading`, `error`, `pageInfo`, `refs`, `state`, and `useInfiniteQuery`'s `canLoadNextPage`/`loadNextPage` — are the **reserved result keys**. A query scope can't resolve a top-level key onto one; the guard lives in query validation and the canonical set (`ReservedResultKey`) is locked against these shapes by a type test ([dux-spec-root.md §4.5](./dux-spec-root.md#45-result-key-collisions)).
