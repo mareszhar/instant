@@ -41,8 +41,7 @@ export type {
   IdbWritableStream,
 } from './types.js'
 // The official first-party route handler, re-exported for apps that want the
-// official cookie shape ([dux-spec-nuxt.md §3]) — and the only path by which
-// `/nuxt` reaches it (the official package enters via this layer).
+// official cookie shape ([dux-spec-server.md §5]).
 export {
   createInstantRouteHandler,
   type InstantRouteHandlerBody,

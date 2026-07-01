@@ -86,14 +86,14 @@
         "default": "./dist/commonjs/server/index.js"
       }
     },
-    "./h3-v1": {
+    "./h3": {
       "import": {
-        "types": "./dist/esm/h3-v1/index.d.ts",
-        "default": "./dist/esm/h3-v1/index.js"
+        "types": "./dist/esm/h3/index.d.ts",
+        "default": "./dist/esm/h3/index.js"
       },
       "require": {
-        "types": "./dist/commonjs/h3-v1/index.d.ts",
-        "default": "./dist/commonjs/h3-v1/index.js"
+        "types": "./dist/commonjs/h3/index.d.ts",
+        "default": "./dist/commonjs/h3/index.js"
       }
     },
     "./hono": {
@@ -138,7 +138,7 @@
       "./admin": "./src/admin/index.ts",
       "./webhooks": "./src/webhooks/index.ts",
       "./server": "./src/server/index.ts",
-      "./h3-v1": "./src/h3-v1/index.ts",
+      "./h3": "./src/h3/index.ts",
       "./hono": "./src/hono/index.ts",
       "./elysia": "./src/elysia/index.ts"
     }
@@ -153,7 +153,7 @@
     "@instantdb/admin": "workspace:*",
     "@instantdb/webhooks": "workspace:*",
     "elysia": "^1.0.0",
-    "h3": "^1.15.0",
+    "h3": ">=2.0.1-rc.22 <3.0.0",
     "hono": "^4.0.0",
     "vue": "^3.5.0"
   },
@@ -193,7 +193,7 @@
     "@types/node": "^25.9.3",
     "@vue/test-utils": "^2.4.10",
     "elysia": "^1.4.29",
-    "h3": "^1.15.3",
+    "h3": "2.0.1-rc.22",
     "hono": "^4.12.27",
     "jsdom": "^29.1.1",
     "tshy": "^4.1.2",

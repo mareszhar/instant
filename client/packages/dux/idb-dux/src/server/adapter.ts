@@ -1,7 +1,7 @@
 /**
  * `IdbDuxServerAdapter` — the port the framework-agnostic cores ([serverKit],
- * [authSync], [webhook]) operate through. A framework adapter (`/h3-v1`, `/h3`,
- * `/hono`, `/elysia`) is the thin translation between one framework's per-request
+ * [authSync], [webhook]) operate through. A framework adapter (`/h3`, `/hono`,
+ * `/elysia`) is the thin translation between one framework's per-request
  * object and these ~9 operations.
  *
  * The cores touch the request object **only** through this port — never its

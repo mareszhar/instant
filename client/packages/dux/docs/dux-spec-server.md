@@ -1,9 +1,9 @@
-updated: 2026-06-30
+updated: 2026-07-01
 status: spec — contracts are binding; implementation approaches are proposals in their service
 
 # dux spec — `/server`
 
-The server plane: a framework-agnostic core (`/server`) plus thin per-framework adapters (`/h3-v1`, `/h3`, `/hono`, `/elysia`). The three utilities — `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler` — wire a request lifecycle onto `/admin` and `/webhooks`. They own no data-plane or verification logic of their own; the data plane is `/admin`'s, the signature pipeline is `/webhooks`'s. What the server plane owns is the *seam*: how a request carries auth, and how a framework's request/response object maps onto that seam.
+The server plane: a framework-agnostic core (`/server`) plus thin per-framework adapters (`/h3`, `/hono`, `/elysia`). The three utilities — `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler` — wire a request lifecycle onto `/admin` and `/webhooks`. They own no data-plane or verification logic of their own; the data plane is `/admin`'s, the signature pipeline is `/webhooks`'s. What the server plane owns is the *seam*: how a request carries auth, and how a framework's request/response object maps onto that seam.
 
 Conventions: [dux-conventions.md](./dux-conventions.md) · Principles: [dux-vision.md §2](./dux-vision.md#2-design-principles) · Wrapped layers: [dux-spec-admin.md](./dux-spec-admin.md), [dux-spec-webhooks.md](./dux-spec-webhooks.md)
 
@@ -12,12 +12,12 @@ Conventions: [dux-conventions.md](./dux-conventions.md) · Principles: [dux-visi
 | Phase | Scope | Status |
 |---|---|---|
 | S1 | `/server` core + the adapter port; request-scoped state | ☑ complete |
-| S2 | `/h3-v1` adapter (Nuxt 4 / Nitro 2; replaces `/nuxt`) | ☑ complete |
-| S3 | `/h3` adapter (h3 v2 / Nitro 3 / **h3-dux**) | ☐ planned — needs the `h3@^2` peer (cannot co-install with v1) |
+| S2 | `/h3` adapter (h3 v2 / Nitro 3 / Nuxt 5 / **h3-dux**) | ☑ complete |
+| S3 | Nuxt 4 / h3 v1 BYO recipe over `/server` (no public subpath) | ☑ complete in the demo |
 | S4 | `tokenFrom` transports: cookie · bearer · cookieOrBearer · custom | ☑ complete |
 | S5 | `/hono` adapter | ☑ complete |
 | S6 | `/elysia` adapter | ☑ complete |
-| S7 | `db.getCurrentRefreshToken()` in `/vue`; bearer pattern documented | ◧ method shipped; demo example pending |
+| S7 | `db.getCurrentRefreshToken()` in `/vue`; bearer pattern documented | ☑ complete; shell demo example remains future |
 
 Details: [§11 Phased roadmap](#11-phased-roadmap).
 
@@ -37,13 +37,12 @@ Details: [§11 Phased roadmap](#11-phased-roadmap).
 
 ## 1. Scope
 
-One framework-agnostic core, four adapters, three utilities exposed by each adapter.
+One framework-agnostic core, three shipped adapters, three utilities exposed by each adapter.
 
 | Subpath | Role | Peers (all optional) |
 |---|---|---|
 | `@mszr/idb-dux/server` | the adapter port + the framework-agnostic cores; **no framework peer** | `@instantdb/admin`, `@instantdb/webhooks` |
-| `@mszr/idb-dux/h3-v1` | h3 v1 adapter — Nuxt 4 / Nitro 2 | `h3@^1.15` + admin + webhooks |
-| `@mszr/idb-dux/h3` | h3 v2 adapter — standalone h3, Nitro 3, Nuxt 5, **h3-dux** | `h3@^2` + admin + webhooks |
+| `@mszr/idb-dux/h3` | h3 v2 adapter — standalone h3, Nitro 3, Nuxt 5, **h3-dux** | `h3@>=2.0.1-rc.22 <3.0.0` + admin + webhooks |
 | `@mszr/idb-dux/hono` | Hono adapter | `hono@^4` + admin + webhooks |
 | `@mszr/idb-dux/elysia` | Elysia adapter | `elysia@^1` + admin + webhooks |
 
@@ -55,7 +54,7 @@ One framework-agnostic core, four adapters, three utilities exposed by each adap
 
 Every adapter exposes the same three names with the same contracts. What differs is the request object the handler receives (`H3Event`, Hono `Context`, Elysia `Context`) and the native handler shape the utility returns — bound by the subpath, invisible at the call site.
 
-**Why a version split for h3.** h3 v1 and v2 diverge exactly where the server plane is coupled: v2 removed `readRawBody` (raw text is `event.req.text()`) and `setResponseStatus` (status is `event.res.status`), and reshaped the event onto web standards. A single subpath cannot span both, and `peerDependencies` is package-wide. The split isolates the difference to one adapter file each; the core is shared.
+**Why `/h3` is h3 v2 only.** h3 v1 and v2 diverge exactly where the server plane is coupled: v2 removed `readRawBody` (raw text is `event.req.text()`) and `setResponseStatus` (status is `event.res.status`), and reshaped the event onto web standards. A single adapter cannot honestly type both. dux makes the future path the happy path: `/h3` targets h3 v2, Nitro 3, Nuxt 5, and h3-dux; Nuxt 4 / Nitro 2 apps use `/server` directly with the small local h3 v1 adapter recipe in [§3.3](#33-bring-your-own-adapter).
 
 **Why no `/h3-dux` subpath.** h3-dux's `H3DuxEvent` extends `H3Event`, and every utility h3-dux ships accepts an `H3Event` unchanged. The `/h3` adapter therefore covers h3-dux with no extra surface. A dedicated subpath would earn its place only if a server utility needed to *emit* h3-dux's own response niceties — none does.
 
@@ -84,7 +83,7 @@ Authenticating with Instant needs no custom code — Instant's auth methods own 
 
 ## 3. `/server` — the framework-agnostic core
 
-`/server` holds everything the four adapters share: the request lifecycle of all three utilities, the modes, the token resolution, the cookie-name derivation, request-scoped caching, and the admin/webhooks composition. It imports no framework. An adapter is the thin translation between one framework's request object and the port below.
+`/server` holds everything the shipped adapters share: the request lifecycle of all three utilities, the modes, the token resolution, the cookie-name derivation, request-scoped caching, and the admin/webhooks composition. It imports no framework. An adapter is the thin translation between one framework's request object and the port below.
 
 ### 3.1 The adapter port
 
@@ -107,7 +106,7 @@ export interface IdbDuxServerAdapter<Ctx> {
 }
 ```
 
-The cores are `(adapter, config) → (ctx) => result` factories: `createServerKit`, `createAuthSyncHandler`, `createWebhookHandler`. Each adapter binds its `adapter` and re-exports `defineServerKit` / `defineAuthSyncHandler` / `defineWebhookHandler`, wrapping the core handler in the framework's native handler shape (a bare `(event) => …` on `/h3`, a `defineEventHandler(…)` on `/h3-v1`, a `(c) => Response` on `/hono` and `/elysia`). A core handler returns a plain JSON-able value and signals status via `adapter.setStatus`; the adapter renders that value the framework way (returned directly on h3, `c.json(value)` on hono/elysia).
+The cores are `(adapter, config) → (ctx) => result` factories: `createServerKit`, `createAuthSyncHandler`, `createWebhookHandler`. Each adapter binds its `adapter` and re-exports `defineServerKit` / `defineAuthSyncHandler` / `defineWebhookHandler`, wrapping the core handler in the framework's native handler shape (a bare `(event) => …` on `/h3`, a `(c) => Response` on `/hono` and `/elysia`). A core handler returns a plain JSON-able value and signals status via `adapter.setStatus`; the adapter renders that value the framework way (returned directly on h3, `c.json(value)` on hono/elysia).
 
 ### 3.2 Request-scoped state
 
@@ -117,7 +116,59 @@ The bag is native where the framework has one (`event.context` on h3) and a `Wea
 
 ### 3.3 Bring your own adapter
 
-`IdbDuxServerAdapter` and the three `create*` cores are public. The port is nine operations over a request object — express, Fastify, or any other framework gets full server-plane support by supplying an adapter, with no dependency on dux shipping one. Web-standard frameworks need only map to the web `Request`/`Response`; node-native ones map their `req`/`res`. dux ships and supports the four adapters in [§1](#1-scope); the rest is the port's to enable.
+`IdbDuxServerAdapter` and the three `create*` cores are public. The port is nine operations over a request object — Nuxt 4, express, Fastify, or any other framework gets full server-plane support by supplying an adapter, with no dependency on dux shipping one. Web-standard frameworks need only map to the web `Request`/`Response`; node-native ones map their `req`/`res`. dux ships and supports the three adapters in [§1](#1-scope); the rest is the port's to enable.
+
+Nuxt 4 / Nitro 2 is the canonical BYO example. Its local `server/utils` file can bind h3 v1 once, then routes use the same names as the official adapters through Nuxt auto-imports:
+
+```TS
+// server/utils/idb.ts — Nuxt 4 / h3 v1 local recipe
+import type { H3Event } from 'h3'
+import type {
+  IdbAuthSyncConfig,
+  IdbDuxServerAdapter,
+  IdbRegisteredSchema,
+  IdbSchema,
+  IdbServerKitConfig,
+  IdbServerKitFactory,
+} from '@mszr/idb-dux/server'
+import { createAuthSyncHandler, createServerKit } from '@mszr/idb-dux/server'
+import {
+  createError,
+  defineEventHandler,
+  deleteCookie,
+  getCookie,
+  getHeader,
+  readBody,
+  readRawBody,
+  setCookie,
+  setResponseStatus,
+} from 'h3'
+
+const adapter: IdbDuxServerAdapter<H3Event> = {
+  getCookie: (event, name) => getCookie(event, name),
+  getHeader: (event, name) => getHeader(event, name),
+  readJsonBody: <T>(event: H3Event): Promise<T> => readBody<T>(event),
+  readRawText: async event => (await readRawBody(event, 'utf8')) ?? '',
+  state: event => event.context as Record<string, unknown>,
+  setCookie: (event, name, value, opts) => setCookie(event, name, value, opts),
+  deleteCookie: (event, name, opts) => deleteCookie(event, name, opts),
+  setStatus: (event, code) => setResponseStatus(event, code),
+  httpError: (code, message) => createError({ statusCode: code, statusMessage: message }),
+}
+
+export function defineServerKit<S extends IdbSchema = IdbRegisteredSchema>(
+  config: IdbServerKitConfig<S, H3Event>,
+): IdbServerKitFactory<S, H3Event> {
+  return createServerKit(adapter, config)
+}
+
+export function defineAuthSyncHandler(config: IdbAuthSyncConfig<H3Event>) {
+  const core = createAuthSyncHandler(adapter, config)
+  return defineEventHandler(event => core(event))
+}
+```
+
+The demo keeps the fully typed version of this recipe in `server/utils/idb.ts`. The important shape is small: a local adapter object, the public `/server` cores, and Nuxt's `server/utils` auto-imports.
 
 ## 4. `defineServerKit`
 
@@ -126,14 +177,14 @@ The bag is native where the framework has one (`event.context` on h3) and a `Wea
 Server routes get the client's DX: one factory at module scope, one `await` in the route, typed results — and the route *declares its auth strictness* (the mode) instead of hand-rolling token reads, verification, and 401s.
 
 ```TS
-// server/utils/idb.ts — the request-kit factory (h3-v1 / Nuxt 4 shown)
-import { defineServerKit } from '@mszr/idb-dux/h3-v1'
+// server/utils/idb.ts — the request-kit factory (h3 v2 / Nuxt 5 shown)
+import { defineServerKit } from '@mszr/idb-dux/h3'
 import { schema } from '~~/config/instant.schema'
 
 export const useServerKit = defineServerKit({
   schema,
-  getAppId: event => useRuntimeConfig(event).public.instantAppId,
-  getAdminToken: event => useRuntimeConfig(event).instantAdminToken,
+  getAppId: () => useRuntimeConfig().public.instantAppId,
+  getAdminToken: () => useRuntimeConfig().instantAdminToken,
   // tokenFrom defaults to 'cookieOrBearer' — this same factory authenticates
   // cookie web requests and bearer shell requests with no change.
 })
@@ -210,9 +261,9 @@ The base URL of the **Instant API**, passed to the admin client — set it only 
 The route for Instant's `firstPartyPath` auth sync — one line to mount.
 
 ```TS
-// server/api/idb.post.ts (Nuxt 4) — and point the client's firstPartyPath at this route
+// server/api/idb.post.ts — and point the client's firstPartyPath at this route
 export default defineAuthSyncHandler({
-  getAppId: event => useRuntimeConfig(event).public.instantAppId,
+  getAppId: () => useRuntimeConfig().public.instantAppId,
 })
 ```
 
@@ -279,10 +330,11 @@ export default defineWebhookHandler(handlers)
 
 Signature bytes must be the untouched body, which constrains how each adapter reads it:
 
-- **h3 v1** — `readRawBody(event, 'utf8')`.
 - **h3 v2** — `event.req.text()`.
 - **Hono** — `c.req.text()` (a single read; the handler never also parses the body).
 - **Elysia** — Elysia parses `body` eagerly, consuming the stream, so the route opts into raw text: `defineWebhookHandler(handlers)` is mounted with `{ parse: 'text' }`. This is the one adapter-specific requirement; it is documented at the mount, not hidden ([§8](#8-mounting-per-framework)).
+
+Nuxt 4's local h3 v1 recipe uses `readRawBody(event, 'utf8')`; that is userland adapter code over `/server`, not a shipped subpath.
 
 ## 7. The client half — bearer transport
 
@@ -334,27 +386,26 @@ dux does not ship this wrapper yet. The shapes vary too much per client to abstr
 
 ## 8. Mounting per framework
 
-The utilities carry the same names everywhere; the registration idiom is the framework's. `defineEventHandler` is a general h3 utility — it works standalone, not only in Nitro file routes — and on h3 v2 it is optional, so `/h3` returns bare functions.
+The utilities carry the same names everywhere; the registration idiom is the framework's. On h3 v2, `/h3` returns bare functions; Nitro/Nuxt file routes can return them directly.
 
 ```TS
-// /h3-v1 — Nuxt 4 / Nitro 2 file routes
-export const useServerKit = defineServerKit({ schema, getAppId, getAdminToken })
-export default defineAuthSyncHandler({ getAppId }) // server/api/idb.post.ts
-export default defineWebhookHandler(handlers) // server/api/webhooks.post.ts
-export default defineEventHandler(async (event) => { // server/api/workspaces.get.ts
-  const { adminDb, user } = await useServerKit(event, 'user')
-  return adminDb.query(/* … */)
-})
-```
-
-```TS
-// /h3 — standalone h3 v2 / Nitro 3 / h3-dux (bootstrap illustrative)
+// /h3 — standalone h3 v2 / Nitro 3 / Nuxt 5 / h3-dux
 const useServerKit = defineServerKit({ schema, getAppId, getAdminToken })
 app.post('/api/idb', defineAuthSyncHandler({ getAppId }))
 app.post('/api/webhooks', defineWebhookHandler(handlers))
 app.get('/api/workspaces', async (event) => { // h3-dux: event is H3DuxEvent (extends H3Event)
   const { userDb, user } = await useServerKit(event, 'userDb')
   return userDb.query(/* … */)
+})
+```
+
+```TS
+// Nuxt 4 / Nitro 2 — after the local server/utils recipe in §3.3
+export default defineAuthSyncHandler({ getAppId }) // server/api/idb.post.ts
+
+export default defineEventHandler(async (event) => { // server/api/workspaces.get.ts
+  const { adminDb, user } = await useServerIdb(event, 'user')
+  return adminDb.query(/* … */)
 })
 ```
 
@@ -390,7 +441,7 @@ src/server/                 # framework-agnostic; no framework peer
   authSync.ts               #   createAuthSyncHandler — cookie write/clear, persistToken
   webhook.ts                #   createWebhookHandler — raw body → /webhooks pipeline
   index.ts
-src/h3-v1/  src/h3/  src/hono/  src/elysia/
+src/h3/  src/hono/  src/elysia/
   adapter.ts                #   the ~9 port ops over this framework's request object
   index.ts                  #   binds the adapter; re-exports the three define* utilities
 ```
@@ -429,21 +480,22 @@ Done when: the three `create*` cores run against a test adapter; request-scoped 
 - [x] `createServerKit` (modes, verify+cache, admin memo), `createAuthSyncHandler`, `createWebhookHandler`
 - [x] core suite over a mock adapter (`server/server.test.ts`); the shared parameterized harness (`test-support/serverConformance.ts`) runs every adapter's real lifecycle
 
-### S2 — `/h3-v1` adapter (replaces `/nuxt`) ☑
+### S2 — `/h3` adapter (h3 v2 / h3-dux) ☑
 
-Done when: the prior `/nuxt` behavior is reproduced on the new core, suite green.
+Done when: the h3 v2 adapter binds the shared core, suite green, and h3-dux rides it unchanged by typing as `H3Event`.
 
-- [x] h3 v1 adapter (the ~9 ops); `defineEventHandler`-wrapped handlers
-- [x] `/nuxt` subpath removed; package exports, tsconfig paths, vitest aliases, boundary lint repointed
-- [x] real-lifecycle suite (`h3-v1/h3-v1.test.ts`) + mode-narrowing type plane
-- [ ] demo retargeted from `/nuxt` to `/h3-v1` (lands with the demo phase)
+- [x] h3 v2 adapter — `event.req.text()`, `event.res.status`, bare-function handlers
+- [x] real-lifecycle suite (`h3/h3.test.ts`) + mode-narrowing type plane
+- [x] h3-dux-compatible surface verified by typing against `H3Event`
+- [x] package exports, tsconfig paths, vitest aliases, boundary lint repointed to `/h3`
 
-### S3 — `/h3` adapter (h3 v2 / h3-dux)
+### S3 — Nuxt 4 / h3 v1 local recipe ☑
 
-Blocked in this workspace: h3 v1 and v2 cannot co-install under one `h3` dep name. Lands when a v2 fixture (alias/separate workspace) is set up; the adapter file itself is ~40 lines over the existing port.
+Done when: there is no public `/h3-v1` subpath, but a Nuxt 4 app can still compose `/server` into the same route ergonomics locally.
 
-- [ ] h3 v2 adapter — `event.req.text()`, `event.res.status`, bare-function handlers
-- [ ] h3-dux verified to ride `/h3` unchanged (`H3DuxEvent` ⊑ `H3Event`)
+- [x] `/h3-v1` subpath absent from exports
+- [x] main demo defines the local h3 v1 adapter in `server/utils`
+- [x] Nuxt 4 routes use the auto-imported `defineAuthSyncHandler` / `useServerIdb` utilities
 
 ### S4 — `tokenFrom` transports ☑
 
@@ -460,7 +512,8 @@ Blocked in this workspace: h3 v1 and v2 cannot co-install under one `h3` dep nam
 - [x] Elysia adapter; thrown `status()` 401; `{ parse: 'text' }` webhook mount; reactive-cookie clear via explicit expiry
 - [x] runs the shared conformance suite through a real `Elysia` app
 
-### S7 — client bearer-transport pattern
+### S7 — client bearer-transport pattern ☑
 
 - [x] `db.getCurrentRefreshToken(): Promise<string | null>` shipped in `/vue` (spec'd in [dux-spec-vue.md](./dux-spec-vue.md))
-- [ ] end-to-end example (web cookie + shell bearer) in the demo or docs; the principle documented for h3-dux/Hono typed clients
+- [x] bearer transport principle documented with a Nuxt fetch-wrapper example
+- [ ] live shell demo remains future

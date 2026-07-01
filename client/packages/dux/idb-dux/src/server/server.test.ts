@@ -3,8 +3,7 @@
  * framework-free. This is where the transport matrix (`tokenFrom`), the
  * mode-narrowed kit assembly with request-scoped caching, the auth-sync cookie
  * (and its overrides), and the webhook 2xx/4xx mapping are proven. Each adapter
- * then re-proves the same behavior through its real request lifecycle
- * (`h3-v1/h3-v1.test.ts`).
+ * then re-proves the same behavior through its real request lifecycle.
  */
 import type { IdbDuxServerAdapter, IdbServerCookieOptions } from './index.js'
 import { schema } from '@test'

@@ -1,11 +1,11 @@
 /**
- * Runtime plane for `/h3-v1`: the shared server conformance suite driven through
- * h3 v1's real request lifecycle (`createApp` + `toWebHandler`). The behavior is
- * proven framework-free in `server/server.test.ts`; here the h3 v1 adapter's
+ * Runtime plane for `/h3`: the shared server conformance suite driven through
+ * h3 v2's real request lifecycle (`createApp` + `app.fetch`). The behavior is
+ * proven framework-free in `server/server.test.ts`; here the h3 adapter's
  * wiring is re-proven end to end.
  */
 import { runServerConformance } from '@test'
-import { createApp, defineEventHandler, toWebHandler } from 'h3'
+import { createApp, defineEventHandler } from 'h3'
 import { vi } from 'vitest'
 import { defineAuthSyncHandler, defineServerKit, defineWebhookHandler } from './index.js'
 
@@ -25,15 +25,15 @@ vi.mock('../admin/index.js', () => ({ init: mocks.adminInit }))
 vi.mock('../webhooks/index.js', () => ({ init: mocks.webhooksInit }))
 
 runServerConformance({
-  name: 'h3-v1',
+  name: 'h3',
   mocks,
   defineServerKit,
   defineAuthSyncHandler,
   defineWebhookHandler,
   mount: (handler) => {
     const app = createApp()
-    app.use(handler as Parameters<typeof app.use>[0])
-    return toWebHandler(app)
+    app.all('/', handler as Parameters<typeof app.all>[1])
+    return req => Promise.resolve(app.fetch(req))
   },
   jsonRoute: fn => defineEventHandler(event => fn(event)),
 })

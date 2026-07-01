@@ -16,7 +16,7 @@ export default defineConfig({
       '@mszr/idb-dux/admin': local('./src/admin/index.ts'),
       '@mszr/idb-dux/webhooks': local('./src/webhooks/index.ts'),
       '@mszr/idb-dux/server': local('./src/server/index.ts'),
-      '@mszr/idb-dux/h3-v1': local('./src/h3-v1/index.ts'),
+      '@mszr/idb-dux/h3': local('./src/h3/index.ts'),
       '@mszr/idb-dux/hono': local('./src/hono/index.ts'),
       '@mszr/idb-dux/elysia': local('./src/elysia/index.ts'),
       '@mszr/idb-dux': local('./src/index.ts'),

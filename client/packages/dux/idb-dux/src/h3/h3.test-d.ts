@@ -1,8 +1,8 @@
 import type { AppSchema } from '@test'
 /**
- * Type-shape plane for `/h3-v1`: the kit's keys narrow per mode, so a route
+ * Type-shape plane for `/h3`: the kit's keys narrow per mode, so a route
  * declares its auth strictness and the types follow — no manual narrowing,
- * `userDb` only where asked. The factory is typed to `H3Event`.
+ * `userDb` only where asked. The factory is typed to h3 v2's `H3Event`.
  */
 import type { H3Event } from 'h3'
 import type { IdbAdminClient, IdbAuthUser, IdbServerKitFactory } from '../server/index.js'

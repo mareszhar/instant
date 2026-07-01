@@ -5,7 +5,7 @@ import antfu from '@antfu/eslint-config'
  * Layer boundaries (docs/dux-spec-workspace.md → "Boundary rules").
  *
  * Plane separation is load-bearing: inner layers never import outer layers;
- * only vue/ may import vue; only a server adapter (h3-v1/, h3/, hono/, elysia/)
+ * only vue/ may import vue; only a server adapter (h3/, hono/, elysia/)
  * may import its framework, and the framework-agnostic server core (server/)
  * imports none. The rules ban by import specifier, so they cover packages and
  * relative paths alike. Note that
@@ -19,7 +19,7 @@ const serverFrameworks = ['h3', 'h3/*', 'hono', 'hono/*', 'elysia', 'elysia/*']
 // Everything the agnostic + server-core layers must never import.
 const frameworks = ['vue', 'vue/*', '@vue/*', ...serverFrameworks]
 // The server adapter layer folders.
-const adapterLayers = ['h3-v1', 'h3', 'hono', 'elysia']
+const adapterLayers = ['h3', 'hono', 'elysia']
 
 /**
  * Ban every @instantdb package except the listed ones. `@instantdb/core` and
@@ -102,7 +102,6 @@ const boundaries = {
     { group: official('@instantdb/core'), message: 'The server core composes the dux admin and webhooks layers, never the official packages directly.' },
     { group: layers('perms', 'vue', ...adapterLayers), message: 'The server core composes schema, query, tx, admin, and webhooks — never an adapter or the client overlay.' },
   ],
-  'h3-v1': adapterBoundary(['h3', 'h3/*']),
   'h3': adapterBoundary(['h3', 'h3/*']),
   'hono': adapterBoundary(['hono', 'hono/*']),
   'elysia': adapterBoundary(['elysia', 'elysia/*']),

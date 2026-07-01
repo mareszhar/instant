@@ -3,7 +3,7 @@
  *
  * The `IdbDuxServerAdapter` port plus the three `create*` cores
  * (`createServerKit`, `createAuthSyncHandler`, `createWebhookHandler`) that the
- * framework adapters (`/h3-v1`, `/h3`, `/hono`, `/elysia`) bind. Imports no
+ * framework adapters (`/h3`, `/hono`, `/elysia`) bind. Imports no
  * framework; composes the dux `/admin` and `/webhooks` layers. Power users wire
  * any other framework by supplying an adapter to these cores.
  *

@@ -30,7 +30,7 @@ Welcome to the dux maintainer area inside **idb**.
 Run from `client/packages/dux`:
 
 1. `pnpm run sdk:build:all` — build the official workspace deps, then ours
-2. `pnpm run sdk:build:ours` — build `@mszr/idb-dux` (all six entrypoints)
+2. `pnpm run sdk:build:ours` — build `@mszr/idb-dux` (all entrypoints)
 3. `pnpm run sdk:test` — run every assertion plane (runtime, types, editor DX)
 4. `pnpm run sdk:typecheck`
 5. `pnpm run sdk:lint` / `pnpm run lint`

@@ -38,11 +38,11 @@ declare const ctx: Ctx
 
 const adapterCases = [
   {
-    name: 'h3-v1',
-    entrypoint: '@mszr/idb-dux/h3-v1',
+    name: 'h3',
+    entrypoint: '@mszr/idb-dux/h3',
     ctxImport: `import type { H3Event } from 'h3'`,
     ctxType: 'H3Event',
-    ctxCompletions: ['context', 'node'],
+    ctxCompletions: ['req', 'res', 'context'],
   },
   {
     name: 'hono',

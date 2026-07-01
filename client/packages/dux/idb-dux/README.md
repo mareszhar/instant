@@ -33,7 +33,7 @@ npm install vue                          # for /vue
 npm install @instantdb/admin             # for /admin
 npm install @instantdb/webhooks          # for /webhooks
 npm install @instantdb/admin @instantdb/webhooks       # for /server
-npm install @instantdb/admin @instantdb/webhooks h3    # + the /h3 (or /h3-v1) adapter
+npm install @instantdb/admin @instantdb/webhooks h3    # + the /h3 adapter (h3 v2)
 # swap h3 for hono or elysia to use those adapters instead
 ```
 
@@ -51,7 +51,7 @@ One package, one framework-agnostic root, and thin overlays on it — including 
 | `@mszr/idb-dux/webhooks` | webhook handling + management — admin-free by design |
 | `@mszr/idb-dux/vue` | the Vue client: `init`, `defineDb`, the enhanced db, components — SSR-resilient by default |
 | `@mszr/idb-dux/server` | the server plane's framework-agnostic core + adapter port: `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler` |
-| `@mszr/idb-dux/h3-v1` · `/h3` · `/hono` · `/elysia` | thin adapters — the same three utilities, native to your framework (`/h3` covers h3 v2, Nitro 3, and h3-dux) |
+| `@mszr/idb-dux/h3` · `/hono` · `/elysia` | thin adapters — the same three utilities, native to your framework (`/h3` covers h3 v2, Nitro 3, Nuxt 5, and h3-dux) |
 
 `sideEffects: false` and disjoint module graphs mean a Vue-only app pays zero bytes for the server planes, and a webhook-only worker installs nothing from the Vue stack. Subpath-only dependencies (`vue`, `h3`, `hono`, `elysia`, `@instantdb/admin`, `@instantdb/webhooks`) are optional peers — you install only what your entrypoints need.
 

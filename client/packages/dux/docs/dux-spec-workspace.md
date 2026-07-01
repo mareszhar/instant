@@ -1,4 +1,4 @@
-updated: 2026-06-11
+updated: 2026-07-01
 status: spec + maintainer manual — how dux is built, tested, kept alive, and shipped
 
 # dux spec — the workspace
@@ -11,7 +11,7 @@ Conventions: [dux-conventions.md](./dux-conventions.md) · Principles: [dux-visi
 
 | Phase | Scope | Global phase | Status |
 |---|---|---|---|
-| W0 | Scaffold: workspace wiring, package skeleton, boundary lint, six entrypoints | 0 | ☑ complete |
+| W0 | Scaffold: workspace wiring, package skeleton, boundary lint, entrypoints | 0 | ☑ complete |
 | W1 | Test foundations: `test-support/`, selenita wiring, suite conventions | 1 (alongside) | ☑ complete |
 | W2 | Sustainability tooling: drift check, `UPSTREAM.md` ritual, compat-suite conventions | 3 (alongside) | ☑ complete |
 | W3 | Demo + CI lock | 9 | ☑ complete |
@@ -53,7 +53,7 @@ client/packages/dux/                    # orchestrator workspace (private)
       schema/  query/  tx/  perms/      # the agnostic plane (land with phases 1–2, 8)
       webhooks/  admin/                 # the server plane (phases 5–6)
       server/                           # framework-agnostic server core + adapter port (phase 7)
-      h3-v1/  h3/  hono/  elysia/        # server adapters (phase 7)
+      h3/  hono/  elysia/                # server adapters (phase 7)
       vue/                              # the client overlay (phases 3–4)
       test-support/                     # the @test fixture library (§4.3)
     demo/                               # one Nuxt demo exercising every entrypoint (phase 9)
@@ -65,7 +65,7 @@ Wiring: the orchestrator is matched by the `packages/*` workspace glob; `package
 
 - **Build: tshy** — dual ESM/CJS; the subpath→source map lives in `tshy.exports`; each subpath is one `src/<layer>/index.ts`. `tshy.exclude` keeps collocated tests (`src/**/*.test.ts`, `src/**/*.test-d.ts`) and `src/test-support/` out of `dist`; `tsconfig.build.json` mirrors the exclusion; the `files` allowlist is the final belt-and-braces.
 - **`sideEffects: false`** — set deliberately (no upstream idb package sets it); with disjoint entry graphs and ESM named exports this is the whole bundle-size story ([dux-vision.md §4.4](./dux-vision.md#44-bundle-size-and-dependency-stance)).
-- **The peer rule, stated once:** needed by every dux user → `dependency` (`@instantdb/core`, `@instantdb/version`); needed only by a subpath → **optional peer** (`vue`, `h3`, `hono`, `elysia`, `@instantdb/admin`, `@instantdb/webhooks`, each with `peerDependenciesMeta.optional`). The `h3` peer range spans `^1.15 || ^2`; the `/h3-v1` and `/h3` subpaths are import-isolated, so an app resolves only the major it installed.
+- **The peer rule, stated once:** needed by every dux user → `dependency` (`@instantdb/core`, `@instantdb/version`); needed only by a subpath → **optional peer** (`vue`, `h3`, `hono`, `elysia`, `@instantdb/admin`, `@instantdb/webhooks`, each with `peerDependenciesMeta.optional`). The `h3` peer belongs to the shipped `/h3` adapter and targets h3 v2; Nuxt 4 / h3 v1 apps compose `/server` locally.
 - **Export integrity:** `attw --profile node16 --pack` runs as part of the orchestrator build (`sdk:check-exports`) so resolution regressions fail before a user.
 - **Workspace deps:** official packages are consumed as `workspace:*`/`workspace:^` so the fork's sources are always the version under test; npm and public-subtree projections rewrite every `@instantdb/*` workspace spec to the concrete shared Instant version.
 - **Command ownership:** `idb-dux/package.json` is the npm manifest, not the maintainer command surface. Build, lint, typecheck, test, pack, demo-resolution, and publish commands live in the private orchestrator (`dux/package.json`).
@@ -88,7 +88,7 @@ Plane separation is enforced by `no-restricted-imports` patterns in the workspac
 | `admin/` | core, `@instantdb/admin`, `schema/`, `query/`, `tx/`, `webhooks/`, itself | `vue`, `h3`, `perms/`, overlays |
 | `vue/` | core, `vue`, `@vue/*`, `@instantdb/vue` (baseline source + parity anchor only), `schema/`, `query/`, `tx/`, itself | any server framework, server pkgs, `perms/`, `webhooks/`, `admin/`, `server/`, the adapters |
 | `server/` | core, `schema/`, `query/`, `tx/`, `admin/`, `webhooks/`, itself | `vue`, any framework (`h3`/`hono`/`elysia`), `perms/`, official admin/webhooks pkgs directly |
-| `h3-v1/`, `h3/`, `hono/`, `elysia/` | core, its one framework (`h3`/`hono`/`elysia`), `server/`, itself | `vue`, other adapters' frameworks, the dux `admin/`·`webhooks/` layers directly (reach them via `server/`), official pkgs directly |
+| `h3/`, `hono/`, `elysia/` | core, its one framework (`h3`/`hono`/`elysia`), `server/`, itself | `vue`, other adapters' frameworks, the dux `admin/`·`webhooks/` layers directly (reach them via `server/`), official pkgs directly |
 | `test-support/` | the agnostic plane (core, `schema/`, `query/`, `tx/`, `perms/`) | frameworks, server pkgs, overlay layers |
 
 This is the single highest-leverage guardrail in the design: "a framework concept leaked into the agnostic plane" is a build error. Loosen a cell only by editing the matrix *and* the config together, with the reason recorded in the touching spec.
@@ -253,7 +253,7 @@ Verification beyond a release is just `pnpm run prepublish:verify`.
 
 ## 7. The demo
 
-One Nuxt demo (phase 9) exercising the **five interactively-demoable entrypoints** — root, `/vue`, `/perms`, `/admin`, and the server plane via `/h3-v1` (`defineServerKit` + `defineAuthSyncHandler`) — is the proof that the garden has no missing walls a real app would hit. It doubles as:
+One Nuxt demo (phase 9) exercising the **five interactively-demoable entrypoints** — root, `/vue`, `/perms`, `/admin`, and the server plane via `/server` (`defineServerKit` + `defineAuthSyncHandler`, locally adapted for Nuxt 4) — is the proof that the garden has no missing walls a real app would hit. It doubles as:
 
 - the SSR floor/ceiling verification vehicle,
 - the dux starter (the `create-instant-app` of this world),
@@ -286,16 +286,16 @@ The demo README states the absence and points to the specs, turning it from a ga
 
 ### Phase W0 — scaffold (global phase 0)
 
-Done when: `pnpm run sdk:build:ours` produces all six entrypoints; boundary lint passes.
+Done when: `pnpm run sdk:build:ours` produces all entrypoints; boundary lint passes.
 
 - [x] workspace wiring: `pnpm-workspace.yaml`, root `workspaces`, `instant.code-workspace`, gitignore entries
 - [x] orchestrator: `package.json` (lint + sdk scripts), `eslint.config.mjs` with the §3 boundary matrix, `.markdownlint.json`, `.vscode/`, README
-- [x] `idb-dux/package.json`: tshy exports for six entrypoints, `sideEffects: false`, optional peers per the peer rule, collocated-test exclusion, no maintainer scripts
+- [x] `idb-dux/package.json`: tshy exports for all entrypoints, `sideEffects: false`, optional peers per the peer rule, collocated-test exclusion, no maintainer scripts
 - [x] `tsconfig.json` / `tsconfig.build.json` / `tsconfig.dev.json` (strict; `@test` paths; vitest globals types)
 - [x] `vitest.config.ts`: globals, `@test` alias, `--typecheck` wiring
 - [x] six placeholder entrypoints that typecheck
 - [x] docs: vision, conventions, and the seven specs (this set)
-- [x] verification: build emits six entrypoints (ESM+CJS+d.ts); `attw` clean; lint green; boundary rules probe-verified to fire
+- [x] verification: build emits every entrypoint (ESM+CJS+d.ts); `attw` clean; lint green; boundary rules probe-verified to fire
 
 ### Phase W1 — test foundations (alongside global phase 1)
 
@@ -313,7 +313,7 @@ Done when: `pnpm run sdk:build:ours` produces all six entrypoints; boundary lint
 
 ### Phase W3 — demo + CI lock (global phase 9)
 
-- [x] the Nuxt demo exercising the five interactively-demoable entrypoints (root, `/vue`, `/perms`, `/admin`, server plane via `/h3-v1`); `/webhooks` excluded by design, guaranteed by its suites ([§7.2](#72-webhooks-the-documented-exception))
+- [x] the Nuxt demo exercising the five interactively-demoable entrypoints (root, `/vue`, `/perms`, `/admin`, server plane via local `/server` adapter utilities); `/webhooks` excluded by design, guaranteed by its suites ([§7.2](#72-webhooks-the-documented-exception))
 - [x] pack + demo-resolution scripts (link/tarball/npm modes)
 - [x] CI: workspace lint, SDK build, full suite (runtime/types/dx); parity + compat targets ride the suite; drift is its own gate (`.github/workflows/dux.yml`)
 - [x] test economy held: the demo carries no unit tests; demo typecheck/build stays local/release-only because demo manifests can be in link/tarball/npm modes

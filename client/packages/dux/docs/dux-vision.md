@@ -1,4 +1,4 @@
-updated: 2026-06-12
+updated: 2026-07-01
 status: living hub — the vision, the architecture, and the index over every dux doc
 
 # dux — vision
@@ -21,7 +21,7 @@ This is the hub. It holds the philosophy, the design principles, the scope edge,
 
 ## 1. What dux is
 
-`@mszr/idb-dux` is one package: a framework-agnostic foundation at the root, the overlays `/vue`, `/perms`, `/admin`, `/webhooks`, and a server plane — a framework-agnostic core `/server` with thin adapters `/h3-v1`, `/h3`, `/hono`, `/elysia`. Each entrypoint is delightful on its own terms.
+`@mszr/idb-dux` is one package: a framework-agnostic foundation at the root, the overlays `/vue`, `/perms`, `/admin`, `/webhooks`, and a server plane — a framework-agnostic core `/server` with thin adapters `/h3`, `/hono`, `/elysia`. Each entrypoint is delightful on its own terms.
 
 ### 1.1 The organizing insight: two planes
 
@@ -98,7 +98,7 @@ And dux-only behaviors are optimized as first-class features, not conveniences: 
 
 ### 9. Plane separation is load-bearing
 
-The framework-agnostic layers never import a framework; only `/vue` may import `vue`, and only the server adapters (`/h3-v1`, `/h3`, `/hono`, `/elysia`) may import their framework — `/server` itself imports none. Enforced by lint ([§4.3](#43-boundaries-are-lint-rules)), not discipline. The agnostic plane — authoring *and* the server surfaces — is most of the garden.
+The framework-agnostic layers never import a framework; only `/vue` may import `vue`, and only the server adapters (`/h3`, `/hono`, `/elysia`) may import their framework — `/server` itself imports none. Enforced by lint ([§4.3](#43-boundaries-are-lint-rules)), not discipline. The agnostic plane — authoring *and* the server surfaces — is most of the garden.
 
 ### 10. The baseline is a mirror, not a fork
 
@@ -179,7 +179,7 @@ The naming contract already reserves the domains this track will need: `IdbPlatf
 
 ## 4. Architecture
 
-### 4.1 One package, six entrypoints
+### 4.1 One package, layered entrypoints
 
 ```
 @mszr/idb-dux           the framework-agnostic foundation: defineSchema, i (+ i.namespace),
@@ -193,8 +193,8 @@ The naming contract already reserves the domains this track will need: `IdbPlatf
 @mszr/idb-dux/server    the server plane's framework-agnostic core + adapter port:
                         defineServerKit, defineAuthSyncHandler, defineWebhookHandler
                         (optional peers admin + webhooks; no framework peer)
-@mszr/idb-dux/h3-v1     h3 v1 adapter — Nuxt 4 / Nitro 2          (peer h3@^1.15)
-@mszr/idb-dux/h3        h3 v2 adapter — standalone / Nitro 3 / h3-dux (peer h3@^2)
+@mszr/idb-dux/h3        h3 v2 adapter — standalone / Nitro 3 / Nuxt 5 / h3-dux
+                        (peer h3@>=2.0.1-rc.22 <3)
 @mszr/idb-dux/hono      Hono adapter                              (peer hono@^4)
 @mszr/idb-dux/elysia    Elysia adapter                            (peer elysia@^1)
 ```
@@ -239,7 +239,7 @@ Everything flows outward from schema. Inner layers never import outer layers.
                                        (peers: admin + webhooks; no framework)
                                  │
                                  ▼
-                  h3-v1 · h3 · hono · elysia  ← thin adapters; each imports one framework
+                  h3 · hono · elysia  ← thin adapters; each imports one framework
 ```
 
 Read it as **three groups**: the *authoring plane* (schema, query·tx, perms — universal: importable anywhere, no secrets, no framework), the *server plane* (webhooks, admin, and `/server` — still framework-agnostic, but token/crypto-scoped and never bundled client-side), and the *framework overlays* (`/vue` for the client, the server adapters for the server — the only places a framework may be imported). The server plane is a subdivision *within* the agnostic plane, surfaced because the boundary rules need the finer grain.
@@ -267,7 +267,7 @@ For client bundle size, subpaths are entirely sufficient — a Vue-only user pay
 2. **`sideEffects: false`.** Lets bundlers drop any imported-but-unused module instead of conservatively keeping it. (No upstream idb package sets it today — a real, free improvement.)
 3. **ESM + named exports.** Everything Rollup/Vite/esbuild need for complete dead-code elimination.
 
-What subpaths do *not* solve, optional peers do: peer dependencies are package-level, not subpath-level. Every subpath-only dependency — `vue`, `h3`, `hono`, `elysia`, `@instantdb/admin`, `@instantdb/webhooks` — is an optional peer (`peerDependenciesMeta.optional`). A root-only user is never asked for Vue; a webhook-only worker installs `@instantdb/webhooks` and nothing from the Vue/admin/server stack. (The `h3` peer spans `^1.15 || ^2`; the `/h3-v1` and `/h3` subpaths are import-isolated, so an app resolves only the major it installed.)
+What subpaths do *not* solve, optional peers do: peer dependencies are package-level, not subpath-level. Every subpath-only dependency — `vue`, `h3`, `hono`, `elysia`, `@instantdb/admin`, `@instantdb/webhooks` — is an optional peer (`peerDependenciesMeta.optional`). A root-only user is never asked for Vue; a webhook-only worker installs `@instantdb/webhooks` and nothing from the Vue/admin/server stack. The `h3` peer belongs to the shipped `/h3` adapter and targets h3 v2; Nuxt 4 / h3 v1 apps compose `/server` locally instead of importing an official h3 v1 subpath.
 
 **The peer rule, stated once:** needed by every dux user → dependency (`@instantdb/core`, `@instantdb/version`); needed only by a subpath → optional peer.
 
@@ -369,7 +369,7 @@ Sequenced so each step is independently testable and nothing depends on a surfac
 | 4. Vue overlay | `useQuery` & friends via `shapeResult`; refs+state; `defineDb`; components | [vue](./dux-spec-vue.md) | ☑ complete |
 | 5. Webhooks | optional-config `init`, `defineWebhookHandlers`, `IdbWebhook*` types | [webhooks](./dux-spec-webhooks.md) | ☑ complete |
 | 6. Admin | owned `init`, shaped `query`/`subscribeQuery`, typed tx/debug, `asUser`, pass-throughs, `adminDb.webhooks` | [admin](./dux-spec-admin.md) | ☑ complete |
-| 7. Server | `/server` core + adapter port; `/h3-v1`, `/h3`, `/hono`, `/elysia`: `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler` | [server](./dux-spec-server.md) | ◧ `/server`, `/h3-v1`, `/hono`, `/elysia` shipped; `/h3` (v2) pending |
+| 7. Server | `/server` core + adapter port; `/h3`, `/hono`, `/elysia`: `defineServerKit`, `defineAuthSyncHandler`, `defineWebhookHandler`; Nuxt 4 recipe via `/server` | [server](./dux-spec-server.md) | ☑ complete |
 | 8. Perms | the `definePerms` pipeline | [perms](./dux-spec-perms.md) | ☑ complete |
 | 9. Demo + lock | one Nuxt demo exercising the five interactively-demoable entrypoints (`/webhooks` guaranteed by suites, not demoed — [workspace §7.2](./dux-spec-workspace.md#72-webhooks-the-documented-exception)); CI wiring | [workspace](./dux-spec-workspace.md) | ☑ complete |
 | 10. SSR hydration | server results serialized → client cache hydrated before subscriptions | [vue](./dux-spec-vue.md) | ☐ gated on upstream |
@@ -391,7 +391,7 @@ One hub (this doc), one cross-cutting law, one spec per entrypoint, one maintain
 | [dux-spec-perms.md](./dux-spec-perms.md) | `/perms`: the `definePerms` pipeline |
 | [dux-spec-admin.md](./dux-spec-admin.md) | `/admin`: shaped query + subscribeQuery, typed tx + debug, `asUser`, pass-throughs, `adminDb.webhooks` |
 | [dux-spec-webhooks.md](./dux-spec-webhooks.md) | `/webhooks`: init, `defineWebhookHandlers`, the pipeline verbs, manager, `IdbWebhook*` types |
-| [dux-spec-server.md](./dux-spec-server.md) | `/server` + adapters (`/h3-v1`, `/h3`, `/hono`, `/elysia`): server kit, auth sync, `defineWebhookHandler`, cross-platform transport |
+| [dux-spec-server.md](./dux-spec-server.md) | `/server` + adapters (`/h3`, `/hono`, `/elysia`): server kit, auth sync, `defineWebhookHandler`, cross-platform transport |
 | [dux-spec-workspace.md](./dux-spec-workspace.md) | maintainer manual: testing methodology, sustainability tiers, boundary rules, drift check, publishing, fork-rebase |
 
 Every spec keeps an **implementation status** table at the top and a **phased implementation roadmap** at the end; the status table tracks phases, the roadmap tracks each phase's deliverables. Specs are **contract-driven**: they state the desired behavior and why it matters first, then propose a concrete implementation approach. The approach is a thoughtful proposal, not a requirement — if reality teaches a better way to honor the contract, the implementation moves and the spec's proposal is corrected; the contracts headlining it remain.
