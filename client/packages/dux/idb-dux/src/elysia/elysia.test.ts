@@ -1,11 +1,12 @@
 /**
- * Runtime plane for `/h3-v1`: the shared server conformance suite driven through
- * h3 v1's real request lifecycle (`createApp` + `toWebHandler`). The behavior is
- * proven framework-free in `server/server.test.ts`; here the h3 v1 adapter's
- * wiring is re-proven end to end.
+ * Runtime plane for `/elysia`: the shared server conformance suite driven through
+ * a real Elysia app (`app.handle`). Proves the Elysia adapter's wiring — the
+ * reactive cookie jar, `{ parse: 'text' }` raw body, `ctx.set.status`, thrown
+ * `status()` — end to end.
  */
+import type { Context } from 'elysia'
 import { runServerConformance } from '@test'
-import { createApp, defineEventHandler, toWebHandler } from 'h3'
+import { Elysia } from 'elysia'
 import { vi } from 'vitest'
 import { defineAuthSyncHandler, defineServerKit, defineWebhookHandler } from './index.js'
 
@@ -25,15 +26,17 @@ vi.mock('../admin/index.js', () => ({ init: mocks.adminInit }))
 vi.mock('../webhooks/index.js', () => ({ init: mocks.webhooksInit }))
 
 runServerConformance({
-  name: 'h3-v1',
+  name: 'elysia',
   mocks,
   defineServerKit,
   defineAuthSyncHandler,
   defineWebhookHandler,
-  mount: (handler) => {
-    const app = createApp()
-    app.use(handler as Parameters<typeof app.use>[0])
-    return toWebHandler(app)
+  mount: (handler, opts) => {
+    const route = handler as Parameters<Elysia['all']>[1]
+    const app = opts?.rawBody
+      ? new Elysia().all('/', route, { parse: 'text' })
+      : new Elysia().all('/', route)
+    return req => app.handle(req)
   },
-  jsonRoute: fn => defineEventHandler(event => fn(event)),
+  jsonRoute: fn => (ctx: Context) => fn(ctx),
 })

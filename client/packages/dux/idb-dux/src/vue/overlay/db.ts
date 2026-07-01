@@ -62,6 +62,16 @@ export class IdbClient<S extends IdbSchema = IdbRegisteredSchema> {
     this.#baseline.transact(chunks as any)
 
   getAuth = (): Promise<IdbAuthUser | null> => this.#baseline.getAuth()
+
+  /**
+   * The current user's Instant `refresh_token`, or `null` when unauthenticated.
+   * The one client-side piece the bearer transport needs: read it here and
+   * attach it as `Authorization: Bearer <token>` on requests to your `/api`
+   * from native shells and cross-origin surfaces ([dux-spec-server.md §7]).
+   */
+  getCurrentRefreshToken = async (): Promise<string | null> =>
+    (await this.getAuth())?.refresh_token ?? null
+
   getLocalId = (name: string): Promise<string> => this.#baseline.getLocalId(name)
 
   room = ((type?: any, id?: any) => this.#baseline.room(type, id)) as

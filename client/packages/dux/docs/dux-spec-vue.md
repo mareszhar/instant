@@ -179,6 +179,7 @@ Per-call options (`IdbQueryOptions`) carry schema-typed `ruleParams`.
 - **`useUser(opts?)`** — the user-centric projection: in views behind an auth gate, the user is typed *present* without repeated narrowing. `useUser({ requireUser: true })` types `user` as `IdbAuthUser` and treats rendering without a user as a development-time error; the default leaves it optional.
 - **`useConnectionStatus()`** — result pattern over `IdbConnectionStatus`.
 - **`useLocalId(name)`** — reactive input, result pattern.
+- **`getCurrentRefreshToken()`** — `Promise<string | null>`: the current user's Instant `refresh_token`, or `null` when unauthenticated (`(await getAuth())?.refresh_token ?? null`, named in idb's own vocabulary). It exists for the **cross-platform bearer transport** ([dux-spec-server.md §7](./dux-spec-server.md#7-the-client-half--bearer-transport)): native shells, the browser extension, and cross-origin web clients read it and attach `Authorization: Bearer <token>` to requests to their `/api` (where `defineServerKit`'s `tokenFrom` reads it). Web clients using the cookie sync never need it — the browser attaches the cookie.
 
 ---
 
@@ -292,7 +293,7 @@ Done when: overlay dx + type + runtime suites green; every hook SSR-floor-verifi
 - [x] `result.ts` — the refs/state/`.refs` primitive (markRaw getter projection); `makeResult` for static-key hooks, `makeDynamicResult` (a Proxy) for query hooks whose scope keys depend on the query
 - [x] `useQuery` composing baseline + `shapeResult`; `MaybeRefOrGetter` + factory inputs; `null` pause
 - [x] `queryOnce`, `useInfiniteQuery` on the same shaping
-- [x] `useAuth`, `useUser` (strictness typing), `useConnectionStatus`, `useLocalId`
+- [x] `useAuth`, `useUser` (strictness typing), `useConnectionStatus`, `useLocalId`, `getCurrentRefreshToken` (bearer-transport token)
 - [x] rooms: reactive `db.room`/`db.rooms`, presence/typing/topic hooks with the result pattern
 - [x] typed `db.tx` wiring (machinery from root R3) + `transact`
 - [x] pass-throughs: `db.auth.*`, `db.storage.*`, `db.streams` with renamed types

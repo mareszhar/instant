@@ -15,9 +15,9 @@ Conventions: [dux-conventions.md](./dux-conventions.md) · Principles: [dux-visi
 | S2 | `/h3-v1` adapter (Nuxt 4 / Nitro 2; replaces `/nuxt`) | ☑ complete |
 | S3 | `/h3` adapter (h3 v2 / Nitro 3 / **h3-dux**) | ☐ planned — needs the `h3@^2` peer (cannot co-install with v1) |
 | S4 | `tokenFrom` transports: cookie · bearer · cookieOrBearer · custom | ☑ complete |
-| S5 | `/hono` adapter | ☐ planned — needs the `hono` peer installed |
-| S6 | `/elysia` adapter | ☐ planned — needs the `elysia` peer installed |
-| S7 | Client bearer-transport pattern documented end-to-end | ☐ planned |
+| S5 | `/hono` adapter | ☑ complete |
+| S6 | `/elysia` adapter | ☑ complete |
+| S7 | `db.getCurrentRefreshToken()` in `/vue`; bearer pattern documented | ◧ method shipped; demo example pending |
 
 Details: [§11 Phased roadmap](#11-phased-roadmap).
 
@@ -427,7 +427,7 @@ Done when: the three `create*` cores run against a test adapter; request-scoped 
 
 - [x] `IdbDuxServerAdapter<Ctx>` port; `IdbServerRequestReader`; `IdbServerCookieOptions`
 - [x] `createServerKit` (modes, verify+cache, admin memo), `createAuthSyncHandler`, `createWebhookHandler`
-- [x] core suite over a mock adapter (`server/server.test.ts`); the shared parameterized harness is extracted once a second adapter lands (S5/S6), per YAGNI
+- [x] core suite over a mock adapter (`server/server.test.ts`); the shared parameterized harness (`test-support/serverConformance.ts`) runs every adapter's real lifecycle
 
 ### S2 — `/h3-v1` adapter (replaces `/nuxt`) ☑
 
@@ -450,15 +450,17 @@ Blocked in this workspace: h3 v1 and v2 cannot co-install under one `h3` dep nam
 - [x] `'cookie'` / `'bearer'` / `'cookieOrBearer'`, the object overrides, the resolver fn
 - [x] suite: cookie-only, bearer-only, and mixed requests against one route
 
-### S5 — `/hono` adapter
+### S5 — `/hono` adapter ☑
 
-- [ ] Hono adapter; `HTTPException` 401; `c.req.text()` raw body
+- [x] Hono adapter; `HTTPException` 401; `c.req.text()` raw body; `WeakMap` state
+- [x] runs the shared conformance suite through a real `Hono` app
 
-### S6 — `/elysia` adapter
+### S6 — `/elysia` adapter ☑
 
-- [ ] Elysia adapter; `{ parse: 'text' }` webhook mount documented
+- [x] Elysia adapter; thrown `status()` 401; `{ parse: 'text' }` webhook mount; reactive-cookie clear via explicit expiry
+- [x] runs the shared conformance suite through a real `Elysia` app
 
 ### S7 — client bearer-transport pattern
 
-- [ ] `db.getCurrentRefreshToken(): Promise<string | null>` shipped in `/vue` (spec'd in [dux-spec-vue.md](./dux-spec-vue.md))
+- [x] `db.getCurrentRefreshToken(): Promise<string | null>` shipped in `/vue` (spec'd in [dux-spec-vue.md](./dux-spec-vue.md))
 - [ ] end-to-end example (web cookie + shell bearer) in the demo or docs; the principle documented for h3-dux/Hono typed clients

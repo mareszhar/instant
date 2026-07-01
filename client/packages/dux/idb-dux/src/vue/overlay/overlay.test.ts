@@ -137,3 +137,16 @@ describe('overlay Pinia safety', () => {
     expect(state.user).toEqual({ id: 'u1' }) // getter reflects the live ref
   })
 })
+
+describe('overlay getCurrentRefreshToken — the bearer-transport token', () => {
+  it('returns the current user refresh token', async () => {
+    const { db, mock } = makeClient()
+    mock.core.getAuth.mockResolvedValue({ id: 'u1', email: 'a@b.c', refresh_token: 'rt-xyz' })
+    expect(await db.getCurrentRefreshToken()).toBe('rt-xyz')
+  })
+
+  it('returns null when unauthenticated', async () => {
+    const { db } = makeClient() // mock getAuth resolves null by default
+    expect(await db.getCurrentRefreshToken()).toBeNull()
+  })
+})

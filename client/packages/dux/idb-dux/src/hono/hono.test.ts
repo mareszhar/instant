@@ -1,11 +1,11 @@
 /**
- * Runtime plane for `/h3-v1`: the shared server conformance suite driven through
- * h3 v1's real request lifecycle (`createApp` + `toWebHandler`). The behavior is
- * proven framework-free in `server/server.test.ts`; here the h3 v1 adapter's
- * wiring is re-proven end to end.
+ * Runtime plane for `/hono`: the shared server conformance suite driven through
+ * a real Hono app (`app.fetch`). Proves the Hono adapter's wiring — cookie
+ * helpers, `c.req.text()` raw body, `c.status`, `HTTPException` — end to end.
  */
+import type { Context, Handler } from 'hono'
 import { runServerConformance } from '@test'
-import { createApp, defineEventHandler, toWebHandler } from 'h3'
+import { Hono } from 'hono'
 import { vi } from 'vitest'
 import { defineAuthSyncHandler, defineServerKit, defineWebhookHandler } from './index.js'
 
@@ -25,15 +25,15 @@ vi.mock('../admin/index.js', () => ({ init: mocks.adminInit }))
 vi.mock('../webhooks/index.js', () => ({ init: mocks.webhooksInit }))
 
 runServerConformance({
-  name: 'h3-v1',
+  name: 'hono',
   mocks,
   defineServerKit,
   defineAuthSyncHandler,
   defineWebhookHandler,
   mount: (handler) => {
-    const app = createApp()
-    app.use(handler as Parameters<typeof app.use>[0])
-    return toWebHandler(app)
+    const app = new Hono()
+    app.all('/', handler as Handler)
+    return req => Promise.resolve(app.fetch(req))
   },
-  jsonRoute: fn => defineEventHandler(event => fn(event)),
+  jsonRoute: fn => async (c: Context) => c.json(await fn(c)),
 })

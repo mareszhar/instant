@@ -14,7 +14,9 @@
       "@mszr/idb-dux/admin": ["./src/admin/index.ts"],
       "@mszr/idb-dux/webhooks": ["./src/webhooks/index.ts"],
       "@mszr/idb-dux/server": ["./src/server/index.ts"],
-      "@mszr/idb-dux/h3-v1": ["./src/h3-v1/index.ts"]
+      "@mszr/idb-dux/h3-v1": ["./src/h3-v1/index.ts"],
+      "@mszr/idb-dux/hono": ["./src/hono/index.ts"],
+      "@mszr/idb-dux/elysia": ["./src/elysia/index.ts"]
     },
     "types": ["node", "vitest/globals", "@mszr/selenita/vitest"],
     "strict": true,

@@ -95,6 +95,26 @@
         "types": "./dist/commonjs/h3-v1/index.d.ts",
         "default": "./dist/commonjs/h3-v1/index.js"
       }
+    },
+    "./hono": {
+      "import": {
+        "types": "./dist/esm/hono/index.d.ts",
+        "default": "./dist/esm/hono/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/hono/index.d.ts",
+        "default": "./dist/commonjs/hono/index.js"
+      }
+    },
+    "./elysia": {
+      "import": {
+        "types": "./dist/esm/elysia/index.d.ts",
+        "default": "./dist/esm/elysia/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/elysia/index.d.ts",
+        "default": "./dist/commonjs/elysia/index.js"
+      }
     }
   },
   "main": "./dist/commonjs/index.js",
@@ -118,7 +138,9 @@
       "./admin": "./src/admin/index.ts",
       "./webhooks": "./src/webhooks/index.ts",
       "./server": "./src/server/index.ts",
-      "./h3-v1": "./src/h3-v1/index.ts"
+      "./h3-v1": "./src/h3-v1/index.ts",
+      "./hono": "./src/hono/index.ts",
+      "./elysia": "./src/elysia/index.ts"
     }
   },
   "files": [
@@ -130,7 +152,9 @@
   "peerDependencies": {
     "@instantdb/admin": "workspace:*",
     "@instantdb/webhooks": "workspace:*",
+    "elysia": "^1.0.0",
     "h3": "^1.15.0",
+    "hono": "^4.0.0",
     "vue": "^3.5.0"
   },
   "peerDependenciesMeta": {
@@ -140,7 +164,13 @@
     "@instantdb/webhooks": {
       "optional": true
     },
+    "elysia": {
+      "optional": true
+    },
     "h3": {
+      "optional": true
+    },
+    "hono": {
       "optional": true
     },
     "vue": {
@@ -159,9 +189,12 @@
     "@instantdb/vue": "workspace:*",
     "@instantdb/webhooks": "workspace:*",
     "@mszr/selenita": "^0.2.2",
+    "@sinclair/typebox": "^0.34.0",
     "@types/node": "^25.9.3",
     "@vue/test-utils": "^2.4.10",
+    "elysia": "^1.4.29",
     "h3": "^1.15.3",
+    "hono": "^4.12.27",
     "jsdom": "^29.1.1",
     "tshy": "^4.1.2",
     "typescript": "^6.0.3",
