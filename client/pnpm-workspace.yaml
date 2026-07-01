@@ -7,3 +7,11 @@ packages:
 
 overrides:
   caniuse-lite: 1.0.30001790
+
+allowBuilds:
+  esbuild: true
+  msw: true
+
+minimumReleaseAge: 5760
+minimumReleaseAgeExclude:
+  - '@mszr/*'
