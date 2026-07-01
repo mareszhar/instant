@@ -31,8 +31,11 @@ export interface IdbServerKitConfig<S extends IdbSchema, Ctx> {
   getAdminToken: (event: Ctx) => string
   /**
    * Where the user's refresh token is carried on the request. Default
-   * `'cookieOrBearer'` — reads the auth cookie for web clients and the
-   * `Authorization: Bearer` header for shells/cross-origin, from one route.
+   * `'cookieOrBearer'`: checks the auth cookie, then falls back to the
+   * `Authorization: Bearer` header — so one route accepts both cookie-bearing
+   * and bearer-bearing requests. This is a read-order fallback, not client
+   * detection: dux never inspects who is calling, only which transport is
+   * present on the request. See {@link IdbServerTokenSource} for every option.
    */
   tokenFrom?: IdbServerTokenSource
   /** Base URL for the Instant API (self-hosting Instant). Unrelated to your own backend. */
