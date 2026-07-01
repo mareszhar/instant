@@ -9,7 +9,6 @@
       "sandbox/*",
       "packages/*",
       "packages/dux/idb-dux",
-      "packages/vux/idb-vux",
       "www",
       "www/_emails/replace-images"
     ]

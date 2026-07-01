@@ -1,5 +1,4 @@
 template
 .svelte-kit
 # Managed by ESLint
-packages/vux/**
 packages/dux/**

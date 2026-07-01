@@ -7,16 +7,11 @@
     {
       "name": "🌈 DUX (PACKAGE)",
       "path": "client/packages/dux"
-    },
-    {
-      "name": "💚 VUX (PACKAGE)",
-      "path": "client/packages/vux"
     }
   ],
   "settings": {
     "files.exclude": {
-      "client/packages/dux": true,
-      "client/packages/vux": true
+      "client/packages/dux": true
     }
   }
 }

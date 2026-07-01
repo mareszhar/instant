@@ -146,7 +146,6 @@ web_modules/
 # dotenv environment variable files
 client/sandbox/**/.env
 client/packages/dux/**/.env
-client/packages/vux/**/.env
 .env.development.local
 .env.test.local
 .env.production.local
@@ -171,10 +170,6 @@ client/packages/dux/**/.data
 client/packages/dux/**/.nitro
 client/packages/dux/packs
 client/packages/dux/.dux
-client/packages/vux/**/.output
-client/packages/vux/**/.data
-client/packages/vux/**/.nitro
-client/packages/vux/packs
 
 # Gatsby files
 .cache/

@@ -1,7 +1,6 @@
 packages:
   - 'packages/*'
   - 'packages/dux/idb-dux'
-  - 'packages/vux/idb-vux'
   - 'sandbox/*'
   - 'www'
   - 'www/_emails/replace-images'
