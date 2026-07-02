@@ -66,25 +66,41 @@ function bumpVersion(current, type) {
 }
 
 /**
- * Poll npm until the just-published version resolves (registry propagation).
- * `preferOnline` is essential here: each poll must revalidate, or npm serves a
- * packument cached by the first poll (taken before propagation) and the wait
- * times out against its own stale cache. First-publish propagation is also
- * slower than a republish, hence the generous budget.
+ * Whether bun can resolve `${PKG_NAME}@${version}` from the registry. The demo
+ * refresh installs with bun, which keeps its own manifest cache separate from
+ * npm's — so an npm-only propagation check can pass while bun still resolves a
+ * pre-publish packument and the very next `bun install` fails with "No version
+ * matching … (but package exists)". Gating on bun too closes that window: bun
+ * itself must see the version before we hand off to the bun-driven refresh.
+ */
+function resolvesWithBun(version) {
+  return capture('bun', ['pm', 'view', `${PKG_NAME}@${version}`, 'version'], { cwd: PKG_DIR }) === version
+}
+
+/**
+ * Poll until the just-published version resolves for BOTH npm and bun (registry
+ * propagation). `preferOnline` is essential for the npm check: each poll must
+ * revalidate, or npm serves a packument cached by the first poll (taken before
+ * propagation) and the wait times out against its own stale cache. The bun
+ * check guards the bun-driven demo refresh that runs immediately after.
+ * First-publish propagation is also slower than a republish, hence the generous
+ * budget.
  */
 function waitForNpm(version, { timeoutMs = 300_000, intervalMs = 5_000 } = {}) {
   const deadline = Date.now() + timeoutMs
-  log.log(`waiting for ${PKG_NAME}@${version} to resolve on npm…`)
+  log.log(`waiting for ${PKG_NAME}@${version} to resolve on npm + bun…`)
   while (Date.now() < deadline) {
     try {
       assertPackageVersionOnNpm(PKG_NAME, version, { preferOnline: true })
-      log.log(`${PKG_NAME}@${version} is live on npm.`)
-      return
+      if (resolvesWithBun(version)) {
+        log.log(`${PKG_NAME}@${version} is live on npm and resolvable by bun.`)
+        return
+      }
     }
     catch {}
     sleep(intervalMs)
   }
-  log.fail(`${PKG_NAME}@${version} did not appear on npm within ${timeoutMs / 1000}s. It may still be propagating; re-run the same publish:sdk command to resume.`)
+  log.fail(`${PKG_NAME}@${version} did not resolve on both npm and bun within ${timeoutMs / 1000}s. It may still be propagating; re-run the same publish:sdk command to resume.`)
 }
 
 /**
