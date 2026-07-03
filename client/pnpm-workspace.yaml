@@ -8,6 +8,8 @@ packages:
 overrides:
   caniuse-lite: 1.0.30001790
 
+verifyDepsBeforeRun: false
+
 allowBuilds:
   '@clerk/shared': true
   '@firebase/util': true

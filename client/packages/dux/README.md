@@ -29,8 +29,10 @@ Welcome to the dux maintainer area inside **idb**.
 
 Run from `client/packages/dux`:
 
-1. `pnpm run sdk:build:all` — build the official workspace deps, then ours
-2. `pnpm run sdk:build:ours` — build `@mszr/idb-dux` (all entrypoints)
-3. `pnpm run sdk:test` — run every assertion plane (runtime, types, editor DX)
-4. `pnpm run sdk:typecheck`
-5. `pnpm run sdk:lint` / `pnpm run lint`
+1. `pnpm run workspace:setup` — install the Dux workspace deps and install the local Git hooks
+2. `pnpm run workspace:install` — install only the deps needed for Dux workspace work
+3. `pnpm run sdk:build:all` — build the official workspace deps, then ours
+4. `pnpm run sdk:build:ours` — build `@mszr/idb-dux` (all entrypoints)
+5. `pnpm run sdk:test` — run every assertion plane (runtime, types, editor DX)
+6. `pnpm run sdk:typecheck`
+7. `pnpm run sdk:lint` / `pnpm run lint`
