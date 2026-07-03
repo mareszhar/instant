@@ -6,8 +6,7 @@
   "packageManager": "pnpm@11.9.0",
   "description": "Maintainer workspace for @mszr/idb-dux",
   "scripts": {
-    "workspace:install": "pnpm --dir ../.. install --filter idb-dux-workspace --filter @mszr/idb-dux...",
-    "workspace:setup": "pnpm run workspace:install && pnpm run git:hooks:install",
+    "workspace:setup": "pnpm --dir ../.. install --filter idb-dux-workspace --filter @mszr/idb-dux... && pnpm run git:hooks:install",
 
     "postinstall": "node scripts/install-git-hooks.mjs --optional",
     "git:hooks:install": "node scripts/install-git-hooks.mjs",
