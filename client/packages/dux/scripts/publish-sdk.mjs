@@ -271,5 +271,5 @@ catch (error) {
 }
 
 clearReleaseState()
-log.log(`release v${releasedVersion} complete. Review, then: git push && git push --tags`)
+log.log(`release v${releasedVersion} complete. Review, then: git push`)
 log.log('the demo is committed in npm mode — switch it back for dev with: pnpm run sdmil')
