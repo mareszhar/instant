@@ -7,16 +7,23 @@ import { vi } from 'vitest'
 
 export function createMockCore(initial?: {
   status?: string
+  appStatus?: { isLoading: boolean, isReadOnly: boolean | undefined }
   currentUser?: { isLoading: boolean, user: any, error: any } | null
 }) {
   let queryCb: ((r: any) => void) | null = null
   let authCb: ((a: any) => void) | null = null
   let statusCb: ((s: any) => void) | null = null
+  let appStatusCb: ((s: any) => void) | null = null
   let previousResult: any = null
+  const initialAppStatus = initial?.appStatus ?? {
+    isLoading: true,
+    isReadOnly: undefined,
+  }
 
   const core: any = {
     _reactor: {
       status: initial?.status ?? 'connecting',
+      _appStatusState: initialAppStatus,
       _currentUserCached: initial?.currentUser ?? null,
       getPreviousResult: vi.fn(() => previousResult),
       getPresence: vi.fn(() => null),
@@ -45,6 +52,11 @@ export function createMockCore(initial?: {
       statusCb = cb
       return () => {}
     }),
+    subscribeAppStatus: vi.fn((cb: (s: any) => void) => {
+      appStatusCb = cb
+      cb(initialAppStatus)
+      return () => {}
+    }),
   }
 
   return {
@@ -53,5 +65,6 @@ export function createMockCore(initial?: {
     emitQuery: (r: any) => queryCb?.(r),
     emitAuth: (a: any) => authCb?.(a),
     emitStatus: (s: any) => statusCb?.(s),
+    emitAppStatus: (s: any) => appStatusCb?.(s),
   }
 }

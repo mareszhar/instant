@@ -29,6 +29,10 @@ export type { IdbDefineDbOptions } from './overlay/defineDb.js'
 export { makeResult } from './overlay/result.js'
 export type { IdbResult } from './overlay/result.js'
 export type {
+  IdbAppStatusResult,
+  IdbAppStatusResultRefs,
+  IdbAppStatusResultState,
+  IdbAppStatusState,
   IdbAuthResult,
   IdbAuthResultRefs,
   IdbAuthResultState,

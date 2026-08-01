@@ -61,6 +61,15 @@ describe('overlay auth', () => {
   })
 })
 
+describe('overlay app status', () => {
+  it('uses the result pattern for maintenance mode', () => {
+    const { isLoading, isReadOnly, state } = db.useAppStatus()
+    expectTypeOf(isLoading).toEqualTypeOf<Ref<boolean>>()
+    expectTypeOf(isReadOnly).toEqualTypeOf<Ref<boolean | undefined>>()
+    expectTypeOf(state.isReadOnly).toEqualTypeOf<boolean | undefined>()
+  })
+})
+
 describe('reserved result keys — drift lock', () => {
   // The query-validation guard (`DUXERR_RESULT_KEY_RESERVED`) rejects userland
   // scope keys that would collide with a hook result field. Its reserved set

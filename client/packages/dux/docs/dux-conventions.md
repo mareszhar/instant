@@ -83,7 +83,7 @@ This applies to the **shipped surface only** — types, classes, and runtime val
 
 ## 3. The result pattern
 
-Every stateful client hook returns `Idb<Domain>Result` with `-Data` / `-State` / `-Refs` subparts (`IdbQueryResult`, `IdbQueryResultData`, `IdbQueryResultState`, `IdbQueryResultRefs`; same pattern for `IdbAuthResult`, `IdbInfiniteQueryResult`, `IdbConnectionResult`, `IdbLocalIdResult`, and the presence/typing hooks — their shapes are inferred per room, so no separately-named alias exists). Learn one, know all.
+Every stateful client hook returns `Idb<Domain>Result` with `-Data` / `-State` / `-Refs` subparts (`IdbQueryResult`, `IdbQueryResultData`, `IdbQueryResultState`, `IdbQueryResultRefs`; same pattern for `IdbAuthResult`, `IdbInfiniteQueryResult`, `IdbConnectionResult`, `IdbAppStatusResult`, `IdbLocalIdResult`, and the presence/typing hooks — their shapes are inferred per room, so no separately-named alias exists). Learn one, know all.
 
 The result pattern is a *client-reactivity* concept. Server one-shots return plain shaped data and deliberately don't claim it ([dux-spec-admin.md](./dux-spec-admin.md)).
 
@@ -159,6 +159,7 @@ The pattern and the non-obvious calls. Each spec carries its surface's *complete
 | `RoomsOf` / `PresenceOf` / `TopicsOf` | room shape extractors | `IdbRooms` / `IdbRoomPresence<'room'>` / `IdbRoomTopics<'room'>` |
 | `InstantAPIError` / `InstantError` / `InstantIssue` | error classes | `IdbError` family |
 | `ConnectionStatus` | status union | `IdbConnectionStatus` |
+| `AppStatusState` | maintenance-mode state | `IdbAppStatusState` |
 | `SubscribeQueryResponse` | the admin subscription handle | `IdbQuerySubscription` |
 | `InstantObject`, deprecated aliases (`InstantQuery`, `InstantEntity`, `InstantGraph`, …) | legacy | **dropped** — never re-exported |
 

@@ -5,6 +5,7 @@
  * ([conventions §3]).
  */
 import type {
+  AppStatusState,
   ConnectionStatus,
   InstantConfig,
   User,
@@ -33,6 +34,9 @@ export type IdbAuthUser = User
 
 /** Connection status union (official `ConnectionStatus`). */
 export type IdbConnectionStatus = ConnectionStatus
+
+/** App maintenance state (official `AppStatusState`). */
+export type IdbAppStatusState = AppStatusState
 
 // ==========
 // result-pattern shapes
@@ -72,6 +76,14 @@ export type IdbAuthResult = IdbResult<AuthRefs>
 
 interface ConnectionRefs { status: Ref<IdbConnectionStatus> }
 export type IdbConnectionResult = IdbResult<ConnectionRefs>
+
+interface AppStatusRefs {
+  isLoading: Ref<boolean>
+  isReadOnly: Ref<boolean | undefined>
+}
+export type IdbAppStatusResultRefs = AppStatusRefs
+export type IdbAppStatusResultState = StateOf<AppStatusRefs>
+export type IdbAppStatusResult = IdbResult<AppStatusRefs>
 
 interface LocalIdRefs { localId: Ref<string | null> }
 export type IdbLocalIdResult = IdbResult<LocalIdRefs>

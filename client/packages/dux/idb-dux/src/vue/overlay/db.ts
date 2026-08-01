@@ -5,6 +5,7 @@ import type { IdbRegisteredSchema } from '../../schema/register.js'
 import type { IdbTx, IdbTxChunkInput } from '../../tx/index.js'
 import type { IdbDuxDatabase } from '../baseline/index.js'
 import type {
+  IdbAppStatusResult,
   IdbAuthResult,
   IdbAuthUser,
   IdbConnectionResult,
@@ -21,9 +22,10 @@ import { InstantError } from '@instantdb/core'
  * resilience comes from the baseline guards; shaping and the result pattern
  * are added here.
  */
-import { computed, toValue } from 'vue'
+import { computed, ref, toValue } from 'vue'
 import { resultKeys, shapeResult, shapingSchema, toWireQuery } from '../../query/index.js'
 import { typedTx } from '../../tx/index.js'
+import { isClient, tryOnScopeDispose } from '../baseline/utils.js'
 import { makeDynamicResult, makeResult } from './result.js'
 import { rooms as overlayRooms } from './rooms/index.js'
 
@@ -172,6 +174,23 @@ export class IdbClient<S extends IdbSchema = IdbRegisteredSchema> {
   useConnectionStatus = (): IdbConnectionResult => {
     const status = this.#baseline.useConnectionStatus()
     return makeResult({ status })
+  }
+
+  /** Observe whether the app is loading or in maintenance/read-only mode. */
+  useAppStatus = (): IdbAppStatusResult => {
+    const isLoading = ref(true)
+    const isReadOnly = ref<boolean | undefined>(undefined)
+
+    if (!isClient())
+      return makeResult({ isLoading, isReadOnly })
+
+    const unsub = this.#baseline.core.subscribeAppStatus((state) => {
+      isLoading.value = state.isLoading
+      isReadOnly.value = state.isReadOnly
+    })
+    tryOnScopeDispose(unsub)
+
+    return makeResult({ isLoading, isReadOnly })
   }
 
   useLocalId = (name: MaybeRefOrGetter<string>): IdbLocalIdResult => {

@@ -59,6 +59,14 @@ describe('ssr floor', () => {
     expect(result.status.value).toBe('connecting')
   })
 
+  it('useAppStatus is inert and opens no subscription', () => {
+    const { db, mock } = makeClient()
+    const { result } = withScope(() => db.useAppStatus())
+    expect(mock.core.subscribeAppStatus).not.toHaveBeenCalled()
+    expect(result.isLoading.value).toBe(true)
+    expect(result.isReadOnly.value).toBeUndefined()
+  })
+
   it('useLocalId is inert (no client storage on the server)', () => {
     const { db, mock } = makeClient()
     const { result } = withScope(() => db.useLocalId('device'))

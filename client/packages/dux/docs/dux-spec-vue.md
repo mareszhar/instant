@@ -42,7 +42,7 @@ The enhanced behavior is the only public surface. All hooks are SSR-resilient; a
 | `db.queryOnce(query, opts?)` | async one-shot, same shaping (the marker name — the bare `query` belongs to the server's primary read, [conventions §4](./dux-conventions.md#4-the-primary-read-rule)) |
 | `db.useAuth()` | result pattern over `{ isLoading, user, error }` |
 | `db.useUser(opts?)` | strictness-typed projection of the authenticated user |
-| `db.useConnectionStatus()` / `db.useLocalId(name)` | result pattern; reactive inputs |
+| `db.useConnectionStatus()` / `db.useAppStatus()` / `db.useLocalId(name)` | result pattern; connection, maintenance mode, and reactive identity |
 | `db.room(type, id)` / `db.rooms.*` | reactive inputs; presence/typing hooks share the result pattern |
 | `db.transact(...)` / `db.tx` | `tx` is **typed**: schema-typed `ruleParams`, dot-path `.link` ([root spec §5](./dux-spec-root.md#5-typed-tx)) |
 | `db.auth.*` / `db.storage.*` / `db.streams` | **considered pass-throughs**: official verbs kept verbatim — already precise — with exported types renamed (`IdbAuth*`, `IdbStorage*`, `IdbStream*`) |
@@ -113,7 +113,7 @@ watch(isLoading, loading => console.log('loading:', loading))
 
 Because `state` is a stable raw object, reactivity is collected only when a specific getter property is read. Watch `() => auth.user` or `() => auth.user?.id`, not `() => auth`; and do not destructure properties from `state` when the detached value must stay reactive. Detached reactive values are the job of the top-level refs or `.refs` (`const { isLoading } = db.useQuery(...)`, `{ ...result.refs }`).
 
-The shapes are typed `Idb<Domain>Result` with `-Data`/`-State`/`-Refs` subparts (`IdbQueryResult`, `IdbAuthResult`, `IdbConnectionResult`, `IdbLocalIdResult`, and the presence/typing hooks — shapes inferred per room, no separately-named alias) — learn one, know all ([conventions §3](./dux-conventions.md#3-the-result-pattern)).
+The shapes are typed `Idb<Domain>Result` with `-Data`/`-State`/`-Refs` subparts (`IdbQueryResult`, `IdbAuthResult`, `IdbConnectionResult`, `IdbAppStatusResult`, `IdbLocalIdResult`, and the presence/typing hooks — shapes inferred per room, no separately-named alias) — learn one, know all ([conventions §3](./dux-conventions.md#3-the-result-pattern)).
 
 The static fields a query result spreads beside its data — `isLoading`, `error`, `pageInfo`, `refs`, `state`, and `useInfiniteQuery`'s `canLoadNextPage`/`loadNextPage` — are the **reserved result keys**. A query scope can't resolve a top-level key onto one; the guard lives in query validation and the canonical set (`ReservedResultKey`) is locked against these shapes by a type test ([dux-spec-root.md §4.5](./dux-spec-root.md#45-result-key-collisions)).
 
@@ -180,6 +180,7 @@ Per-call options (`IdbQueryOptions`) carry schema-typed `ruleParams`.
 - **`useAuth()`** — the result pattern over `{ isLoading, user, error }`; `user` is `IdbAuthUser | undefined`.
 - **`useUser(opts?)`** — the user-centric projection: in views behind an auth gate, the user is typed *present* without repeated narrowing. `useUser({ requireUser: true })` types `user` as `IdbAuthUser` and treats rendering without a user as a development-time error; the default leaves it optional.
 - **`useConnectionStatus()`** — result pattern over `IdbConnectionStatus`.
+- **`useAppStatus()`** — result pattern over `{ isLoading, isReadOnly }`; exposes upstream maintenance mode in Vue even though the official Vue SDK has not yet added a hook for core's subscription.
 - **`useLocalId(name)`** — reactive input, result pattern.
 - **`getCurrentRefreshToken()`** — `Promise<string | null>`: the current user's Instant `refresh_token`, or `null` when unauthenticated (`(await getAuth())?.refresh_token ?? null`, named in idb's own vocabulary). It exists for the **cross-platform bearer transport** ([dux-spec-server.md §7](./dux-spec-server.md#7-the-client-half--bearer-transport)): native shells, the browser extension, and cross-origin web clients read it and attach `Authorization: Bearer <token>` to requests to their `/api` (where `defineServerKit`'s `tokenFrom` reads it). Web clients using the cookie sync never need it — the browser attaches the cookie.
 
@@ -295,7 +296,7 @@ Done when: overlay dx + type + runtime suites green; every hook SSR-floor-verifi
 - [x] `result.ts` — the refs/state/`.refs` primitive (markRaw getter projection); `makeResult` for static-key hooks, `makeDynamicResult` (a Proxy) for query hooks whose scope keys depend on the query
 - [x] `useQuery` composing baseline + `shapeResult`; `MaybeRefOrGetter` + factory inputs; `null` pause
 - [x] `queryOnce`, `useInfiniteQuery` on the same shaping
-- [x] `useAuth`, `useUser` (strictness typing), `useConnectionStatus`, `useLocalId`, `getCurrentRefreshToken` (bearer-transport token)
+- [x] `useAuth`, `useUser` (strictness typing), `useConnectionStatus`, `useAppStatus`, `useLocalId`, `getCurrentRefreshToken` (bearer-transport token)
 - [x] rooms: reactive `db.room`/`db.rooms`, presence/typing/topic hooks with the result pattern
 - [x] typed `db.tx` wiring (machinery from root R3) + `transact`
 - [x] pass-throughs: `db.auth.*`, `db.storage.*`, `db.streams` with renamed types

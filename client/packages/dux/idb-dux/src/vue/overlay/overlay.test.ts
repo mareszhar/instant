@@ -96,7 +96,7 @@ describe('overlay queryOnce — plain shaped data', () => {
   })
 })
 
-describe('overlay auth + connection', () => {
+describe('overlay auth + connection + app status', () => {
   it('useAuth folds null user to undefined and transitions', async () => {
     const { db, mock } = makeClient()
     const { result } = withScope(() => db.useAuth())
@@ -120,6 +120,21 @@ describe('overlay auth + connection', () => {
     mock.emitStatus('connected')
     await nextTick()
     expect(result.status.value).toBe('connected')
+  })
+
+  it('useAppStatus exposes maintenance mode via the result pattern', async () => {
+    const { db, mock } = makeClient({
+      appStatus: { isLoading: false, isReadOnly: false },
+    })
+    const { result } = withScope(() => db.useAppStatus())
+    expect(result.state).toEqual(expect.objectContaining({
+      isLoading: false,
+      isReadOnly: false,
+    }))
+
+    mock.emitAppStatus({ isLoading: false, isReadOnly: true })
+    await nextTick()
+    expect(result.isReadOnly.value).toBe(true)
   })
 })
 
