@@ -211,7 +211,7 @@ These are external to the repo and done once:
 
 1. **Create the public repo** `github.com/mareszhar/idb-dux` (empty; no README so the first subtree push is clean).
 2. **npm scope**: ensure the `@mszr` scope exists with publish rights for the account (`@mszr/idb-dux` is published with `--access public`). Note: `npm login` itself is **not** a one-time step — npm sessions expire quickly, so re-auth before each release; `publish:sdk:*` checks `npm whoami` and stops early if you're logged out.
-3. **Hosting platform**: create a project for the demo and set its env vars (`NUXT_PUBLIC_INSTANT_APP_ID`, `NUXT_INSTANT_APP_ADMIN_TOKEN`); on Vercel, link it once with `vercel link` from the demo directory. No Git integration — the fork is never auto-deployed (see [§6.4](#64-the-demo-publish-publish-demomjs)).
+3. **Hosting platform**: create a project for the demo and set its env vars (`NUXT_PUBLIC_INSTANT_APP_ID`, `NUXT_INSTANT_APP_ADMIN_TOKEN`); on Vercel, link it once with `pnpm dlx vercel@latest link` from the demo directory. The deployer runs that exact CLI version through `pnpm dlx`, so no global installation is required. No Git integration — the fork is never auto-deployed (see [§6.4](#64-the-demo-publish-publish-demomjs)).
 
 ### 6.2 The SDK publish (`publish-sdk.mjs`)
 
@@ -222,7 +222,7 @@ These are external to the repo and done once:
 3. Bump `@mszr/idb-dux`'s own version (`npm version <type> --no-git-tag-version`) — this persists.
 4. Snapshot `package.json`; temporarily rewrite Instant workspace deps to the concrete shared version; `sdk:build:ours`; `npm publish --access public`.
 5. Restore the workspace deps (the version bump stays). **Record the release** in `.dux/release-state.json` (version, type, shared version, per-step progress) so anything after this is resumable.
-6. Wait until `npm view @mszr/idb-dux@<version>` resolves (registry propagation) — polling with `--prefer-online` so each poll revalidates instead of re-reading a packument the first poll cached before propagation.
+6. Wait until both `npm view @mszr/idb-dux@<version>` and a cacheless, dry-run Bun install of the demo's exact `npm:@mszr/idb-dux@<version>` alias resolve (registry propagation). The npm poll uses `--prefer-online`, and the Bun probe uses `--no-cache`, so neither can accept a stale packument. Demo refresh installs are cacheless for the same reason.
 7. Prepare the demo: switch it to **npm** mode pinned to `@mszr/idb-dux@<version>` (the exact version, never `latest`), refresh, build as a local smoke test ([§6.4](#64-the-demo-publish-publish-demomjs)).
 8. Commit (version bump **and** demo pin) `🔖 release v<version>` and tag `v<version>`, **idempotently** (a resume that already committed/tagged is a no-op, not a failure). **Push is left to the maintainer** (so a release can be inspected first).
 9. Deploy the demo to production, then squash-publish the public subtree with `🔖 release v<version>`.
@@ -323,7 +323,7 @@ Done when: `pnpm run sdk:build:ours` produces all entrypoints; boundary lint pas
 Tooling is in place ([§6](#6-publishing)) and the **first release shipped (v1.0.0)**; the phase is closed.
 
 - [x] shared gate (`scripts/prepublish-verify.mjs` + `scripts/lib/run-prepublish-gates.mjs`): build · lint · typecheck · test · drift; content-keyed verification receipt skips a re-run when inputs are unchanged (`scripts/lib/verify-stamp.mjs`); `DUX_UNSAFE_PUBLISH_SKIP_CHECKS=1` is the only (awkward) bypass, `DUX_FORCE_VERIFY=1` forces a re-run
-- [x] SDK publish (`scripts/publish-sdk.mjs`): verify-once orchestration — version bump (gitmoji `🔖 release v<version>` commit + tag), Instant workspace-dep rewrite, build, `npm publish --access public`, snapshot/restore, `--prefer-online` npm-propagation wait, demo prepare + deploy, subtree squash; `publish:sdk:dry-run` rehearsal
+- [x] SDK publish (`scripts/publish-sdk.mjs`): verify-once orchestration — version bump (gitmoji `🔖 release v<version>` commit + tag), Instant workspace-dep rewrite, build, `npm publish --access public`, snapshot/restore, `--prefer-online` npm-propagation wait plus cacheless Bun npm-alias install probe, cacheless demo refresh, demo prepare + deploy, subtree squash; `publish:sdk:dry-run` rehearsal
 - [x] **resumable orchestration** (`scripts/lib/release-state.mjs`): once published, a failed post-publish step is recovered by re-running the same `publish:sdk:<type>` — it resumes from the first incomplete step (idempotent commit/tag), never re-bumps or re-verifies unchanged inputs
 - [x] squashed `git subtree` publish to `mareszhar/idb-dux` (`scripts/publish-subtree.mjs`); ad-hoc opens `$GIT_EDITOR` prefilled with the convention default (`🔖 release v<version>`), `--message` skips it, the orchestrator passes the message so a release never opens an editor
 - [x] vendor-neutral demo deploy from the fork, npm-mode + exact-version-pin guarded (`scripts/publish-demo.mjs`)

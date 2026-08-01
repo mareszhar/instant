@@ -13,7 +13,7 @@
  *   3. bump @mszr/idb-dux's own version (persists)
  *   4. temporarily pin Instant workspace deps; build; npm publish --public
  *   5. restore the workspace deps (the bump stays)
- *   6. wait until npm view @mszr/idb-dux@<version> resolves
+ *   6. wait until npm and a cacheless Bun npm-alias install resolve the version
  *   7. prepare the demo: npm mode pinned to @<version> (not latest), refresh, build
  *   8. commit (version bump + demo pin) "🔖 release v<version>" and tag
  *   9. deploy the demo to production
@@ -31,6 +31,7 @@
  */
 import fs from 'node:fs'
 import process from 'node:process'
+import { canInstallBunNpmAlias } from './lib/bun-registry-readiness.mjs'
 import { assertInstantDepsOnNpm, assertPackageVersionOnNpm, pinInstantDeps, readSharedInstantVersion } from './lib/pin-instant-deps.mjs'
 import { clearReleaseState, loadReleaseState, saveReleaseState } from './lib/release-state.mjs'
 import { NPM_CACHE, PKG_DIR, PKG_JSON, PKG_NAME, WORKSPACE_ROOT } from './lib/resolve-publish-paths.mjs'
@@ -66,23 +67,12 @@ function bumpVersion(current, type) {
 }
 
 /**
- * Whether bun can resolve `${PKG_NAME}@${version}` from the registry. The demo
- * refresh installs with bun, which keeps its own manifest cache separate from
- * npm's — so an npm-only propagation check can pass while bun still resolves a
- * pre-publish packument and the very next `bun install` fails with "No version
- * matching … (but package exists)". Gating on bun too closes that window: bun
- * itself must see the version before we hand off to the bun-driven refresh.
- */
-function resolvesWithBun(version) {
-  return capture('bun', ['pm', 'view', `${PKG_NAME}@${version}`, 'version'], { cwd: PKG_DIR }) === version
-}
-
-/**
- * Poll until the just-published version resolves for BOTH npm and bun (registry
- * propagation). `preferOnline` is essential for the npm check: each poll must
+ * Poll until the just-published version resolves for BOTH npm and Bun's actual
+ * npm-alias installer (registry propagation). `preferOnline` is essential for
+ * the npm check: each poll must
  * revalidate, or npm serves a packument cached by the first poll (taken before
- * propagation) and the wait times out against its own stale cache. The bun
- * check guards the bun-driven demo refresh that runs immediately after.
+ * propagation) and the wait times out against its own stale cache. The Bun
+ * check is cacheless and guards the Bun-driven demo refresh that runs next.
  * First-publish propagation is also slower than a republish, hence the generous
  * budget.
  */
@@ -92,8 +82,8 @@ function waitForNpm(version, { timeoutMs = 300_000, intervalMs = 5_000 } = {}) {
   while (Date.now() < deadline) {
     try {
       assertPackageVersionOnNpm(PKG_NAME, version, { preferOnline: true })
-      if (resolvesWithBun(version)) {
-        log.log(`${PKG_NAME}@${version} is live on npm and resolvable by bun.`)
+      if (canInstallBunNpmAlias(PKG_NAME, version, { cwd: PKG_DIR })) {
+        log.log(`${PKG_NAME}@${version} is live on npm and installable through Bun's npm-alias resolver.`)
         return
       }
     }

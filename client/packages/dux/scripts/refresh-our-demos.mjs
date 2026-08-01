@@ -5,7 +5,7 @@
  *
  * Scope:
  * - clears runtime/build caches for selected demos (`.nuxt`, `.output`, Vite/Nuxt cache dirs)
- * - reinstalls dependencies for selected demos (`bun install --force`)
+ * - reinstalls dependencies for selected demos (`bun install --force --no-cache`)
  * - regenerates Nuxt prep artifacts (`nuxt prepare` via each demo's `prep` script)
  *
  * Explicitly out of scope:
@@ -192,7 +192,9 @@ function refreshDemo(
 
   if (options.install) {
     console.log(`[demo-refresh] reinstalling dependencies: ${path.relative(WORKSPACE_ROOT, demoRoot)}`)
-    runOrThrow('bun', ['install', '--cwd', demoRoot, '--force'])
+    // Release refreshes can run seconds after publishing an exact npm alias.
+    // Ignore Bun's manifest cache so an earlier packument cannot hide it.
+    runOrThrow('bun', ['install', '--cwd', demoRoot, '--force', '--no-cache'])
   }
 
   if (options.prep) {

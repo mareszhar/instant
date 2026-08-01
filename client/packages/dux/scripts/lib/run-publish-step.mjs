@@ -18,8 +18,9 @@ export function run(command, args, opts = {}) {
   })
   if (result.status !== 0) {
     const printable = [command, ...args].join(' ')
-    const details = [result.stdout, result.stderr].filter(Boolean).join('\n').trim()
-    throw new Error(`Command failed (${result.status ?? '?'}): ${printable}${details ? `\n${details}` : ''}`)
+    const details = [result.error?.message, result.stdout, result.stderr].filter(Boolean).join('\n').trim()
+    const status = result.status ?? result.error?.code ?? '?'
+    throw new Error(`Command failed (${status}): ${printable}${details ? `\n${details}` : ''}`)
   }
   return result
 }
@@ -32,6 +33,17 @@ export function capture(command, args, opts = {}) {
     ...rest,
     env: { ...process.env, ...env },
   }).stdout?.trim() ?? ''
+}
+
+/** Run a command quietly and report only whether it exited successfully. */
+export function succeeds(command, args, opts = {}) {
+  const { env, ...rest } = opts
+  return spawnSync(command, args, {
+    stdio: 'pipe',
+    encoding: 'utf8',
+    ...rest,
+    env: { ...process.env, ...env },
+  }).status === 0
 }
 
 /** Block the event loop for `ms` (used by the npm-availability poll). */

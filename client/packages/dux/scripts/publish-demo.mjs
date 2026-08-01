@@ -29,6 +29,7 @@ import { capture, createLogger, run } from './lib/run-publish-step.mjs'
 const log = createLogger('demo')
 
 const DEP_FIELDS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']
+const VERCEL_CLI = 'vercel@latest'
 
 // The platforms a demo deploy targets. Vendor names live here and nowhere in
 // the command/script names. Add a platform = add an entry.
@@ -36,7 +37,8 @@ const PLATFORMS = [
   {
     name: 'vercel',
     deploy({ prod, passThrough }) {
-      run('vercel', [...(prod ? ['--prod'] : []), ...passThrough], { cwd: DEMO_DIR })
+      // Keep deployment reproducible without requiring a global Vercel CLI.
+      run('pnpm', ['dlx', VERCEL_CLI, '--cwd', DEMO_DIR, ...(prod ? ['--prod'] : []), ...passThrough], { cwd: WORKSPACE_ROOT })
     },
   },
 ]
