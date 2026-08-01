@@ -39,12 +39,12 @@ describe('webhooks — official compatibility', () => {
   })
 
   it('a dux $default accepts every concrete official record (dispatch is sound)', () => {
-    type DuxDefault = NonNullable<IdbWebhookHandlers<AppSchema>['$default']>
+    type IdbDuxDefault = NonNullable<IdbWebhookHandlers<AppSchema>['$default']>
     expectTypeOf<WebhookPayloadRecordFor<AppSchema, 'tasks', 'create'>>().toExtend<
-      Parameters<DuxDefault>[0]
+      Parameters<IdbDuxDefault>[0]
     >()
     expectTypeOf<WebhookPayloadRecordFor<AppSchema, 'reports', 'delete'>>().toExtend<
-      Parameters<DuxDefault>[0]
+      Parameters<IdbDuxDefault>[0]
     >()
   })
 

@@ -555,7 +555,7 @@ Contract:
 - **Exposed only on runtime-enum fields.** `.conforms()` exists on a field accessor only when that field is a runtime enum — there is nothing to conform to otherwise, so on any other field the method is absent (an error at the cursor, not a no-op).
 - **Every entity field, every action.** Available on `e`/`ef`, `eu`/`euf`, `el`/`elf`, and `auth` (property access and string-key forms alike), in any rule — including `view`/`delete`, not just writes, so it can gate pre-existing rows against a newer enum.
 - **Refs too.** `er`/`ar`/`elr` whose terminal segment is a runtime-enum field expose `.conforms()`; since a ref yields a list, it renders as a list conformance (`data.ref('assignee.role').all(item, item in [...])`). The user opts in per ref.
-- **Needs the schema value.** Because it reads the declared values at compile time, `.conforms()` requires `definePerms(schema)` (the runtime form). The type layer exposes it on any runtime-enum accessor; under the type-only `definePerms()` there are no values to render, so `.compile()` throws `DUXERR_PERMS_CONFORMS` — pass the schema.
+- **Needs the schema value.** Because it reads the declared values at compile time, `.conforms()` requires `definePerms(schema)` (the runtime form). The type layer exposes it on any runtime-enum accessor; under the type-only `definePerms()` there are no values to render, so `.compile()` throws `IDBDUXERR_PERMS_CONFORMS` — pass the schema.
 
 The result is the schema-as-source-of-truth payoff without coupling: the enum is declared once in `defineSchema`, and enforcement stays explicit, opt-in, and visible in the security layer.
 

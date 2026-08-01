@@ -1,4 +1,4 @@
-updated: 2026-06-17
+updated: 2026-08-01
 status: settled law — referenced by every spec; changes here ripple everywhere
 
 # dux — conventions
@@ -77,9 +77,9 @@ If idb ever ships an API whose name collides with a dux value, its purpose almos
 
 ### 2.1. The IdbDux prefix
 
-Every shipped class that needs a project-specific name — because it is not a generic Instant/IDB term (`IdbDuxDatabase`, `IdbDuxRoom`, …) — is named `IdbDux*`, never bare `Dux*`. The maintainer forks several libraries this way (idb-dux, h3-dux, …); a bare `Dux*` name is ambiguous the moment two of those forks are imported into the same project, while `IdbDux*` says which one at the name itself.
+Every shipped type or class that needs a project-specific name — because it is not a generic Instant/IDB term (`IdbDuxDatabase`, `IdbDuxRoom`, …) — is named `IdbDux*`, never bare `Dux*`. The maintainer forks several libraries this way (idb-dux, h3-dux, …); a bare `Dux*` name is ambiguous the moment two of those forks are imported into the same project, while `IdbDux*` says which one at the name itself.
 
-This applies to the **shipped surface only** — types, classes, and runtime values that appear in public APIs and user-facing error messages. `dux` stays the plain, simple word for this repo, this workspace, and this doc set (`dux/`, "the dux branch", `dux-vision`, `dux-spec`, …).
+This applies to the **shipped surface only** — types, classes, runtime values, and stable identifiers that appear in public APIs or user-facing diagnostics. `dux` stays the plain, simple word for this repo, this workspace, and this doc set (`dux/`, "the dux branch", `dux-vision`, `dux-spec`, …).
 
 ## 3. The result pattern
 
@@ -175,6 +175,6 @@ The perms context is **entity-rooted with current unmarked** — the current ent
 
 ## 11. Diagnostic codes
 
-Every dux author-facing diagnostic code is prefixed **`DUXERR_`** and shaped `DUXERR_<DOMAIN>_<DETAIL>`. A code may appear in a TypeScript diagnostic typed onto an offending key, or in an `Error` thrown by an author-time validation path such as `.compile()`. The code is the stable message label; runtime class identity is still carried by the branded error family (`IdbError`, `IdbApiError`) where those classes apply.
+Every dux author-facing diagnostic code is prefixed **`IDBDUXERR_`** and shaped `IDBDUXERR_<DOMAIN>_<DETAIL>`. The `IDB` prefix is required because these stable identifiers are part of the public idb-dux surface, even though they are not TypeScript exports. A code may appear in a TypeScript diagnostic typed onto an offending key, or in an `Error` thrown by an author-time validation path such as `.compile()`. The code is the stable message label; runtime class identity is still carried by the branded error family (`IdbError`, `IdbApiError`) where those classes apply.
 
 The codes are **stable identifiers**, part of the contract: editor-DX suites assert on them, so they read like API. Treat a rename as a breaking change.

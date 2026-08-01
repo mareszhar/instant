@@ -67,7 +67,7 @@ describe('typed tx — editor DX', () => {
       ${prelude}
       tx.tasks[id()].ruleParams({ inviteCode: 'x' })
     `
-    expect(errors).toHaveError(/DUXERR_TX_RULE_PARAMS_UNDECLARED/)
+    expect(errors).toHaveError(/IDBDUXERR_TX_RULE_PARAMS_UNDECLARED/)
   })
 
   it('create completes the namespace fields', () => {

@@ -130,10 +130,10 @@ describe('query authoring — completions', () => {
     // non-unique fields never complete…
     expect(completions).not.toContainCompletion('name')
     expect(completions).not.toContainCompletion('createdAt')
-    // …and the only extra entry is the DUXERR hint the validation arm carries
+    // …and the only extra entry is the IDBDUXERR hint the validation arm carries
     // for the in-progress (still-invalid) value — intended: message > silence.
     expect(
-      completions.filter(name => !name.startsWith('DUXERR_M_INDEXBY_NOT_UNIQUE')),
+      completions.filter(name => !name.startsWith('IDBDUXERR_M_INDEXBY_NOT_UNIQUE')),
     ).toEqualCompletions(['inviteCode', 'id'])
   })
 
@@ -162,7 +162,7 @@ describe('query authoring — diagnostics at the cursor', () => {
       ${prelude}
       q({ foos: {} })
     `
-    expect(errors).toHaveError(/DUXERR_QUERY_ROOT_KEY_UNKNOWN: foos is not a valid top-level namespace/)
+    expect(errors).toHaveError(/IDBDUXERR_QUERY_ROOT_KEY_UNKNOWN: foos is not a valid top-level namespace/)
   })
 
   it('flags an unknown nested key with its namespace', () => {
@@ -170,7 +170,7 @@ describe('query authoring — diagnostics at the cursor', () => {
       ${prelude}
       q({ tasks: { assignees: {} } })
     `
-    expect(errors).toHaveError(/DUXERR_QUERY_NESTED_KEY_UNKNOWN: assignees is not a valid nested key on tasks/)
+    expect(errors).toHaveError(/IDBDUXERR_QUERY_NESTED_KEY_UNKNOWN: assignees is not a valid nested key on tasks/)
   })
 
   it('flags an unknown where key with its namespace', () => {
@@ -178,7 +178,7 @@ describe('query authoring — diagnostics at the cursor', () => {
       ${prelude}
       q({ tasks: { $: { where: { tagName: 'x' } } } })
     `
-    expect(errors).toHaveError(/DUXERR_WHERE_KEY_UNKNOWN: tagName is not a valid where key on tasks/)
+    expect(errors).toHaveError(/IDBDUXERR_WHERE_KEY_UNKNOWN: tagName is not a valid where key on tasks/)
   })
 
   it('flags a mistyped where value with both types named', () => {
@@ -186,7 +186,7 @@ describe('query authoring — diagnostics at the cursor', () => {
       ${prelude}
       q({ tasks: { $: { where: { title: false } } } })
     `
-    expect(errors).toHaveError(/DUXERR_WHERE_VALUE_TYPE: Type 'boolean' is not assignable to field 'title' of type string/)
+    expect(errors).toHaveError(/IDBDUXERR_WHERE_VALUE_TYPE: Type 'boolean' is not assignable to field 'title' of type string/)
   })
 
   it('flags $ilike on a non-string field', () => {
@@ -218,7 +218,7 @@ describe('query authoring — diagnostics at the cursor', () => {
       ${prelude}
       q({ tasks: { $: { order: { notes: 'asc' } } } })
     `
-    expect(errors).toHaveError(/DUXERR_ORDER_KEY_INVALID: notes is not orderable/)
+    expect(errors).toHaveError(/IDBDUXERR_ORDER_KEY_INVALID: notes is not orderable/)
   })
 
   it('flags an unknown query option', () => {
@@ -226,7 +226,7 @@ describe('query authoring — diagnostics at the cursor', () => {
       ${prelude}
       q({ tasks: { $: { limt: 5 } } })
     `
-    expect(errors).toHaveError(/DUXERR_QUERY_OPTION_UNKNOWN: limt is not a valid query option/)
+    expect(errors).toHaveError(/IDBDUXERR_QUERY_OPTION_UNKNOWN: limt is not a valid query option/)
   })
 
   it('flags pagination keys on nested scopes', () => {
@@ -234,7 +234,7 @@ describe('query authoring — diagnostics at the cursor', () => {
       ${prelude}
       q({ workspaces: { tasks: { $: { offset: 5 } } } })
     `
-    expect(errors).toHaveError(/DUXERR_QUERY_OPTION_TOP_LEVEL_ONLY: offset is only available on top-level scopes/)
+    expect(errors).toHaveError(/IDBDUXERR_QUERY_OPTION_TOP_LEVEL_ONLY: offset is only available on top-level scopes/)
   })
 
   it('flags $as renaming a scope onto a reserved result key', () => {
@@ -242,7 +242,7 @@ describe('query authoring — diagnostics at the cursor', () => {
       ${prelude}
       q({ tasks: { $: { $as: 'isLoading' } } })
     `
-    expect(errors).toHaveError(/DUXERR_RESULT_KEY_RESERVED: result key 'isLoading' is reserved/)
+    expect(errors).toHaveError(/IDBDUXERR_RESULT_KEY_RESERVED: result key 'isLoading' is reserved/)
   })
 
   it('flags singularization that lands on a reserved result key', () => {
@@ -252,7 +252,7 @@ describe('query authoring — diagnostics at the cursor', () => {
       ${prelude}
       q({ states: { $: { $only } } })
     `
-    expect(errors).toHaveError(/DUXERR_RESULT_KEY_RESERVED: result key 'state' is reserved/)
+    expect(errors).toHaveError(/IDBDUXERR_RESULT_KEY_RESERVED: result key 'state' is reserved/)
   })
 
   it('flags a $m label that is a reserved result key', () => {
@@ -260,7 +260,7 @@ describe('query authoring — diagnostics at the cursor', () => {
       ${prelude}
       q({ tasks: { $m: { error: { at: 0 } } } })
     `
-    expect(errors).toHaveError(/DUXERR_RESULT_KEY_RESERVED: \$m label 'error' is reserved/)
+    expect(errors).toHaveError(/IDBDUXERR_RESULT_KEY_RESERVED: \$m label 'error' is reserved/)
   })
 
   it('flags indexBy on a non-unique field', () => {
@@ -268,7 +268,7 @@ describe('query authoring — diagnostics at the cursor', () => {
       ${prelude}
       q({ tasks: { $m: { byTitle: { indexBy: 'title' } } } })
     `
-    expect(errors).toHaveError(/DUXERR_M_INDEXBY_NOT_UNIQUE: indexBy requires a unique field on tasks/)
+    expect(errors).toHaveError(/IDBDUXERR_M_INDEXBY_NOT_UNIQUE: indexBy requires a unique field on tasks/)
   })
 
   it('flags a runtime-enum groupBy bucket keyed outside its declared values', () => {
@@ -310,9 +310,9 @@ describe('query authoring — localization boundary', () => {
     expect(result.errors.length).toBeGreaterThan(0)
     // the diagnostic lands on the offending key's line, not the call site
     const cursorLine = result.errors.find(e =>
-      e.message.includes('DUXERR_WHERE_KEY_UNKNOWN'),
+      e.message.includes('IDBDUXERR_WHERE_KEY_UNKNOWN'),
     )?.line
     expect(errorLines).toContain(cursorLine)
-    expect(result.errors).toHaveError(/DUXERR_WHERE_KEY_UNKNOWN: tagName is not a valid where key on tasks/)
+    expect(result.errors).toHaveError(/IDBDUXERR_WHERE_KEY_UNKNOWN: tagName is not a valid where key on tasks/)
   })
 })

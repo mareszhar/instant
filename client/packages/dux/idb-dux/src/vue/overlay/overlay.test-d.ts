@@ -71,7 +71,7 @@ describe('overlay app status', () => {
 })
 
 describe('reserved result keys — drift lock', () => {
-  // The query-validation guard (`DUXERR_RESULT_KEY_RESERVED`) rejects userland
+  // The query-validation guard (`IDBDUXERR_RESULT_KEY_RESERVED`) rejects userland
   // scope keys that would collide with a hook result field. Its reserved set
   // (`ReservedResultKey`) must cover every static key these results actually
   // expose — an empty query has no data keys, so its keys are exactly the

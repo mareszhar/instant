@@ -7,13 +7,13 @@
  * 1. the input-independent authoring shape (`IdbQuery<S>`, `types.ts`) —
  *    completions and structural/value checking;
  * 2. an input-mapped arm that re-walks the *user's* keys and types each
- *    violation as a `DUXERR_*` message string, so the error lands on the
+ *    violation as an `IDBDUXERR_*` message string, so the error lands on the
  *    offending key and carries an actionable, stable-coded message.
  *
  * Valid positions in arm 2 resolve to `unknown` (the intersection identity),
  * so it adds nothing where the query is fine.
  *
- * The `DUXERR_*` codes: ROOT_KEY_UNKNOWN, NESTED_KEY_UNKNOWN, OPTION_UNKNOWN,
+ * The `IDBDUXERR_*` codes: ROOT_KEY_UNKNOWN, NESTED_KEY_UNKNOWN, OPTION_UNKNOWN,
  * OPTION_TOP_LEVEL_ONLY, WHERE_KEY_UNKNOWN, WHERE_VALUE_TYPE,
  * WHERE_OPERATOR_INVALID (lives in the ops shape, `types.ts`),
  * ORDER_KEY_INVALID, RESULT_KEY_RESERVED, M_LABEL_COLLISION,
@@ -77,8 +77,8 @@ type ValidDollar<
             : K extends PaginationKeys
               ? TopLevel extends true
                 ? unknown
-                : `DUXERR_QUERY_OPTION_TOP_LEVEL_ONLY: ${K} is only available on top-level scopes`
-              : `DUXERR_QUERY_OPTION_UNKNOWN: ${K} is not a valid query option`
+                : `IDBDUXERR_QUERY_OPTION_TOP_LEVEL_ONLY: ${K} is only available on top-level scopes`
+              : `IDBDUXERR_QUERY_OPTION_UNKNOWN: ${K} is not a valid query option`
     }
   : unknown
 
@@ -90,10 +90,10 @@ type ValidWhere<W, S extends IdbSchema, NS extends string> = W extends object
       [K in keyof W & string]: K extends 'and' | 'or'
         ? ValidWhereList<W[K], S, NS>
         : [WhereKeyAttr<S, NS, K>] extends [never]
-            ? `DUXERR_WHERE_KEY_UNKNOWN: ${K} is not a valid where key on ${NS}`
+            ? `IDBDUXERR_WHERE_KEY_UNKNOWN: ${K} is not a valid where key on ${NS}`
             : WhereKeyAttr<S, NS, K> extends DataAttrDef<infer V, any, any, any>
               ? ValidWhereValue<W[K], V, K>
-              : `DUXERR_WHERE_KEY_UNKNOWN: ${K} is not a valid where key on ${NS}`
+              : `IDBDUXERR_WHERE_KEY_UNKNOWN: ${K} is not a valid where key on ${NS}`
     }
   : unknown
 
@@ -107,7 +107,7 @@ type ValidWhereValue<Input, V, K extends string> = Input extends undefined
     ? unknown
     : Input extends object
       ? unknown // operator objects are validated by the authoring shape
-      : `DUXERR_WHERE_VALUE_TYPE: Type '${TypeName<Input>}' is not assignable to field '${K}' of type ${TypeName<V>}`
+      : `IDBDUXERR_WHERE_VALUE_TYPE: Type '${TypeName<Input>}' is not assignable to field '${K}' of type ${TypeName<V>}`
 
 // ==========
 // order validation
@@ -116,7 +116,7 @@ type ValidOrder<O, S extends IdbSchema, NS extends string> = O extends object
   ? {
       [K in keyof O & string]: K extends IndexedFieldKeys<S, NS> | 'serverCreatedAt'
         ? unknown
-        : `DUXERR_ORDER_KEY_INVALID: ${K} is not orderable — order accepts indexed fields and serverCreatedAt`
+        : `IDBDUXERR_ORDER_KEY_INVALID: ${K} is not orderable — order accepts indexed fields and serverCreatedAt`
     }
   : unknown
 
@@ -131,7 +131,7 @@ type ValidM<
 > = M extends object
   ? {
       [Label in keyof M & string]: Label extends OwnKey
-        ? `DUXERR_M_LABEL_COLLISION: ${Label} collides with the scope's own result key`
+        ? `IDBDUXERR_M_LABEL_COLLISION: ${Label} collides with the scope's own result key`
         : ValidMTransform<M[Label], S, NS>
     }
   : unknown
@@ -141,14 +141,14 @@ type ValidMTransform<T, S extends IdbSchema, NS extends string> = T extends obje
       [K in keyof T & string]: K extends 'indexBy'
         ? T[K] extends UniqueFieldKeys<S, NS> | 'id'
           ? unknown
-          : `DUXERR_M_INDEXBY_NOT_UNIQUE: indexBy requires a unique field on ${NS}`
+          : `IDBDUXERR_M_INDEXBY_NOT_UNIQUE: indexBy requires a unique field on ${NS}`
         : K extends 'groupBy'
           ? T[K] extends FieldKeys<S, NS>
             ? unknown
-            : `DUXERR_M_GROUPBY_NOT_PRIMITIVE: groupBy requires a string, number, or boolean field on ${NS}`
+            : `IDBDUXERR_M_GROUPBY_NOT_PRIMITIVE: groupBy requires a string, number, or boolean field on ${NS}`
           : K extends 'at'
             ? unknown
-            : `DUXERR_M_TRANSFORM_UNKNOWN: ${K} is not a valid $m transform — use indexBy, groupBy, or at`
+            : `IDBDUXERR_M_TRANSFORM_UNKNOWN: ${K} is not a valid $m transform — use indexBy, groupBy, or at`
     }
   : unknown
 
@@ -173,7 +173,7 @@ type ValidNode<
             ? ValidNode<Node[K], S, LinkTarget<S, NS, K>, NS, K, NextHop<D>, false>
             : D['length'] extends MaxHops
               ? unknown
-              : `DUXERR_QUERY_NESTED_KEY_UNKNOWN: ${K} is not a valid nested key on ${NS}`
+              : `IDBDUXERR_QUERY_NESTED_KEY_UNKNOWN: ${K} is not a valid nested key on ${NS}`
     }
   : unknown
 
@@ -191,10 +191,10 @@ type ReservedScopeMsg<
   Key extends string,
   Node,
 > = ResolvedScopeKey<S, null, Key, Node> extends ReservedResultKey
-  ? `DUXERR_RESULT_KEY_RESERVED: result key '${ResolvedScopeKey<S, null, Key, Node> & string}' is reserved — it clashes with a hook result field; rename this scope`
+  ? `IDBDUXERR_RESULT_KEY_RESERVED: result key '${ResolvedScopeKey<S, null, Key, Node> & string}' is reserved — it clashes with a hook result field; rename this scope`
   : [Extract<TopMLabels<Node>, ReservedResultKey>] extends [never]
       ? false
-      : `DUXERR_RESULT_KEY_RESERVED: $m label '${Extract<TopMLabels<Node>, ReservedResultKey>}' is reserved — it clashes with a hook result field; choose another label`
+      : `IDBDUXERR_RESULT_KEY_RESERVED: $m label '${Extract<TopMLabels<Node>, ReservedResultKey>}' is reserved — it clashes with a hook result field; choose another label`
 
 /**
  * The per-call validating type. Use as a self-referential constraint:
@@ -205,5 +205,5 @@ export type IdbValidQuery<Q, S extends IdbSchema> = IdbQuery<S> & {
     ? ReservedScopeMsg<S, K, Q[K]> extends infer Msg extends string
       ? Msg
       : ValidNode<Q[K], S, K, null, K, [], true>
-    : `DUXERR_QUERY_ROOT_KEY_UNKNOWN: ${K} is not a valid top-level namespace`
+    : `IDBDUXERR_QUERY_ROOT_KEY_UNKNOWN: ${K} is not a valid top-level namespace`
 }

@@ -115,7 +115,7 @@ export class ExprNode {
   conforms(): ExprNode {
     if (this.conformsTo === undefined) {
       throw new Error(
-        'DUXERR_PERMS_CONFORMS: .conforms() requires a runtime-enum field and definePerms(schema)',
+        'IDBDUXERR_PERMS_CONFORMS: .conforms() requires a runtime-enum field and definePerms(schema)',
       )
     }
     const { values, list } = this.conformsTo
